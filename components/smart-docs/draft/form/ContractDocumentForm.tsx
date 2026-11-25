@@ -24,6 +24,7 @@ import {
   getSmartDocsDocumentListAction,
   downloadDocPdfAction,
   saveContractDraftAction,
+  submitContractAction,
   getStepperListAction,
 } from '@/app/actions/smart-docs';
 import {
@@ -42,8 +43,12 @@ import {
   type SmartDocsSelectionDocumentOption,
   type StepperDocumentItem,
   isContractStep,
+  isProformaStep,
+  isConfirmationStep,
   getContractStep,
   extractStepId,
+  extractStepRedirectId,
+  getStepSelfId,
   downloadPdfFromActionResponse,
   sanitizeDocId,
   getWorkflowSubmitButtonInfo,
@@ -675,7 +680,10 @@ export function detectContractFieldInSentence(text: string): { key: string; rawF
   // 28. Splits / Partials
   if (
     normalized.includes('split') ||
-    normalized.includes('partial')
+    normalized.includes('partial') ||
+    normalized.includes('breakdown') ||
+    normalized.includes('fcl quanity') ||
+    normalized.includes('fcl quantity is required for every partial')
   ) {
     return { key: 'partialTotal', rawField: 'splits' };
   }
@@ -1053,6 +1061,9 @@ export function parseContractBackendErrors(
       case 'splits':
       case 'partialcount':
       case 'partialtotal':
+      case 'partialbreakdown':
+      case 'partialbreakdowns':
+      case 'partialquantities':
         return 'partialTotal';
       case 'advanceamount':
       case 'advance_amount':
@@ -1229,17 +1240,22 @@ export function parseContractBackendErrors(
       if (isGenericValidationString(clause)) continue;
 
       let targetKey: string | null = null;
-      if (fieldHint) {
-        targetKey = mapFieldNameToErrorKey(fieldHint);
-      }
+      if (/contract not found/i.test(clause) || (/not found/i.test(clause) && /contract/i.test(fieldHint || ''))) {
+        // Resource 404 lookup error, not a validation error on contractNumber input
+        targetKey = null;
+      } else {
+        if (fieldHint) {
+          targetKey = mapFieldNameToErrorKey(fieldHint);
+        }
 
-      const detected = detectContractFieldInSentence(clause);
-      if (detected) {
-        targetKey = detected.key;
-      } else if (!targetKey) {
-        const keyFromClause = mapFieldNameToErrorKey(clause);
-        if (keyFromClause && keyFromClause !== clause) {
-          targetKey = keyFromClause;
+        const detected = detectContractFieldInSentence(clause);
+        if (detected) {
+          targetKey = detected.key;
+        } else if (!targetKey) {
+          const keyFromClause = mapFieldNameToErrorKey(clause);
+          if (keyFromClause && keyFromClause !== clause) {
+            targetKey = keyFromClause;
+          }
         }
       }
 
@@ -1528,22 +1544,6 @@ export function parseInitialSplits(data: any): ContractSplitItem[] {
 
   return [];
 }
-
-const DEFAULT_OTHER_TERMS_PAYMENT = `THE BUYER SHALL PAY 100% OF THE INVOICE WITHOUT ANY BANK CHARGES DEDUCTION FROM THE TOTAL AMOUNT. BANK CHARGES SHALL BE FOR BUYER'S ACCOUNT.
-<ol>
-  <li>IN CASE OF NON-PAYMENT AGAINST AT SIGHT FOR D/P THE CHARGES AT THE RATE OF 1% PER MONTH SHALL BE APPLICABLE.</li>
-  <li>SUPPLIER NOT RESPONSIBLE FOR ANY LOSS OR DAMAGE DELAYED TO THE GOODS DUE TO CUSTOMS OR PORT PROCEDURES.</li>
-</ol>`;
-
-const DEFAULT_CONTAINER_TERMS = `<ol>
-  <li>02% EMPTY BAGS WILL BE ADDED IN PER CONTAINER</li>
-  <li>SILICA &amp; FULL SIDE CRAFT PAPER WILL BE USED PER REQUIRED STANDARD</li>
-  <li>PLASTIC SHEET AT CONTAINER DOOR SIDE</li>
-</ol>`;
-
-const DEFAULT_FORCE_MAJEUR = `BOTH BUYER AND SELLER SHALL NOT BE LIABLE FOR DELAY OR NON-PERFORMANCE IN WHOLE OR IN PART OF HIS CONTRACTUAL OBLIGATION IN CONSEQUENCES OF WAR, BLOCKADE, REVOLUTION, INSURRECTION, CIVIL COMMOTION, RIOTS MOBILIZATION, ACT OF GOVERNMENT, ACT OF GOD, PLAGUE OR OTHER EPIDEMIC, FIRE , PORT CONGESTION/DROUGHT, ANY SHIPPING LINE ISSUES, MODIFICATION IN COMMERCIAL LAWS AND REGULATIONS BY THE GOVERNMENT ETC.`;
-
-const DEFAULT_CONFIDENTIALITY = `THIS CONTRACT AND INFORMATION RELATED ONLY THERETO, SHALL BE HELD STRICTLY CONFIDENTIAL AND BUYER IS BOUND WORK TROUGH BROKER ONLY AND SELLER IS BOUND TO WORK TROUGH BROKER ONLY IF ANY PARTIES WILL BREACH BY WORKING DIRECT OR INDIRECT, WE WILL TAKE SUITABLE ACTION ACCORDINGLY WITH BROKERS SAFETY PROTECTION CLAUSE AND SHALL NOT BE DISCLOSED BY THE BUYER/SELLER TO ANY THIRD PARTY UNLESS SPECIFICALLY AUTHORIZED IN WRITING BY THE BROKER/SELLER/BUYER, OR REQUIRED/REQUESTED BY LAW OR ARBITRATION/ COMPETENT AUTHORITY IN CASE OF DISPUTE`;
 
 export function normalizeFclType(val?: string | null): string {
   if (!val) return '';
@@ -2161,14 +2161,17 @@ export function ContractDocumentForm({
     );
   }, []);
 
-  // Safely resolve Confirmation ID (if opened from or attached to a confirmation)
+  // Safely resolve Confirmation ID (strictly confirmation record ID, NEVER contract ID)
   const confirmationId = toCleanId(
     initialData?.confirmation_id ||
     initialData?.confirmationId ||
     (initialData?.confirmation && typeof initialData.confirmation === 'object' ? initialData.confirmation.id || initialData.confirmation._id : '') ||
-    // If initialData is a confirmation record (not a standalone contract)
-    (!initialData?.contract_id && !initialData?.contractId && (initialData?.confirmation_number || initialData?.confirmation_date) ? initialData?.id || initialData?._id : '') ||
-    (initialData?.confirmation_number || initialData?.confirmation_date ? initialData?.id || initialData?._id : '')
+    // ONLY if initialData is purely a confirmation record (has NO contract_number and NO contract_date)
+    (!initialData?.contract_number && !initialData?.contract_date && !initialData?._is_contract_loaded && !initialData?.sales_contract_id && (initialData?.confirmation_number || initialData?.confirmation_date)
+      ? initialData?.id || initialData?._id
+      : '') ||
+    steps.find((s) => isConfirmationStep(s))?.redirect_id ||
+    (steps.find((s) => isConfirmationStep(s)) as any)?.redirectId
   );
 
   // Saved Draft / Contract ID (from Stepper / API)
@@ -2179,7 +2182,7 @@ export function ContractDocumentForm({
     }
     // 2. Extracted directly from Stepper list / selectedStep (user: "id tumhe stepper se milegi")
     const stepContract = getContractStep(steps, selectedStep);
-    const stepperId = extractStepId(stepContract);
+    const stepperId = getStepSelfId(stepContract) || extractStepRedirectId(stepContract) || extractStepId(stepContract);
     if (stepperId && !isInvalidPlaceholder(stepperId)) {
       return stepperId.trim();
     }
@@ -2302,7 +2305,7 @@ export function ContractDocumentForm({
       return;
     }
     const stepContract = getContractStep(steps, selectedStep);
-    const stepperId = extractStepId(stepContract);
+    const stepperId = getStepSelfId(stepContract) || extractStepRedirectId(stepContract) || extractStepId(stepContract);
     if (stepperId && !isInvalidPlaceholder(stepperId)) {
       setDraftId(stepperId.trim());
     }
@@ -2365,9 +2368,19 @@ export function ContractDocumentForm({
   });
 
   // ROW 3: Parties Header
-  const [partiesHeader, setPartiesHeader] = useState<string>(
-    () => toCleanLabel(initialData?.parties_header || initialData?.partiesHeader) || 'THIS CONTRACT IS DRAWN BETWEEN FOLLOWING PARTIES'
-  );
+  const [partiesHeader, setPartiesHeader] = useState<string>(() => {
+    const raw =
+      initialData?.party_header_label ??
+      initialData?.partyHeaderLabel ??
+      initialData?.parties_header ??
+      initialData?.partiesHeader ??
+      initialData?.contract?.party_header_label ??
+      initialData?.contract?.parties_header;
+    if (raw !== undefined && raw !== null && String(raw).trim() !== '') {
+      return toCleanLabel(raw);
+    }
+    return '';
+  });
 
   // ROW 4: Exporter (Seller) & Importer (Buyer)
   const [sellerId, setSellerId] = useState<string>(() =>
@@ -2656,6 +2669,8 @@ export function ContractDocumentForm({
         next[index] = {
           ...next[index],
           fcl_quantity: val,
+          mt_quantity: val,
+          quantity: val,
         };
       }
       return next;
@@ -2875,15 +2890,14 @@ export function ContractDocumentForm({
 
   // ROW 26: Other Terms 1 (Payment & Charges)
   const [otherTermsPayment, setOtherTermsPayment] = useState<string>(() => {
-    return (
-      initialData?.other_terms_1 ||
-      initialData?.other_terms1 ||
-      initialData?.otherTerms1 ||
-      initialData?.other_terms ||
-      initialData?.other_terms_payment ||
-      initialData?.otherTerms ||
-      DEFAULT_OTHER_TERMS_PAYMENT
-    );
+    const val =
+      initialData?.other_terms_1 ??
+      initialData?.other_terms1 ??
+      initialData?.otherTerms1 ??
+      initialData?.other_terms ??
+      initialData?.other_terms_payment ??
+      initialData?.otherTerms;
+    return val !== undefined && val !== null ? String(val) : '';
   });
 
   // ROW 27: Documents (Documents Required - Unified List)
@@ -3064,35 +3078,43 @@ export function ContractDocumentForm({
 
   // ROW 28: Shipping Line
   const [shippingLine, setShippingLine] = useState<string>(() => {
-    return initialData?.shipping_line || initialData?.shippingLine || 'SHIPMENT IN CONTAINERS ( DO NOT USE NVOCC & IRANIAN SHIPPING LINE )';
+    const raw =
+      initialData?.shipping_line ??
+      initialData?.shippingLine ??
+      initialData?.contract?.shipping_line;
+    if (raw !== undefined && raw !== null && String(raw).trim() !== '') {
+      return toCleanLabel(raw);
+    }
+    return '';
   });
 
   // ROW 29: Arbitration
   const [arbitration, setArbitration] = useState<string>(() => {
-    return toCleanLabel(initialData?.arbitration) || '';
+    return toCleanLabel(initialData?.arbitration ?? initialData?.contract?.arbitration) || '';
   });
 
   // ROW 30: Other Terms 2 (Container & Packaging Standards)
   const [containerStandards, setContainerStandards] = useState<string>(() => {
-    return (
-      initialData?.other_terms_2 ||
-      initialData?.other_terms2 ||
-      initialData?.otherTerms2 ||
-      initialData?.container_terms ||
-      initialData?.container_standards ||
-      initialData?.containerStandards ||
-      DEFAULT_CONTAINER_TERMS
-    );
+    const val =
+      initialData?.other_terms_2 ??
+      initialData?.other_terms2 ??
+      initialData?.otherTerms2 ??
+      initialData?.container_terms ??
+      initialData?.container_standards ??
+      initialData?.containerStandards;
+    return val !== undefined && val !== null ? String(val) : '';
   });
 
   // ROW 31: Force Majeur
   const [forceMajeur, setForceMajeur] = useState<string>(() => {
-    return initialData?.force_majeur || initialData?.forceMajeur || DEFAULT_FORCE_MAJEUR;
+    const val = initialData?.force_majeur ?? initialData?.forceMajeur;
+    return val !== undefined && val !== null ? String(val) : '';
   });
 
   // ROW 32: Confidentiality
   const [confidentiality, setConfidentiality] = useState<string>(() => {
-    return initialData?.confidentiality || DEFAULT_CONFIDENTIALITY;
+    const val = initialData?.confidentiality;
+    return val !== undefined && val !== null ? String(val) : '';
   });
 
   // ROW 33: NOTES
@@ -4049,7 +4071,17 @@ export function ContractDocumentForm({
 
   // Hydrate all form states when initialData arrives or updates (e.g. from async API fetch)
   useEffect(() => {
-    if (!initialData) return;
+    const isDataVersionTriggered = Boolean(
+      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
+    );
+
+    if (!initialData) {
+      if (isDataVersionTriggered) {
+        setCommentLabel('');
+        setCommentValue('');
+      }
+      return;
+    }
 
     const statusFromDoc = extractDocumentStatus(initialData);
     if (statusFromDoc) {
@@ -4061,20 +4093,22 @@ export function ContractDocumentForm({
       initialData.contract_id ||
       initialData.contractId ||
       (initialData.contract && typeof initialData.contract === 'object' ? initialData.contract.id || initialData.contract._id : '') ||
-      (!initialData.confirmation_number && !initialData.confirmation_date && initialData.id !== confirmationId ? initialData.id : '')
+      ((initialData.contract_number || initialData.contract_date || initialData._is_contract_loaded || initialData.sales_contract_id) && initialData.id !== confirmationId
+        ? initialData.id || initialData._id
+        : '')
     );
 
     const isExplicitContract = Boolean(
       initialData?.contract_number ||
+      initialData?.contract_date ||
       initialData?.contract_id ||
       initialData?.contractId ||
       initialData?.contract ||
+      initialData?._is_contract_loaded ||
+      initialData?.sales_contract_id ||
       (initialData && !initialData.confirmation_number && !initialData.confirmation_id && initialData.status)
     );
 
-    const isDataVersionTriggered = Boolean(
-      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
-    );
     const hasDocIdChanged = Boolean(contractIdCandidate && contractIdCandidate !== lastLoadedDocIdRef.current);
 
     // Once the form has been initialized, protect user edits UNLESS stepper navigation / explicit version trigger or doc ID change occurred
@@ -4140,7 +4174,13 @@ export function ContractDocumentForm({
     if (initialData.is_watermark_enabled !== undefined) setWatermark(Boolean(initialData.is_watermark_enabled));
     else if (initialData.watermark !== undefined) setWatermark(Boolean(initialData.watermark));
 
-    const title = toCleanText(initialData.pdf_title || initialData.pdfTitle || initialData.documentTitle || initialData.title);
+    const title = toCleanText(
+      initialData.pdf_title ||
+      initialData.pdfTitle ||
+      initialData.document_title ||
+      initialData.documentTitle ||
+      initialData.title
+    );
     if (title) setDocumentTitle(title);
 
     const confNum = toCleanText(initialData.confirmation_number || initialData.confirmationNumber);
@@ -4162,8 +4202,16 @@ export function ContractDocumentForm({
     const contDate = toCleanText(initialData.contract_date || initialData.contractDate);
     if (contDate) setContractDate(contDate.includes('T') ? contDate.split('T')[0] : contDate);
 
-    const pHeader = toCleanText(initialData.parties_header || initialData.partiesHeader);
-    if (pHeader) setPartiesHeader(pHeader);
+    const rawPHeader =
+      initialData.party_header_label ??
+      initialData.partyHeaderLabel ??
+      initialData.parties_header ??
+      initialData.partiesHeader ??
+      initialData.contract?.party_header_label ??
+      initialData.contract?.parties_header;
+    if (rawPHeader !== undefined && rawPHeader !== null) {
+      setPartiesHeader(toCleanText(rawPHeader));
+    }
 
     const sId = toCleanId(initialData.seller_instruction_id || initialData.sellerId || initialData.seller_id || initialData.seller);
     if (sId) setSellerId(sId);
@@ -4411,14 +4459,28 @@ export function ContractDocumentForm({
       updateCertificateDocuments(false, true);
     }
 
-    const fDays = toCleanText(initialData.free_days || initialData.freeDays);
-    if (fDays) setFreeDays(fDays);
+    if (initialData.free_days !== undefined || initialData.freeDays !== undefined) {
+      setFreeDays(toCleanText(initialData.free_days ?? initialData.freeDays ?? ''));
+    }
 
-    const eBags = toCleanText(initialData.empty_bags || initialData.emptyBags);
-    if (eBags) setEmptyBags(eBags);
+    if (initialData.empty_bags !== undefined || initialData.emptyBags !== undefined) {
+      setEmptyBags(toCleanText(initialData.empty_bags ?? initialData.emptyBags ?? ''));
+    }
 
-    const aComment = toCleanText(initialData.additional_comment || initialData.additionalComment || initialData.comment || initialData.comments);
-    if (aComment) setAdditionalComment(aComment);
+    if (
+      initialData.additional_comment !== undefined ||
+      initialData.additionalComment !== undefined ||
+      initialData.comment !== undefined ||
+      initialData.comments !== undefined
+    ) {
+      setAdditionalComment(toCleanText(
+        initialData.additional_comment ??
+        initialData.additionalComment ??
+        initialData.comment ??
+        initialData.comments ??
+        ''
+      ));
+    }
 
     const cLabel = toCleanText(
       initialData.comment_label ??
@@ -4426,7 +4488,7 @@ export function ContractDocumentForm({
       initialData.contract_comment_label ??
       initialData.comment_title
     );
-    if (cLabel) setCommentLabel(cLabel);
+    setCommentLabel(cLabel || '');
 
     const cValue = toCleanText(
       initialData.comment_value ??
@@ -4434,17 +4496,26 @@ export function ContractDocumentForm({
       initialData.contract_comment_value ??
       initialData.comment_text
     );
-    if (cValue) setCommentValue(cValue);
+    setCommentValue(cValue || '');
 
-    const oTerms = toCleanText(
-      initialData.other_terms_1 ||
-      initialData.other_terms1 ||
-      initialData.otherTerms1 ||
-      initialData.other_terms ||
-      initialData.other_terms_payment ||
-      initialData.otherTerms
-    );
-    if (oTerms) setOtherTermsPayment(oTerms);
+    if (
+      initialData.other_terms_1 !== undefined ||
+      initialData.other_terms1 !== undefined ||
+      initialData.otherTerms1 !== undefined ||
+      initialData.other_terms !== undefined ||
+      initialData.other_terms_payment !== undefined ||
+      initialData.otherTerms !== undefined
+    ) {
+      setOtherTermsPayment(toCleanText(
+        initialData.other_terms_1 ??
+        initialData.other_terms1 ??
+        initialData.otherTerms1 ??
+        initialData.other_terms ??
+        initialData.other_terms_payment ??
+        initialData.otherTerms ??
+        ''
+      ));
+    }
 
     const legacyDefDocs = parseDefaultDocuments(
       initialData.default_documents ||
@@ -4488,30 +4559,53 @@ export function ContractDocumentForm({
       });
     }
 
-    const sLine = toCleanText(initialData.shipping_line || initialData.shippingLine);
-    if (sLine) setShippingLine(sLine);
+    const sLine =
+      initialData.shipping_line ??
+      initialData.shippingLine ??
+      initialData.contract?.shipping_line;
+    if (sLine !== undefined && sLine !== null) {
+      setShippingLine(toCleanText(sLine));
+    }
 
-    const arbit = toCleanText(initialData.arbitration);
-    if (arbit) setArbitration(arbit);
+    const arbit =
+      initialData.arbitration ??
+      initialData.contract?.arbitration;
+    if (arbit !== undefined && arbit !== null) setArbitration(toCleanText(arbit));
 
-    const cTerms = toCleanText(
-      initialData.other_terms_2 ||
-      initialData.other_terms2 ||
-      initialData.otherTerms2 ||
-      initialData.container_terms ||
-      initialData.container_standards ||
-      initialData.containerStandards
-    );
-    if (cTerms) setContainerStandards(cTerms);
+    if (
+      initialData.other_terms_2 !== undefined ||
+      initialData.other_terms2 !== undefined ||
+      initialData.otherTerms2 !== undefined ||
+      initialData.container_terms !== undefined ||
+      initialData.container_standards !== undefined ||
+      initialData.containerStandards !== undefined
+    ) {
+      setContainerStandards(toCleanText(
+        initialData.other_terms_2 ??
+        initialData.other_terms2 ??
+        initialData.otherTerms2 ??
+        initialData.container_terms ??
+        initialData.container_standards ??
+        initialData.containerStandards ??
+        ''
+      ));
+    }
 
-    const fMajeur = toCleanText(initialData.force_majeur || initialData.forceMajeur);
-    if (fMajeur) setForceMajeur(fMajeur);
+    if (initialData.force_majeur !== undefined || initialData.forceMajeur !== undefined) {
+      setForceMajeur(toCleanText(initialData.force_majeur ?? initialData.forceMajeur ?? ''));
+    }
 
-    const conf = toCleanText(initialData.confidentiality);
-    if (conf) setConfidentiality(conf);
+    if (initialData.confidentiality !== undefined) {
+      setConfidentiality(toCleanText(initialData.confidentiality ?? ''));
+    }
 
-    const nts = toCleanText(initialData.notes ?? initialData.special_notes ?? initialData.terms_notes);
-    if (nts) setNotes(nts);
+    if (
+      initialData.notes !== undefined ||
+      initialData.special_notes !== undefined ||
+      initialData.terms_notes !== undefined
+    ) {
+      setNotes(toCleanText(initialData.notes ?? initialData.special_notes ?? initialData.terms_notes ?? ''));
+    }
 
     // Importer / Buyer Signature Fields
     const bField = resolveSigValue(initialData, [
@@ -4737,9 +4831,16 @@ export function ContractDocumentForm({
       } else if (count > 30) {
         newErrors.partialCount = 'Maximum 30 partial shipments allowed';
       } else {
-        const hasEmpty = splits.some((q) => q.fcl_quantity === '' || q.fcl_quantity === null || q.fcl_quantity === undefined);
+        const activeSplits = splits.slice(0, count);
+        const hasEmpty = activeSplits.some(
+          (q) =>
+            q.fcl_quantity === '' ||
+            q.fcl_quantity === null ||
+            q.fcl_quantity === undefined ||
+            parseFloat(String(q.fcl_quantity).replace(/[^\d.]/g, '')) <= 0
+        );
         if (hasEmpty) {
-          newErrors.partialTotal = 'All partial quantities must be entered';
+          newErrors.partialTotal = 'All partial quantities must be entered and greater than 0';
         } else if (targetFclQty > 0 && Math.abs(partialSum - targetFclQty) > 0.0001) {
           newErrors.partialTotal = `Total partial quantity (${partialSum}) must equal ${isFcl ? 'FCL' : 'MT'} Quantity (${targetFclQty})`;
         }
@@ -4792,11 +4893,10 @@ export function ContractDocumentForm({
     const cleanConfId = sanitizeDocId(confirmationId);
     const cleanEffectiveId = getEffectiveContractId();
     const effectiveContractId =
-      cleanEffectiveId ||
-      cleanConfId ||
-      (draftId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(draftId) ? draftId : '');
+      (cleanEffectiveId && cleanEffectiveId !== cleanConfId ? cleanEffectiveId : '') ||
+      (draftId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(draftId) && draftId !== cleanConfId ? draftId : '');
 
-    if (effectiveContractId) {
+    if (effectiveContractId && effectiveContractId !== cleanConfId) {
       formData.append('id', effectiveContractId);
       formData.append('contract_id', effectiveContractId);
     }
@@ -4820,25 +4920,29 @@ export function ContractDocumentForm({
     formData.append('contract_date', formattedContractDate);
 
     // Parties
-    const pHeader = partiesHeader.trim() || 'THIS CONTRACT IS DRAWN BETWEEN FOLLOWING PARTIES';
-    formData.append('party_header_label', pHeader);
-    formData.append('parties_header', pHeader);
+    const pHeader = partiesHeader !== undefined && partiesHeader !== null ? partiesHeader.trim() : '';
+    if (pHeader) {
+      formData.append('party_header_label', pHeader);
+      formData.append('parties_header', pHeader);
+    }
 
-    formData.append('seller_instruction_id', sellerId || '');
-    formData.append('seller_instruction', sellerInstruction.trim());
-    formData.append('buyer_instruction_id', buyerId || '');
-    formData.append('buyer_instruction', buyerInstruction.trim());
+    if (sellerId) formData.append('seller_instruction_id', sellerId);
+    if (sellerInstruction.trim()) formData.append('seller_instruction', sellerInstruction.trim());
+    if (buyerId) formData.append('buyer_instruction_id', buyerId);
+    if (buyerInstruction.trim()) formData.append('buyer_instruction', buyerInstruction.trim());
 
     // Terms & Conditions
-    const terms = shippingInstruction.trim() || 'NOT TO BE ADVICED';
-    formData.append('terms_and_condition', terms);
-    formData.append('shipping_instruction', shippingInstruction.trim());
+    const terms = shippingInstruction.trim();
+    if (terms) {
+      formData.append('terms_and_condition', terms);
+      formData.append('shipping_instruction', terms);
+    }
 
     // Product & Specifications
-    formData.append('product_id', productId || '');
-    formData.append('hsn_code', hsnCode || '');
-    formData.append('country', productCountry || '');
-    formData.append('quality_specification', specification.trim());
+    if (productId) formData.append('product_id', productId);
+    if (hsnCode) formData.append('hsn_code', hsnCode);
+    if (productCountry) formData.append('country', productCountry);
+    if (specification.trim()) formData.append('quality_specification', specification.trim());
 
     // Shipment Dates
     const startDateStr = shipmentRange.start instanceof Date && !isNaN(shipmentRange.start.getTime())
@@ -4847,23 +4951,24 @@ export function ContractDocumentForm({
     const endDateStr = shipmentRange.end instanceof Date && !isNaN(shipmentRange.end.getTime())
       ? shipmentRange.end.toISOString().split('T')[0]
       : '';
-    formData.append('shipment_start_date', startDateStr);
-    formData.append('shipment_end_date', endDateStr);
+    if (startDateStr) formData.append('shipment_start_date', startDateStr);
+    if (endDateStr) formData.append('shipment_end_date', endDateStr);
 
     // Payment & Shipping
-    formData.append('payment_term_id', paymentTerm || '');
-    formData.append('ship_by', normalizeFclType(fclType) || fclType || '');
-    formData.append('packing_type_id', packing || '');
-    formData.append('marking_brand', markingBrand.trim());
-    formData.append('loading_port_id', loadingPort || '');
-    formData.append('loading_condition', loadingCondition || '');
+    if (paymentTerm) formData.append('payment_term_id', paymentTerm);
+    const effShipBy = normalizeFclType(fclType) || fclType;
+    if (effShipBy) formData.append('ship_by', effShipBy);
+    if (packing) formData.append('packing_type_id', packing);
+    if (markingBrand.trim()) formData.append('marking_brand', markingBrand.trim());
+    if (loadingPort) formData.append('loading_port_id', loadingPort);
+    if (loadingCondition) formData.append('loading_condition', loadingCondition);
 
     const isAnyPort = Boolean(
       loadingCondition &&
       loadingCondition.trim().toLowerCase() === 'any port of loading'
     );
     formData.append('any_loading_port', String(isAnyPort));
-    formData.append('destination_port_id', destinationPort || '');
+    if (destinationPort) formData.append('destination_port_id', destinationPort);
 
     // Quantities & Pricing
     if (isFcl && fclQty) {
@@ -4879,7 +4984,8 @@ export function ContractDocumentForm({
       formData.append('bag_quantity', String(bagQty));
     }
 
-    formData.append('currency_id', currencyId || currency || '');
+    const effCurrencyId = currencyId || currency;
+    if (effCurrencyId) formData.append('currency_id', effCurrencyId);
     if (price) {
       formData.append('price', String(price));
     }
@@ -4892,31 +4998,50 @@ export function ContractDocumentForm({
     else if (/^cnf\b/i.test(cleanInco) || /^c&f\b/i.test(cleanInco)) cleanInco = 'CNF';
     else if (/^cif\b/i.test(cleanInco)) cleanInco = 'CIF';
 
-    formData.append('inspection', inspection.trim());
-    formData.append('shipping_term', cleanInco);
-    formData.append('incoterm', cleanInco);
-    formData.append('insurance', (effectiveInsurance || insurance || '').trim());
+    if (inspection.trim()) formData.append('inspection', inspection.trim());
+    if (cleanInco) {
+      formData.append('shipping_term', cleanInco);
+      formData.append('incoterm', cleanInco);
+    }
+    const effInsurance = (effectiveInsurance || insurance || '').trim();
+    if (effInsurance) formData.append('insurance', effInsurance);
 
     // Splits / Partial Shipment
     formData.append('is_partial', String(Boolean(isPartialAllowed)));
-    if (isPartialAllowed) {
+    if (isPartialAllowed && splits.length > 0) {
       const sCount = splitCount ? Math.min(Number(splitCount), 30) : splits.length;
       formData.append('split_count', String(sCount || 0));
 
-      splits.slice(0, 30).forEach((s, idx) => {
+      const cleanSplitsArr: any[] = [];
+      const safeSplits = splits.slice(0, sCount > 0 ? sCount : splits.length);
+      safeSplits.forEach((s, idx) => {
         const splitLetter = formatSplitNumber(s.split_number, idx);
-        const qtyVal = s.fcl_quantity !== undefined && s.fcl_quantity !== null && s.fcl_quantity !== ''
-          ? String(s.fcl_quantity)
-          : (s.mt_quantity !== undefined && s.mt_quantity !== null && s.mt_quantity !== '' ? String(s.mt_quantity) : '0');
+        const rawQty =
+          s.fcl_quantity !== undefined && s.fcl_quantity !== null && s.fcl_quantity !== ''
+            ? s.fcl_quantity
+            : (s.mt_quantity !== undefined && s.mt_quantity !== null && s.mt_quantity !== '' ? s.mt_quantity : '');
+        const numVal = parseFloat(String(rawQty).replace(/[^\d.]/g, '')) || 0;
+        const qtyVal = numVal > 0 ? String(numVal) : (String(rawQty).trim() || '0');
+
         formData.append(`splits[${idx}][split_number]`, splitLetter);
-        const quantityField = !isFcl ? 'mt_quantity' : 'fcl_quantity';
-        formData.append(`splits[${idx}][${quantityField}]`, qtyVal);
-        if (!isFcl) {
-          formData.append(`splits[${idx}][fcl_quantity]`, qtyVal);
-        } else {
-          formData.append(`splits[${idx}][mt_quantity]`, qtyVal);
-        }
+        formData.append(`splits[${idx}][fcl_quantity]`, qtyVal);
+        formData.append(`splits[${idx}][mt_quantity]`, qtyVal);
+        formData.append(`splits[${idx}][quantity]`, qtyVal);
+
+        formData.append(`partial_breakdown[${idx}][split_number]`, splitLetter);
+        formData.append(`partial_breakdown[${idx}][fcl_quantity]`, qtyVal);
+        formData.append(`partial_breakdown[${idx}][mt_quantity]`, qtyVal);
+        formData.append(`partial_breakdown[${idx}][quantity]`, qtyVal);
+
+        cleanSplitsArr.push({
+          split_number: splitLetter,
+          fcl_quantity: numVal > 0 ? numVal : (Number(qtyVal) || 0),
+          mt_quantity: numVal > 0 ? numVal : (Number(qtyVal) || 0),
+          quantity: numVal > 0 ? numVal : (Number(qtyVal) || 0),
+        });
       });
+      formData.append('splits', JSON.stringify(cleanSplitsArr));
+      formData.append('partial_breakdown', JSON.stringify(cleanSplitsArr));
     } else {
       formData.append('split_count', '0');
     }
@@ -5011,54 +5136,55 @@ export function ContractDocumentForm({
     }
 
     // Broker Signature
-    formData.append('broker_signature_field', effectiveIsBroker ? brokerTitle.trim() : '');
-    formData.append('broker_signature_label', effectiveIsBroker ? brokerAuthorityTitle.trim() : '');
-    if (effectiveIsBroker && brokerSignature) {
-      if (brokerSignature.startsWith('data:') || brokerSignature.startsWith('blob:')) {
-        const file = dataUrlToFile(brokerSignature, 'broker_signature.png');
-        if (file) {
-          formData.append('broker_signature', file);
+    if (effectiveIsBroker) {
+      if (brokerTitle.trim()) formData.append('broker_signature_field', brokerTitle.trim());
+      if (brokerAuthorityTitle.trim()) formData.append('broker_signature_label', brokerAuthorityTitle.trim());
+      if (brokerSignature) {
+        if (brokerSignature.startsWith('data:') || brokerSignature.startsWith('blob:')) {
+          const file = dataUrlToFile(brokerSignature, 'broker_signature.png');
+          if (file) {
+            formData.append('broker_signature', file);
+          }
+        } else {
+          const relUrl = normalizeSignaturePayload(brokerSignature);
+          if (relUrl) {
+            formData.append('broker_signature_url', relUrl);
+          }
         }
+        formData.append('remove_broker_signature', 'false');
+        formData.append('remove_sales_broker_signature', 'false');
       } else {
-        const relUrl = normalizeSignaturePayload(brokerSignature);
-        if (relUrl) {
-          formData.append('broker_signature_url', relUrl);
-        }
+        formData.append('remove_broker_signature', 'true');
+        formData.append('remove_sales_broker_signature', 'true');
       }
-      formData.append('remove_broker_signature', 'false');
-      formData.append('remove_sales_broker_signature', 'false');
     } else {
       formData.append('remove_broker_signature', 'true');
       formData.append('remove_sales_broker_signature', 'true');
-      formData.append('broker_signature', '');
-      formData.append('broker_signature_url', '');
-      formData.append('sales_broker_signature', '');
-      formData.append('sales_broker_signature_url', '');
     }
 
     // ECTN / COC fields
-    if (ectnField !== null) {
+    if (ectnField !== null && ectnField !== undefined && String(ectnField).trim() !== '') {
       formData.append('ectn_field', String(ectnField));
-    } else {
-      formData.append('ectn_field', '');
     }
-    if (cocFields !== null) {
+    if (cocFields !== null && cocFields !== undefined && String(cocFields).trim() !== '') {
       formData.append('coc_fields', String(cocFields));
-    } else {
-      formData.append('coc_fields', '');
     }
 
     // Other details
-    formData.append('free_days', freeDays.trim());
-    formData.append('empty_bags', emptyBags.trim());
-    formData.append('comment', additionalComment.trim());
-    formData.append('additional_comment', additionalComment.trim());
-    formData.append('comment_label', commentLabel.trim());
-    formData.append('comment_value', commentValue.trim());
+    if (freeDays.trim()) formData.append('free_days', freeDays.trim());
+    if (emptyBags.trim()) formData.append('empty_bags', emptyBags.trim());
+    if (additionalComment.trim()) {
+      formData.append('comment', additionalComment.trim());
+      formData.append('additional_comment', additionalComment.trim());
+    }
+    if (commentLabel.trim()) formData.append('comment_label', commentLabel.trim().slice(0, 20));
+    if (commentValue.trim()) formData.append('comment_value', commentValue.trim());
 
     // Terms & Documents
-    formData.append('other_terms_1', otherTermsPayment.trim());
-    formData.append('other_terms', otherTermsPayment.trim());
+    if (otherTermsPayment.trim()) {
+      formData.append('other_terms_1', otherTermsPayment.trim());
+      formData.append('other_terms', otherTermsPayment.trim());
+    }
 
     if (effectiveDocs && effectiveDocs.length > 0) {
       for (const doc of effectiveDocs) {
@@ -5070,17 +5196,19 @@ export function ContractDocumentForm({
       }
     }
 
-    formData.append('shipping_line', shippingLine.trim());
-    formData.append('arbitration', arbitration.trim());
-    formData.append('other_terms_2', containerStandards.trim());
-    formData.append('container_terms', containerStandards.trim());
-    formData.append('force_majeur', forceMajeur.trim());
-    formData.append('confidentiality', confidentiality.trim());
-    formData.append('notes', notes.trim());
+    if (shippingLine.trim()) formData.append('shipping_line', shippingLine.trim());
+    if (arbitration.trim()) formData.append('arbitration', arbitration.trim());
+    if (containerStandards.trim()) {
+      formData.append('other_terms_2', containerStandards.trim());
+      formData.append('container_terms', containerStandards.trim());
+    }
+    if (forceMajeur.trim()) formData.append('force_majeur', forceMajeur.trim());
+    if (confidentiality.trim()) formData.append('confidentiality', confidentiality.trim());
+    if (notes.trim()) formData.append('notes', notes.trim());
 
     // Seller (Exporter) Signature: binary File conversion from merged/composite dataUrl
-    formData.append('seller_signature_field', exporterTitle.trim());
-    formData.append('seller_signature_label', exporterAuthorityTitle.trim());
+    if (exporterTitle.trim()) formData.append('seller_signature_field', exporterTitle.trim());
+    if (exporterAuthorityTitle.trim()) formData.append('seller_signature_label', exporterAuthorityTitle.trim());
     if (exporterSignature) {
       if (exporterSignature.startsWith('data:') || exporterSignature.startsWith('blob:')) {
         const file = dataUrlToFile(exporterSignature, 'seller_signature.png');
@@ -5097,15 +5225,11 @@ export function ContractDocumentForm({
     } else {
       formData.append('remove_seller_signature', 'true');
       formData.append('remove_exporter_signature', 'true');
-      formData.append('seller_signature', '');
-      formData.append('seller_signature_url', '');
-      formData.append('exporter_signature', '');
-      formData.append('exporter_signature_url', '');
     }
 
     // Buyer (Importer) Signature: binary File conversion from merged/composite dataUrl
-    formData.append('buyer_signature_field', importerTitle.trim());
-    formData.append('buyer_signature_label', importerAuthorityTitle.trim());
+    if (importerTitle.trim()) formData.append('buyer_signature_field', importerTitle.trim());
+    if (importerAuthorityTitle.trim()) formData.append('buyer_signature_label', importerAuthorityTitle.trim());
     if (importerSignature) {
       if (importerSignature.startsWith('data:') || importerSignature.startsWith('blob:')) {
         const file = dataUrlToFile(importerSignature, 'buyer_signature.png');
@@ -5122,25 +5246,26 @@ export function ContractDocumentForm({
     } else {
       formData.append('remove_buyer_signature', 'true');
       formData.append('remove_importer_signature', 'true');
-      formData.append('buyer_signature', '');
-      formData.append('buyer_signature_url', '');
-      formData.append('importer_signature', '');
-      formData.append('importer_signature_url', '');
     }
 
     return formData;
   };
 
   const getContractPayload = () => {
-    const effectiveContractId = getEffectiveContractId() || undefined;
-
     const confId =
       confirmationId ||
       toCleanId(
         initialData?.confirmation_id ||
         initialData?.confirmationId ||
-        (initialData?.confirmation_number || initialData?.confirmation_date ? initialData?.id || initialData?._id : '')
+        (!initialData?.contract_number && !initialData?.contract_date && !initialData?._is_contract_loaded && !initialData?.sales_contract_id && (initialData?.confirmation_number || initialData?.confirmation_date)
+          ? initialData?.id || initialData?._id
+          : '') ||
+        steps.find((s) => isConfirmationStep(s))?.redirect_id ||
+        (steps.find((s) => isConfirmationStep(s)) as any)?.redirectId
       ) || undefined;
+
+    const rawContractId = getEffectiveContractId();
+    const effectiveContractId = (rawContractId && rawContractId !== confId) ? rawContractId : undefined;
 
     let cleanInco = incoterm.trim();
     if (/^fob\b/i.test(cleanInco)) cleanInco = 'FOB';
@@ -5158,14 +5283,14 @@ export function ContractDocumentForm({
       pdf_title: documentTitle.trim() || 'CONTRACT',
       letterhead_space: Boolean(letterhead),
       is_watermark_enabled: Boolean(watermark),
-      party_header_label: partiesHeader.trim() || 'THIS CONTRACT IS DRAWN BETWEEN FOLLOWING PARTIES',
-      parties_header: partiesHeader.trim(),
+      party_header_label: partiesHeader !== undefined && partiesHeader !== null ? partiesHeader.trim() : '',
+      parties_header: partiesHeader !== undefined && partiesHeader !== null ? partiesHeader.trim() : '',
       seller_instruction_id: sellerId,
       seller_instruction: sellerInstruction.trim(),
       buyer_instruction_id: buyerId,
       buyer_instruction: buyerInstruction.trim(),
       shipping_instruction: shippingInstruction.trim(),
-      terms_and_condition: shippingInstruction.trim() || 'NOT TO BE ADVICED',
+      terms_and_condition: shippingInstruction.trim(),
       product_id: productId,
       hsn_code: hsnCode,
       country: productCountry,
@@ -5203,26 +5328,45 @@ export function ContractDocumentForm({
       partial_count: isPartialAllowed && splitCount ? Math.min(Number(splitCount), 30) : undefined,
       splits:
         isPartialAllowed && splits.length > 0
-          ? splits.slice(0, 30).map((s, idx) => {
-              const qtyNum =
+          ? splits.slice(0, splitCount ? Math.min(Number(splitCount), 30) : splits.length).map((s, idx) => {
+              const rawQty =
                 s.fcl_quantity !== '' && s.fcl_quantity !== null && s.fcl_quantity !== undefined
-                  ? Number(s.fcl_quantity)
-                  : (s.mt_quantity !== '' && s.mt_quantity !== null && s.mt_quantity !== undefined ? Number(s.mt_quantity) : 0);
+                  ? s.fcl_quantity
+                  : (s.mt_quantity || '');
+              const qtyNum = parseFloat(String(rawQty).replace(/[^\d.]/g, '')) || 0;
               return {
-                ...s,
                 split_number: formatSplitNumber(s.split_number, idx),
                 fcl_quantity: qtyNum,
                 mt_quantity: qtyNum,
+                quantity: qtyNum,
               };
             })
           : [],
       partial_breakdown:
         isPartialAllowed && splits.length > 0
-          ? splits.slice(0, 30).map((s) => (s.fcl_quantity !== '' && s.fcl_quantity !== null && s.fcl_quantity !== undefined ? Number(s.fcl_quantity) : (s.mt_quantity ? Number(s.mt_quantity) : 0)))
+          ? splits.slice(0, splitCount ? Math.min(Number(splitCount), 30) : splits.length).map((s, idx) => {
+              const rawQty =
+                s.fcl_quantity !== '' && s.fcl_quantity !== null && s.fcl_quantity !== undefined
+                  ? s.fcl_quantity
+                  : (s.mt_quantity || '');
+              const qtyNum = parseFloat(String(rawQty).replace(/[^\d.]/g, '')) || 0;
+              return {
+                split_number: formatSplitNumber(s.split_number, idx),
+                fcl_quantity: qtyNum,
+                mt_quantity: qtyNum,
+                quantity: qtyNum,
+              };
+            })
           : undefined,
       partial_quantities:
         isPartialAllowed && splits.length > 0
-          ? splits.slice(0, 30).map((s) => (s.fcl_quantity !== '' && s.fcl_quantity !== null && s.fcl_quantity !== undefined ? Number(s.fcl_quantity) : (s.mt_quantity ? Number(s.mt_quantity) : 0)))
+          ? splits.slice(0, splitCount ? Math.min(Number(splitCount), 30) : splits.length).map((s) => {
+              const rawQty =
+                s.fcl_quantity !== '' && s.fcl_quantity !== null && s.fcl_quantity !== undefined
+                  ? s.fcl_quantity
+                  : (s.mt_quantity || '');
+              return parseFloat(String(rawQty).replace(/[^\d.]/g, '')) || 0;
+            })
           : undefined,
       transhipment: Boolean(isTranshipmentAllowed),
       transhipment_allowed: isTranshipmentAllowed !== null ? isTranshipmentAllowed : undefined,
@@ -5302,7 +5446,7 @@ export function ContractDocumentForm({
       empty_bags: emptyBags.trim(),
       comment: additionalComment.trim(),
       additional_comment: additionalComment.trim(),
-      comment_label: commentLabel.trim(),
+      comment_label: commentLabel.trim().slice(0, 20),
       comment_value: commentValue.trim(),
       other_terms: otherTermsPayment.trim(),
       other_terms_1: otherTermsPayment.trim(),
@@ -5359,44 +5503,64 @@ export function ContractDocumentForm({
 
   const getEffectiveContractId = useCallback((): string => {
     const cleanConfId = sanitizeDocId(confirmationId);
+    const proformaStep = steps.find((s) => isProformaStep(s));
+    const knownProformaId = sanitizeDocId(
+      proformaStep?.redirect_id ||
+      (proformaStep as any)?.redirectId ||
+      proformaStep?.proforma_id ||
+      (proformaStep as any)?.proformaId ||
+      initialData?.proforma_id ||
+      initialData?.proformaId
+    );
+
+    const isValidContractCandidate = (val?: string | null): boolean => {
+      if (!val) return false;
+      const clean = sanitizeDocId(val);
+      if (!clean || isInvalidPlaceholder(clean)) return false;
+      if (cleanConfId && clean === cleanConfId) return false;
+      if (knownProformaId && clean === knownProformaId) return false;
+      return true;
+    };
 
     // 1. Explicit contractId prop
-    if (contractIdProp && !isInvalidPlaceholder(contractIdProp)) {
-      return contractIdProp.trim();
+    if (isValidContractCandidate(contractIdProp)) {
+      return contractIdProp!.trim();
     }
-    // 2. Saved Draft ID from current session
-    if (draftId && !isInvalidPlaceholder(draftId)) {
-      return draftId.trim();
-    }
-    // 3. Extracted directly from Stepper list / selectedStep (user: "id tumhe stepper se milegi")
+    // 2. Extracted directly from Stepper list / selectedStep contract item
     const stepContract = getContractStep(steps, selectedStep);
-    const stepperId = extractStepId(stepContract);
-    if (stepperId && !isInvalidPlaceholder(stepperId)) {
+    const stepperId = getStepSelfId(stepContract) || extractStepRedirectId(stepContract) || extractStepId(stepContract);
+    if (isValidContractCandidate(stepperId)) {
       return stepperId.trim();
+    }
+    // 3. Saved Draft ID from current session
+    if (isValidContractCandidate(draftId)) {
+      return draftId.trim();
     }
     // 4. Initial contract data fields
     const cid = toCleanId(
       initialData?.contract_id ||
       initialData?.contractId ||
-      (initialData?.contract && typeof initialData.contract === 'object' ? initialData.contract.id || initialData.contract._id : '')
+      (initialData?.contract && typeof initialData.contract === 'object' ? initialData.contract.id || initialData.contract._id : '') ||
+      (initialData?.contract_number || initialData?.contract_date || initialData?._is_contract_loaded || initialData?.sales_contract_id ? initialData?.id || initialData?._id : '')
     );
-    if (cid && !isInvalidPlaceholder(cid)) {
+    if (isValidContractCandidate(cid)) {
       return cid.trim();
     }
-    // 5. Initial data id (only if not a confirmation record)
-    const isConfRecord = Boolean(initialData?.confirmation_number || initialData?.confirmation_date);
-    if (!isConfRecord) {
-      if (initialData?.id && !isInvalidPlaceholder(initialData.id)) {
+    // 5. Initial data id (only if not a pure confirmation record)
+    const isPureConfRecord = Boolean(
+      (initialData?.confirmation_number || initialData?.confirmation_date) &&
+      !initialData?.contract_number &&
+      !initialData?.contract_date &&
+      !initialData?._is_contract_loaded &&
+      !initialData?.sales_contract_id
+    );
+    if (!isPureConfRecord) {
+      if (isValidContractCandidate(initialData?.id)) {
         return toCleanId(initialData.id);
       }
-      if (initialData?._id && !isInvalidPlaceholder(initialData._id)) {
+      if (isValidContractCandidate(initialData?._id)) {
         return toCleanId(initialData._id);
       }
-    }
-
-    // 6. Fallback to confirmationId for unified backend deal workflow
-    if (cleanConfId && !isInvalidPlaceholder(cleanConfId)) {
-      return cleanConfId;
     }
 
     return '';
@@ -5404,6 +5568,7 @@ export function ContractDocumentForm({
 
   const handleOpenPrintPreview = async () => {
     let effectiveId = getEffectiveContractId();
+    const cleanConfId = sanitizeDocId(confirmationId);
 
     // If draft is not yet saved, attempt auto-saving so preview template is available
     if (!effectiveId && onSaveDraft && contractNumber.trim()) {
@@ -5412,15 +5577,14 @@ export function ContractDocumentForm({
         const payload = getContractFormData();
         const res = await onSaveDraft(payload);
         if (res?.success) {
-          const newId = String(
-            res.id ||
-            res.data?.id ||
-            res.data?.contract_id ||
+          const returnedContractId =
             res.contract_id ||
-            res.data?.confirmation_id ||
-            res.confirmation_id ||
-            ''
-          );
+            res.data?.contract_id ||
+            res.data?.contract?.id ||
+            res.data?.contract?._id ||
+            (res.id && res.id !== cleanConfId ? res.id : null) ||
+            (res.data?.id && res.data.id !== cleanConfId ? res.data.id : null);
+          const newId = returnedContractId && returnedContractId !== cleanConfId ? String(returnedContractId) : '';
           if (newId) {
             setDraftId(newId);
             effectiveId = newId;
@@ -5450,6 +5614,7 @@ export function ContractDocumentForm({
 
   const handleDownloadPdf = async () => {
     let effectiveId = getEffectiveContractId();
+    const cleanConfId = sanitizeDocId(confirmationId);
 
     // If draft is not yet saved, attempt auto-saving so PDF can be generated
     if (!effectiveId && onSaveDraft && contractNumber.trim()) {
@@ -5458,15 +5623,14 @@ export function ContractDocumentForm({
         const payload = getContractFormData();
         const res = await onSaveDraft(payload);
         if (res?.success) {
-          const newId = String(
-            res.id ||
-            res.data?.id ||
-            res.data?.contract_id ||
+          const returnedContractId =
             res.contract_id ||
-            res.data?.confirmation_id ||
-            res.confirmation_id ||
-            ''
-          );
+            res.data?.contract_id ||
+            res.data?.contract?.id ||
+            res.data?.contract?._id ||
+            (res.id && res.id !== cleanConfId ? res.id : null) ||
+            (res.data?.id && res.data.id !== cleanConfId ? res.data.id : null);
+          const newId = returnedContractId && returnedContractId !== cleanConfId ? String(returnedContractId) : '';
           if (newId) {
             setDraftId(newId);
             effectiveId = newId;
@@ -5542,21 +5706,40 @@ export function ContractDocumentForm({
       return;
     }
 
+    if (isPartialAllowed) {
+      const sCount = splitCount ? Math.min(Number(splitCount), 30) : splits.length;
+      if (sCount > 0) {
+        const safeSplits = splits.slice(0, sCount);
+        const emptySplitIdx = safeSplits.findIndex((s) => {
+          const val = s.fcl_quantity !== undefined && s.fcl_quantity !== null && s.fcl_quantity !== '' ? s.fcl_quantity : s.mt_quantity;
+          const num = parseFloat(String(val).replace(/[^\d.]/g, ''));
+          return isNaN(num) || num <= 0;
+        });
+        if (emptySplitIdx !== -1) {
+          const splitLetter = formatSplitNumber(safeSplits[emptySplitIdx].split_number, emptySplitIdx);
+          const errMsg = `FCL quantity is required for partial ${splitLetter}`;
+          setErrors((prev) => ({ ...prev, partialTotal: errMsg }));
+          scrollToAndFocusContractField({ partialTotal: errMsg });
+          toast.error(errMsg);
+          return;
+        }
+      }
+    }
+
     setIsSavingDraft(true);
     setErrors({});
     try {
-      const formDataPayload = getContractFormData();
+      const jsonPayload = getContractPayload();
       const cleanConfId = sanitizeDocId(confirmationId);
       const cleanEffectiveId = getEffectiveContractId();
       const effectiveId =
-        cleanEffectiveId ||
-        cleanConfId ||
-        (draftId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(draftId) ? draftId : undefined);
+        (cleanEffectiveId && cleanEffectiveId !== cleanConfId ? cleanEffectiveId : undefined) ||
+        (draftId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(draftId) && draftId !== cleanConfId ? draftId : undefined);
       let res: any = null;
       if (onSaveDraft) {
-        res = await onSaveDraft(formDataPayload);
+        res = await onSaveDraft(jsonPayload);
       } else {
-        res = await saveContractDraftAction(formDataPayload, lang, effectiveId);
+        res = await saveContractDraftAction(jsonPayload, lang, effectiveId);
       }
 
       if (!res) {
@@ -5608,16 +5791,16 @@ export function ContractDocumentForm({
         setDocStatus(statusFromRes);
       }
 
-      const newId = String(
-        res.id ||
-        res.data?.id ||
-        res.data?.contract_id ||
+      const returnedContractId =
         res.contract_id ||
-        res.data?._id ||
-        res._id ||
-        effectiveId ||
-        ''
-      );
+        res.data?.contract_id ||
+        res.data?.contract?.id ||
+        res.data?.contract?._id ||
+        (res.id && res.id !== cleanConfId ? res.id : null) ||
+        (res.data?.id && res.data.id !== cleanConfId ? res.data.id : null) ||
+        (effectiveId && effectiveId !== cleanConfId ? effectiveId : null);
+
+      const newId = returnedContractId ? String(returnedContractId) : '';
 
       // Synchronize fresh signature URLs & contract number from backend response if available
       const savedContract =
@@ -5632,7 +5815,7 @@ export function ContractDocumentForm({
         res?.data?.contract_number ||
         res?.data?.contractNumber ||
         res?.contract_number ||
-        (typeof formDataPayload?.get === 'function' ? formDataPayload.get('contract_number') : null);
+        jsonPayload?.contract_number;
 
       const respContNum = cleanBaseContractNumber(rawRespContNum, isPartialAllowed);
       if (respContNum && typeof respContNum === 'string' && respContNum.trim()) {
@@ -5643,6 +5826,12 @@ export function ContractDocumentForm({
         setDraftId(newId);
         lastLoadedDocIdRef.current = newId;
         isFormInitializedRef.current = true;
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.set('id', newId);
+          url.searchParams.set('step', 'contract');
+          window.history.replaceState(null, '', url.toString());
+        }
         if (onSaveSuccess) {
           onSaveSuccess(newId, {
             buyer_id: buyerId,
@@ -5732,6 +5921,26 @@ export function ContractDocumentForm({
       return;
     }
 
+    if (isPartialAllowed) {
+      const sCount = splitCount ? Math.min(Number(splitCount), 30) : splits.length;
+      if (sCount > 0) {
+        const safeSplits = splits.slice(0, sCount);
+        const emptySplitIdx = safeSplits.findIndex((s) => {
+          const val = s.fcl_quantity !== undefined && s.fcl_quantity !== null && s.fcl_quantity !== '' ? s.fcl_quantity : s.mt_quantity;
+          const num = parseFloat(String(val).replace(/[^\d.]/g, ''));
+          return isNaN(num) || num <= 0;
+        });
+        if (emptySplitIdx !== -1) {
+          const splitLetter = formatSplitNumber(safeSplits[emptySplitIdx].split_number, emptySplitIdx);
+          const errMsg = `FCL quantity is required for partial ${splitLetter}`;
+          setErrors((prev) => ({ ...prev, partialTotal: errMsg }));
+          scrollToAndFocusContractField({ partialTotal: errMsg });
+          toast.error(errMsg);
+          return;
+        }
+      }
+    }
+
     const submitTargetInfo = getWorkflowSubmitButtonInfo({
       steps,
       currentStep: selectedStep,
@@ -5745,15 +5954,39 @@ export function ContractDocumentForm({
     setIsSubmitting(true);
     setErrors({});
     try {
-      const payload = getContractFormData();
+      const jsonPayload = getContractPayload();
       const cleanConfId = sanitizeDocId(confirmationId);
       const cleanEffectiveId = getEffectiveContractId();
-      const effectiveId =
-        cleanEffectiveId ||
-        cleanConfId ||
-        (draftId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(draftId) ? draftId : undefined);
+      let effectiveId =
+        (cleanEffectiveId && cleanEffectiveId !== cleanConfId ? cleanEffectiveId : undefined) ||
+        (draftId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(draftId) && draftId !== cleanConfId ? draftId : undefined);
+
+      if (!effectiveId && onSaveDraft) {
+        try {
+          const saveRes = await onSaveDraft(jsonPayload);
+          if (saveRes?.success) {
+            const newId =
+              saveRes.contract_id ||
+              saveRes.data?.contract_id ||
+              saveRes.data?.id ||
+              saveRes.id;
+            if (newId && newId !== cleanConfId) {
+              effectiveId = String(newId);
+              setDraftId(effectiveId);
+              lastLoadedDocIdRef.current = effectiveId;
+            }
+          }
+        } catch (autoSaveErr) {
+          console.warn('[ContractDocumentForm] Auto-save draft before submit failed:', autoSaveErr);
+        }
+      }
+
+      let res: any = null;
       if (onSubmitContract) {
-        const res = await onSubmitContract(payload, effectiveId, targetNextStep);
+        res = await onSubmitContract(jsonPayload, effectiveId, targetNextStep);
+      } else {
+        res = await submitContractAction(jsonPayload, lang, effectiveId);
+      }
         const hasFieldErrors = Boolean(
           (Array.isArray(res?.error_fields) && res.error_fields.length > 0) ||
           (Array.isArray(res?.errors) && res.errors.length > 0) ||
@@ -5779,19 +6012,19 @@ export function ContractDocumentForm({
             nextStepName: targetNextStepName,
           });
           toast.success(successToast);
-          const newId =
+          const returnedContractId =
             res.contract_id ||
             res.data?.contract_id ||
-            (res.id && res.id !== res.data?.proforma_id ? res.id : null) ||
-            res.data?.id ||
+            res.data?.contract?.id ||
+            (res.id && res.id !== res.data?.proforma_id && res.id !== res.proforma_id ? res.id : null) ||
             effectiveId;
-          if (newId && !isInvalidPlaceholder(String(newId))) {
-            setDraftId(String(newId));
-            lastLoadedDocIdRef.current = String(newId);
+          if (returnedContractId && !isInvalidPlaceholder(String(returnedContractId))) {
+            setDraftId(String(returnedContractId));
+            lastLoadedDocIdRef.current = String(returnedContractId);
             isFormInitializedRef.current = true;
           }
 
-          if (targetNextStep && onSelectStep && !onSubmitContract) {
+          if (targetNextStep && onSelectStep) {
             onSelectStep(targetNextStep);
           }
         } else {
@@ -5819,7 +6052,6 @@ export function ContractDocumentForm({
             toast.error(fallbackMsg);
           }
         }
-      }
     } catch (err: any) {
       console.error('[ContractDocumentForm] handleSubmit error:', err);
       const { fieldErrors, generalError } = parseContractBackendErrors(err);
@@ -6057,7 +6289,7 @@ export function ContractDocumentForm({
               icon="fa-solid fa-pen"
               placeholder="THIS CONTRACT IS DRAWN BETWEEN FOLLOWING PARTIES"
               className="w-full"
-              inputClassName="font-bold text-foreground uppercase text-[14px] tracking-wider text-center sm:text-left"
+              inputClassName="font-bold text-foreground text-[14px] tracking-wider text-center sm:text-left"
             />
           </div>
 
@@ -6199,7 +6431,7 @@ export function ContractDocumentForm({
                 <span className="font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wider leading-tight">
                   COUNTRY
                 </span>
-                <span className="text-[14px] font-semibold text-foreground uppercase truncate min-w-0 mt-0.5 leading-snug">
+                <span className="text-[14px] font-semibold text-foreground truncate min-w-0 mt-0.5 leading-snug">
                   {isLoadingProductDetails ? 'Loading...' : normalizeCountryString(productCountry) || '-'}
                 </span>
               </div>
@@ -7657,9 +7889,10 @@ export function ContractDocumentForm({
               <DocUnderlineInput
                 id="field-commentLabel"
                 value={commentLabel}
+                maxLength={20}
                 onChange={(val) => {
                   markDirty();
-                  setCommentLabel(val);
+                  setCommentLabel(val.slice(0, 20));
                   setErrors((prev) => ({ ...prev, commentLabel: '', comment_label: '' }));
                 }}
                 error={errors.commentLabel || errors.comment_label}

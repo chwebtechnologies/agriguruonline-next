@@ -24,6 +24,7 @@ export interface DocUnderlineInputProps {
   tabIndex?: number;
   min?: number | string;
   max?: number | string;
+  maxLength?: number;
   step?: number | string;
   autoFocus?: boolean;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
@@ -60,6 +61,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
       tabIndex,
       min,
       max,
+      maxLength,
       step,
       autoFocus = false,
       onKeyDown,
@@ -67,7 +69,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
       onClick,
       onFocus,
       ariaLabel,
-      uppercase = true,
+      uppercase = false,
       flush = false,
       underlineClassName = '',
     },
@@ -248,8 +250,14 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
               id={id}
               name={name}
               rows={rows}
+              maxLength={maxLength}
               value={value ?? ''}
-              onChange={(e) => onChange?.(e.target.value)}
+              onChange={(e) => {
+                const val = typeof maxLength === 'number' && maxLength >= 0
+                  ? e.target.value.slice(0, maxLength)
+                  : e.target.value;
+                onChange?.(val);
+              }}
               placeholder={effectivePlaceholder}
               disabled={disabled}
               readOnly={readOnly}
@@ -280,8 +288,14 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
               id={id}
               name={name}
               type={type}
+              maxLength={maxLength}
               value={value ?? ''}
-              onChange={(e) => onChange?.(e.target.value)}
+              onChange={(e) => {
+                const val = typeof maxLength === 'number' && maxLength >= 0
+                  ? e.target.value.slice(0, maxLength)
+                  : e.target.value;
+                onChange?.(val);
+              }}
               placeholder={effectivePlaceholder}
               disabled={disabled}
               readOnly={readOnly}

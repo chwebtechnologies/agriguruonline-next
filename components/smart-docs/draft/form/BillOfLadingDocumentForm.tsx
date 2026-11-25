@@ -6,6 +6,7 @@ import DocTitleInput from './DocTitleInput';
 import DocUnderlineSelect, { DocSelectOption, isRawDbId } from './DocUnderlineSelect';
 import DocToggle from './DocToggle';
 import DocPrintPreviewModal from './DocPrintPreviewModal';
+import { ActionIndicationModal } from '@/components/ui/charts/ActionIndicationModal';
 import { toast } from 'sonner';
 import {
   downloadDocPdfAction,
@@ -968,10 +969,7 @@ export function parseBillOfLadingBackendErrors(
       /^(form validation error|validation error|bad request|invalid input|invalid payload|error occurred|failed to save bill of lading draft|failed to submit bill of lading|failed to submit bill of lading\.\s*please check highlighted fields\.?)$/i.test(
         s
       ) ||
-      /^Cannot (PATCH|POST|GET|PUT|DELETE)\b/i.test(s) ||
-      /<(!DOCTYPE|html)/i.test(s) ||
-      /^(404|500|502|503|504)\s+(not found|internal server error|bad gateway|service unavailable)/i.test(s) ||
-      /^(not found|bad gateway|service unavailable)$/i.test(s)
+      /<(!DOCTYPE|html)/i.test(s)
     );
   };
 
@@ -1173,22 +1171,46 @@ export default function BillOfLadingDocumentForm({
   const cleanSelfId = useMemo(() => getBillOfLadingIdFromStepper(steps, selectedStep), [steps, selectedStep]);
 
   const effectiveBLId = useMemo(() => {
-    return (
-      billOfLadingId ||
-      cleanSelfId ||
+    const parentIds = [
+      shipmentInstructionId,
+      confirmationId,
+      customInvoiceId,
+      proformaId,
+      contractId,
+    ].map((s) => (s ? String(s).trim() : '')).filter(Boolean);
+
+    const isParentId = (val?: string | null) =>
+      Boolean(val && parentIds.includes(String(val).trim()));
+
+    const candidates = [
+      billOfLadingId,
+      cleanSelfId,
       sanitizeDocId(
         initialData?.bill_of_lading_id ||
         initialData?.lading_id ||
         initialData?.bl_id ||
-        ((initialData?.bl_number || initialData?.bl_no) ? initialData?.id : '')
-      ) ||
-      extractStepRedirectId(selfStep) ||
-      extractLinkedBillOfLadingId(initialData) ||
-      shipmentInstructionId ||
-      confirmationId ||
-      ''
-    );
-  }, [billOfLadingId, cleanSelfId, initialData, selfStep, shipmentInstructionId, confirmationId]);
+        ((initialData?._is_lading_loaded || initialData?.bl_number || initialData?.bl_no || initialData?.contract_number || initialData?.fcl_quantity !== undefined)
+          ? (initialData?.id || initialData?._id)
+          : '')
+      ),
+      extractStepRedirectId(selfStep),
+      extractLinkedBillOfLadingId(initialData),
+    ];
+
+    for (const cand of candidates) {
+      const clean = sanitizeDocId(cand);
+      if (
+        clean &&
+        !isParentId(clean) &&
+        !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|bl|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+          clean
+        )
+      ) {
+        return clean;
+      }
+    }
+    return '';
+  }, [billOfLadingId, cleanSelfId, initialData, selfStep, shipmentInstructionId, confirmationId, customInvoiceId, proformaId, contractId]);
 
   const [draftId, setDraftId] = useState<string>(() => sanitizeDocId(effectiveBLId) || '');
   const [isDirty, setIsDirty] = useState(false);
@@ -1199,6 +1221,11 @@ export default function BillOfLadingDocumentForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
+  const [containerConfirmModal, setContainerConfirmModal] = useState<{
+    open: boolean;
+    filledCount: number;
+    totalCount: number;
+  }>({ open: false, filledCount: 0, totalCount: 0 });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [unmatchedErrors, setUnmatchedErrors] = useState<Array<{ field: string; message: string }>>([]);
 
@@ -1667,7 +1694,14 @@ export default function BillOfLadingDocumentForm({
       blObj?.net_weight ?? initialData?.net_weight ?? initialData?.net_weight_mts
     );
   }, [initialData]);
-  const freightCharges = safeString(initialData?.freight_charges || initialData?.freight || 'PREPAID');
+  const freightCharges = safeString(
+    initialData?.freight_charges ??
+      initialData?.freight ??
+      initialData?.bill_of_lading?.freight ??
+      initialData?.bill_of_lading?.freight_charges ??
+      '',
+    ''
+  );
   const freeDays = safeString(initialData?.free_days || initialData?.pod_free_days);
   const emptyBags = safeString(initialData?.empty_bags || initialData?.empty_bags_percentage);
 
@@ -1741,19 +1775,28 @@ export default function BillOfLadingDocumentForm({
 
   // Sync state if initialData or dataVersion updates externally
   useEffect(() => {
+    const isDataVersionTriggered = Boolean(
+      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
+    );
+
     if (!initialData || typeof initialData !== 'object' || Object.keys(initialData).length === 0) {
       if (effectiveBLId) {
         setDraftId(effectiveBLId);
       }
+      if (isDataVersionTriggered) {
+        setNotesTitle('');
+        setNotesComment('');
+      }
       return;
     }
 
-    const isDataVersionTriggered = Boolean(
-      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
-    );
     const hasDocIdChanged = Boolean(effectiveBLId && effectiveBLId !== lastLoadedDocIdRef.current);
 
-    if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged && (isDirty || hasDraftChanges)) {
+    if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged) {
+      return;
+    }
+
+    if (isFormInitializedRef.current && (isDirty || hasDraftChanges) && !isDataVersionTriggered) {
       return;
     }
 
@@ -1826,7 +1869,7 @@ export default function BillOfLadingDocumentForm({
     setContainers(buildInitialContainers(initialData));
     setNotesTitle(safeString(initialData.comment_label || initialData.comment_title || initialData.notes_title || initialData.extra_title));
     setNotesComment(safeString(initialData.comment_value || initialData.comment_text || initialData.notes_comment || initialData.comment || initialData.extra_comment));
-  }, [initialData, dataVersion, effectiveBLId, isDirty, hasDraftChanges]);
+  }, [initialData, dataVersion, effectiveBLId]);
 
   // Container Table Row handler
   const handleContainerChange = (index: number, field: keyof ContainerItem, val: string) => {
@@ -1865,36 +1908,26 @@ export default function BillOfLadingDocumentForm({
   const getBillOfLadingPayload = useCallback(() => {
     const filledRows = getFilledContainerRows();
     const payloadContainers = filledRows.map(({ c, idx }) => {
-      const item: Record<string, any> = {
-        index: parseContainerIndex(c.index, idx),
-      };
-
       const trimmedContainerNo = String(c.container_no ?? '').trim();
-      if (trimmedContainerNo) {
-        item.container_number = trimmedContainerNo;
-      }
-
       const trimmedSealNo = String(c.seal_no ?? '').trim();
-      if (trimmedSealNo) {
-        item.seal_number = trimmedSealNo;
-      }
+      const gw = hasNonEmptyContainerValue(c.gross_weight)
+        ? Number(String(c.gross_weight).replace(/,/g, '').trim())
+        : 0;
+      const nw = hasNonEmptyContainerValue(c.net_weight)
+        ? Number(String(c.net_weight).replace(/,/g, '').trim())
+        : 0;
+      const bags = hasNonEmptyContainerValue(c.bags)
+        ? Number(String(c.bags).replace(/,/g, '').trim())
+        : 0;
 
-      const formattedGrossWeight = formatContainerWeightForPayload(c.gross_weight);
-      if (formattedGrossWeight !== undefined) {
-        item.gross_weight = formattedGrossWeight;
-      }
-
-      const formattedNetWeight = formatContainerWeightForPayload(c.net_weight);
-      if (formattedNetWeight !== undefined) {
-        item.net_weight = formattedNetWeight;
-      }
-
-      if (hasNonEmptyContainerValue(c.bags)) {
-        const n = Number(String(c.bags).replace(/,/g, '').trim());
-        if (!isNaN(n)) item.bags = n;
-      }
-
-      return item;
+      return {
+        index: parseContainerIndex(c.index, idx),
+        container_number: trimmedContainerNo || null,
+        seal_number: trimmedSealNo || null,
+        gross_weight: !isNaN(gw) && isFinite(gw) ? gw : 0,
+        net_weight: !isNaN(nw) && isFinite(nw) ? nw : 0,
+        bags: !isNaN(bags) && isFinite(bags) ? bags : 0,
+      };
     });
 
     const selectedLoadingPortObj = loadingPortsList.find(
@@ -1904,20 +1937,45 @@ export default function BillOfLadingDocumentForm({
         String(p.label).toLowerCase() === String(portOfLoading).toLowerCase() ||
         String(p.name || '').toLowerCase() === String(portOfLoading).toLowerCase()
     );
-    const selectedLoadingPortId =
+    const candidatePortIdOrName =
       selectedLoadingPortObj?.id ||
       selectedLoadingPortObj?.value ||
       (isValidCuidOrId(portOfLoading) ? portOfLoading.trim() : '') ||
       extractBillOfLadingPortValue(initialData);
 
+    const validPortId =
+      candidatePortIdOrName && isValidCuidOrId(candidatePortIdOrName)
+        ? candidatePortIdOrName
+        : undefined;
+
     // Always derive top-level gross_weight & net_weight (in MTS) directly from the containers
     // being submitted (in KG / 1000) so top-level weights strictly match container totals.
-    const topLevelGrossWeight = formatWeightMtsForPayload(tableTotals.totalGrossMts);
-    const topLevelNetWeight = formatWeightMtsForPayload(tableTotals.totalNetMts);
+    const isVesselShipment = String(initialData?.ship_by || '').toUpperCase() === 'VESSEL';
+    const topLevelGrossWeight =
+      isVesselShipment && !tableTotals.hasContainerGross && initialGrossWeightDisplay
+        ? formatWeightMtsForPayload(Number(String(initialGrossWeightDisplay).replace(/,/g, '')))
+        : formatWeightMtsForPayload(tableTotals.totalGrossMts);
+    const topLevelNetWeight =
+      isVesselShipment && !tableTotals.hasContainerNet && initialNetWeightDisplay
+        ? formatWeightMtsForPayload(Number(String(initialNetWeightDisplay).replace(/,/g, '')))
+        : formatWeightMtsForPayload(tableTotals.totalNetMts);
+
+    const isPlaceholderId = (val?: string) =>
+      !val ||
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|bl|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+        val.trim()
+      );
+
+    const activeBLId =
+      (draftId && !isPlaceholderId(draftId) ? draftId : undefined) ||
+      (effectiveBLId && !isPlaceholderId(effectiveBLId) ? effectiveBLId : undefined);
+
+    const trimmedCommentValue = notesComment.trim();
+    const trimmedCommentLabel = (notesTitle.trim() || (trimmedCommentValue ? 'Comments' : '')).slice(0, 20);
 
     return {
-      bill_of_lading_id: draftId || effectiveBLId || undefined,
-      id: draftId || effectiveBLId || undefined,
+      bill_of_lading_id: activeBLId,
+      id: activeBLId,
       shipment_instruction_id: shipmentInstructionId || undefined,
       custom_invoice_id: customInvoiceId || undefined,
       proforma_id: proformaId || undefined,
@@ -1925,28 +1983,29 @@ export default function BillOfLadingDocumentForm({
       confirmation_id: confirmationId || undefined,
       pdf_title: customDocTitle.trim() || 'BILL OF LADING',
       is_watermark_enabled: watermarkEnabled,
-      vessel_name: vesselName.trim(),
-      shipping_line: shippingLine.trim(),
-      voyage_number: voyageNo.trim(),
-      bl_number: blNo.trim(),
-      sailing_date: sailingDate || undefined,
-      arrival_date: arrivalDate || undefined,
-      transit_days: transitDaysNumber !== null ? transitDaysNumber : undefined,
-      booking_number: bookingNo.trim(),
-      tracking_link: trackingLink.trim(),
-      loading_port: selectedLoadingPortId || undefined,
-      loading_port_id: selectedLoadingPortId || undefined,
-      shipping_bill_no: sbNo.trim(),
+      vessel_name: vesselName.trim() || null,
+      shipping_line: shippingLine.trim() || null,
+      voyage_number: voyageNo.trim() || null,
+      bl_number: blNo.trim() || null,
+      sailing_date: sailingDate || null,
+      arrival_date: arrivalDate || null,
+      transit_days: transitDaysNumber !== null ? transitDaysNumber : null,
+      booking_number: bookingNo.trim() || null,
+      tracking_link: trackingLink.trim() || null,
+      loading_port_id: validPortId || null,
+      shipping_bill_no: sbNo.trim() || null,
       gross_weight: topLevelGrossWeight,
       net_weight: topLevelNetWeight,
-      ...(isEctnEnabled ? { ectn_number: ectnNumber.trim() } : {}),
-      ...(payloadContainers.length > 0 ? { containers: payloadContainers } : {}),
-      comment_label: notesTitle.trim() || (notesComment.trim() ? 'Comments' : ''),
-      comment_value: notesComment.trim(),
+      ectn_number: isEctnEnabled ? (ectnNumber.trim() || null) : null,
+      containers: payloadContainers,
+      comment_label: trimmedCommentLabel || null,
+      comment_value: trimmedCommentValue || null,
     };
   }, [
     getFilledContainerRows,
     tableTotals,
+    initialGrossWeightDisplay,
+    initialNetWeightDisplay,
     draftId,
     effectiveBLId,
     shipmentInstructionId,
@@ -1998,7 +2057,15 @@ export default function BillOfLadingDocumentForm({
         if (newId) {
           const cleanNewId = String(newId);
           setDraftId(cleanNewId);
+          lastLoadedDocIdRef.current = cleanNewId;
+          isFormInitializedRef.current = true;
           isDraftSavedToBackendRef.current = true;
+          if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            url.searchParams.set('id', cleanNewId);
+            url.searchParams.set('step', 'bill-of-lading');
+            window.history.replaceState(null, '', url.toString());
+          }
           if (onSaveSuccess) onSaveSuccess(cleanNewId, res.data);
           if (onUpdateSteps && steps && steps.length > 0) {
             onUpdateSteps(
@@ -2036,7 +2103,7 @@ export default function BillOfLadingDocumentForm({
           toast.error(`${firstUnmapped.field}: ${firstUnmapped.message}`);
           return;
         }
-        toast.error(generalError || res?.message || 'Failed to save bill of lading draft.');
+        toast.error(generalError || res?.message || res?.error || 'Failed to save bill of lading draft.');
       }
     } catch (err: any) {
       const { fieldErrors, unmatchedErrors: unmapped, generalError } = parseBillOfLadingBackendErrors(
@@ -2054,14 +2121,14 @@ export default function BillOfLadingDocumentForm({
         toast.error(`${unmapped[0].field}: ${unmapped[0].message}`);
         return;
       }
-      toast.error(generalError || err?.message || 'Error occurred while saving bill of lading draft.');
+      toast.error(generalError || err?.message || err?.error || 'Error occurred while saving bill of lading draft.');
     } finally {
       setIsSavingDraft(false);
     }
   };
 
   // Submit Handler
-  const handleSubmit = async () => {
+  const executeSubmit = async () => {
     if (isSubmitting || isSavingDraft || readOnly) return;
 
     const submitTargetInfo = getWorkflowSubmitButtonInfo({
@@ -2080,12 +2147,40 @@ export default function BillOfLadingDocumentForm({
     const payloadRowIndices = getFilledContainerRows().map(({ idx }) => idx);
 
     try {
+      let activeId = draftId || effectiveBLId;
+      if (!activeId || isDirty || hasDraftChanges || !isDraftSavedToBackendRef.current) {
+        try {
+          const payloadToSave = getBillOfLadingPayload();
+          let saveRes: any;
+          if (onSaveDraft) {
+            saveRes = await onSaveDraft(payloadToSave);
+          } else {
+            saveRes = await saveBillOfLadingDraftAction(payloadToSave, lang, activeId || undefined);
+          }
+          if (saveRes?.success) {
+            const newId = saveRes.id || saveRes.data?.id || saveRes.data?.bill_of_lading_id || saveRes.data?.bl_id;
+            if (newId) {
+              const cleanNewId = String(newId);
+              setDraftId(cleanNewId);
+              activeId = cleanNewId;
+              isDraftSavedToBackendRef.current = true;
+              setIsDirty(false);
+              setHasDraftChanges(false);
+              setHasSubmitChanges(true);
+              if (onSaveSuccess && !onSubmitLading) onSaveSuccess(cleanNewId, saveRes.data);
+            }
+          }
+        } catch (saveErr) {
+          console.warn('[BillOfLadingDocumentForm] Auto-save before submit warning:', saveErr);
+        }
+      }
+
       const payload = getBillOfLadingPayload();
       let res: any;
       if (onSubmitLading) {
-        res = await onSubmitLading(payload, draftId || effectiveBLId || undefined, targetNextStep);
+        res = await onSubmitLading(payload, activeId || undefined, targetNextStep);
       } else {
-        res = await submitBillOfLadingAction(payload, lang, draftId || effectiveBLId || undefined);
+        res = await submitBillOfLadingAction(payload, lang, activeId || undefined);
       }
 
       if (res?.success) {
@@ -2093,16 +2188,26 @@ export default function BillOfLadingDocumentForm({
         if (newId) {
           const cleanNewId = String(newId);
           setDraftId(cleanNewId);
+          lastLoadedDocIdRef.current = cleanNewId;
+          isFormInitializedRef.current = true;
           isDraftSavedToBackendRef.current = true;
-          if (onSaveSuccess) onSaveSuccess(cleanNewId, res.data);
-          if (onUpdateSteps && steps && steps.length > 0) {
-            onUpdateSteps(
-              steps.map((s) =>
-                isBillOfLadingStep(s)
-                  ? { ...s, redirect_id: cleanNewId, redirectId: cleanNewId, status: 'completed' }
-                  : s
-              )
-            );
+          if (!onSubmitLading) {
+            if (typeof window !== 'undefined') {
+              const url = new URL(window.location.href);
+              url.searchParams.set('id', cleanNewId);
+              url.searchParams.set('step', 'bill-of-lading');
+              window.history.replaceState(null, '', url.toString());
+            }
+            if (onSaveSuccess) onSaveSuccess(cleanNewId, res.data);
+            if (onUpdateSteps && steps && steps.length > 0) {
+              onUpdateSteps(
+                steps.map((s) =>
+                  isBillOfLadingStep(s)
+                    ? { ...s, redirect_id: cleanNewId, redirectId: cleanNewId, status: 'completed' }
+                    : s
+                )
+              );
+            }
           }
         }
         setIsDirty(false);
@@ -2110,9 +2215,10 @@ export default function BillOfLadingDocumentForm({
         setHasSubmitChanges(false);
         toast.success(res?.message || 'Bill of Lading submitted successfully!');
 
-        // Transition to next workflow step if available
-        if (targetNextStep && onSelectStep) {
-          const targetIdx = (steps || []).findIndex((s) => isSameWorkflowStep(s, targetNextStep));
+        // Transition to next workflow step if available (when not already handled by onSubmitLading)
+        if (targetNextStep && onSelectStep && !onSubmitLading) {
+          const visibleSteps = (steps || []).filter((s) => s && s.is_hidden !== true && s.is_hidden !== 1 && String(s.is_hidden) !== 'true');
+          const targetIdx = visibleSteps.findIndex((s) => isSameWorkflowStep(s, targetNextStep));
           if (targetIdx >= 0) {
             onSelectStep(targetNextStep, targetIdx);
           }
@@ -2139,7 +2245,7 @@ export default function BillOfLadingDocumentForm({
           toast.error(`${firstUnmapped.field}: ${firstUnmapped.message}`);
           return;
         }
-        toast.error(generalError || res?.message || 'Failed to submit bill of lading.');
+        toast.error(generalError || res?.message || res?.error || 'Failed to submit bill of lading.');
       }
     } catch (err: any) {
       const { fieldErrors, unmatchedErrors: unmapped, generalError } = parseBillOfLadingBackendErrors(
@@ -2157,10 +2263,24 @@ export default function BillOfLadingDocumentForm({
         toast.error(`${unmapped[0].field}: ${unmapped[0].message}`);
         return;
       }
-      toast.error(generalError || err?.message || 'Error occurred while submitting bill of lading.');
+      toast.error(generalError || err?.message || err?.error || 'Error occurred while submitting bill of lading.');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = async () => {
+    if (isSubmitting || isSavingDraft || readOnly) return;
+
+    const totalCount = containers.length;
+    const filledCount = getFilledContainerRows().length;
+
+    if (totalCount > 0 && filledCount < totalCount) {
+      setContainerConfirmModal({ open: true, filledCount, totalCount });
+      return;
+    }
+
+    await executeSubmit();
   };
 
   // Print Preview Handler
@@ -2376,7 +2496,7 @@ export default function BillOfLadingDocumentForm({
               <div className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
                 EXPORTER / SELLER:
               </div>
-              <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed">
+              <div className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide px-0.5 whitespace-pre-line leading-relaxed">
                 {exporterText || '-'}
               </div>
             </div>
@@ -2386,7 +2506,7 @@ export default function BillOfLadingDocumentForm({
               <div className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
                 CONSIGNEE / BUYER:
               </div>
-              <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed">
+              <div className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide px-0.5 whitespace-pre-line leading-relaxed">
                 {consigneeText || '-'}
               </div>
             </div>
@@ -2557,7 +2677,7 @@ export default function BillOfLadingDocumentForm({
                 <div className="font-bold text-muted-foreground/85 uppercase text-[13px] sm:text-[14px] tracking-wider px-0.5 mb-1">
                   TRANSIT DAYS:
                 </div>
-                <div className="text-[13px] sm:text-[14px] font-medium text-foreground px-0.5 uppercase tracking-wide">
+                <div className="text-[13px] sm:text-[14px] font-medium text-foreground px-0.5 tracking-wide">
                   {transitDays}
                 </div>
               </div>
@@ -2632,17 +2752,17 @@ export default function BillOfLadingDocumentForm({
           {/* First Row: 1 to 3 Values (bg-card) */}
           <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-card">
             <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase whitespace-pre-line leading-relaxed">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed">
                 {notifyParty1 || '-'}
               </span>
             </div>
             <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase whitespace-pre-line leading-relaxed">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed">
                 {notifyParty2 || '-'}
               </span>
             </div>
             <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase whitespace-pre-line leading-relaxed">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed">
                 {notifyParty3 || '-'}
               </span>
             </div>
@@ -2665,17 +2785,17 @@ export default function BillOfLadingDocumentForm({
 
               <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-card">
                 <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-                  <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase whitespace-pre-line leading-relaxed">
+                  <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed">
                     {notifyParty4 || '-'}
                   </span>
                 </div>
                 <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-                  <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase whitespace-pre-line leading-relaxed">
+                  <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed">
                     {notifyParty5 || '-'}
                   </span>
                 </div>
                 <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-                  <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase whitespace-pre-line leading-relaxed">
+                  <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed">
                     {notifyParty6 || '-'}
                   </span>
                 </div>
@@ -2709,22 +2829,22 @@ export default function BillOfLadingDocumentForm({
           {/* Row A Values (bg-card) */}
           <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-border bg-card">
             <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide">
                 {preCarriageBy || '-'}
               </span>
             </div>
             <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide">
                 {placeOfReceipt || '-'}
               </span>
             </div>
             <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide">
                 {countryOfOrigin || '-'}
               </span>
             </div>
             <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide">
                 {countryOfDestination || '-'}
               </span>
             </div>
@@ -2795,7 +2915,7 @@ export default function BillOfLadingDocumentForm({
                 id="field-port_of_loading"
                 data-field="port_of_loading"
               >
-                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
+                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide">
                   {portOfLoadingDisplayText || '-'}
                 </span>
                 {(errors.port_of_loading ||
@@ -2819,14 +2939,14 @@ export default function BillOfLadingDocumentForm({
 
             {/* PORT OF DESTINATION */}
             <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide">
                 {portOfDestination || '-'}
               </span>
             </div>
 
             {/* FINAL DESTINATION */}
             <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide">
                 {finalDestination || '-'}
               </span>
             </div>
@@ -2866,7 +2986,7 @@ export default function BillOfLadingDocumentForm({
           <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-border bg-card">
             {/* MARKS & NUMBERS (COL 1-3) */}
             <div className="lg:col-span-3 p-3 sm:p-4 flex flex-col gap-2">
-              <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed">
+              <div className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide px-0.5 whitespace-pre-line leading-relaxed">
                 {marksAndNumbers ? (
                   marksAndNumbers.toUpperCase().startsWith('MARKING:') ? (
                     <>
@@ -2888,37 +3008,37 @@ export default function BillOfLadingDocumentForm({
                 {displayTotalBags && displayTotalBags !== '0' ? (
                   <div>
                     <span className="font-bold text-muted-foreground/85 uppercase tracking-wider">TOTAL BAGS: </span>
-                    <span className="font-medium text-foreground uppercase">{formatNumberWithCommas(displayTotalBags)} BAGS</span>
+                    <span className="font-medium text-foreground">{formatNumberWithCommas(displayTotalBags)} BAGS</span>
                   </div>
                 ) : null}
                 {productName ? (
                   <div>
                     <span className="font-bold text-muted-foreground/85 uppercase tracking-wider">PRODUCT NAME: </span>
-                    <span className="font-medium text-foreground uppercase">{productName}</span>
+                    <span className="font-medium text-foreground">{productName}</span>
                   </div>
                 ) : null}
                 {packingType ? (
                   <div>
                     <span className="font-bold text-muted-foreground/85 uppercase tracking-wider">PACKING TYPE: </span>
-                    <span className="font-medium text-foreground uppercase">{packingType}</span>
+                    <span className="font-medium text-foreground">{packingType}</span>
                   </div>
                 ) : null}
                 {hsnCode ? (
                   <div>
                     <span className="font-bold text-muted-foreground/85 uppercase tracking-wider">HSN CODE: </span>
-                    <span className="font-medium text-foreground uppercase">{hsnCode}</span>
+                    <span className="font-medium text-foreground">{hsnCode}</span>
                   </div>
                 ) : null}
                 {displayGrossWeight ? (
                   <div>
                     <span className="font-bold text-muted-foreground/85 uppercase tracking-wider">GROSS WEIGHT: </span>
-                    <span className="font-medium text-foreground uppercase">{displayGrossWeight} MTS</span>
+                    <span className="font-medium text-foreground">{displayGrossWeight} MTS</span>
                   </div>
                 ) : null}
                 {displayNetWeight ? (
                   <div>
                     <span className="font-bold text-muted-foreground/85 uppercase tracking-wider">NET WEIGHT: </span>
-                    <span className="font-medium text-foreground uppercase">{displayNetWeight} MTS</span>
+                    <span className="font-medium text-foreground">{displayNetWeight} MTS</span>
                   </div>
                 ) : null}
 
@@ -2975,24 +3095,24 @@ export default function BillOfLadingDocumentForm({
                 {freightCharges ? (
                   <div className="mt-1">
                     <span className="font-bold text-muted-foreground/85 uppercase tracking-wider">FREIGHT CHARGES: </span>
-                    <span className="font-medium text-foreground uppercase">{freightCharges}</span>
+                    <span className="font-medium text-foreground">{freightCharges}</span>
                   </div>
                 ) : null}
                 {freeDays ? (
                   <div>
                     <span className="font-bold text-muted-foreground/85 uppercase tracking-wider">FREE DAYS: </span>
-                    <span className="font-medium text-foreground uppercase">{freeDays}</span>
+                    <span className="font-medium text-foreground">{freeDays}</span>
                   </div>
                 ) : null}
                 {emptyBags ? (
                   <div>
                     <span className="font-bold text-muted-foreground/85 uppercase tracking-wider">EMPTY BAGS: </span>
-                    <span className="font-medium text-foreground uppercase">{emptyBags}</span>
+                    <span className="font-medium text-foreground">{emptyBags}</span>
                   </div>
                 ) : null}
 
                 {extraDescription && extraDescription !== productName ? (
-                  <div className="whitespace-pre-line text-foreground uppercase font-medium leading-relaxed mt-1">
+                  <div className="whitespace-pre-line text-foreground font-medium leading-relaxed mt-1">
                     {extraDescription}
                   </div>
                 ) : null}
@@ -3001,7 +3121,7 @@ export default function BillOfLadingDocumentForm({
 
             {/* GROSS WEIGHT (COL 10-12) */}
             <div className="lg:col-span-3 p-3 sm:p-4 flex flex-col gap-2 items-end justify-start text-right">
-              <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide px-0.5">
+              <div className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide px-0.5">
                 {displayGrossWeight ? `${displayGrossWeight} MTS` : '-'}
               </div>
             </div>
@@ -3145,9 +3265,10 @@ export default function BillOfLadingDocumentForm({
               id="field-notes_title-input"
               name="comment_label"
               value={notesTitle}
+              maxLength={20}
               onChange={(val) => {
                 markDirty();
-                setNotesTitle(val);
+                setNotesTitle(val.slice(0, 20));
                 setErrors((prev) => ({ ...prev, comment_label: '', comment_title: '', notes_title: '' }));
               }}
               disabled={readOnly}
@@ -3278,6 +3399,22 @@ export default function BillOfLadingDocumentForm({
           </button>
         </div>
       </div>
+
+      {/* Container Count Confirmation Modal */}
+      <ActionIndicationModal
+        isOpen={containerConfirmModal.open}
+        onClose={() => setContainerConfirmModal((prev) => ({ ...prev, open: false }))}
+        onConfirm={() => {
+          setContainerConfirmModal((prev) => ({ ...prev, open: false }));
+          void executeSubmit();
+        }}
+        title="Confirm Submission"
+        description={`You have filled in details for ${containerConfirmModal.filledCount} out of ${containerConfirmModal.totalCount} ${
+          containerConfirmModal.totalCount === 1 ? 'container' : 'containers'
+        }. Are you sure you want to submit the form?`}
+        indicationText="Submit"
+        type="warning"
+      />
 
       {/* Print Preview Modal */}
       <DocPrintPreviewModal

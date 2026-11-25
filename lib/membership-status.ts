@@ -25,6 +25,59 @@ export function getUserFromClientCookie(): any | null {
 }
 
 /**
+ * Returns true if the user is a Regular (non-onboarded) account.
+ * Users who have already onboarded as Buyer or Seller are NOT regular accounts,
+ * even if their membership plan has expired or reverted to Guest/Regular/null.
+ */
+export function isRegularAccount(profile?: any): boolean {
+  if (!profile) return true;
+
+  const userTypeNorm = getNormalizedUserType(profile?.user_type);
+  const roleName = String(profile?.role?.name || profile?.role || '').toLowerCase();
+
+  if (
+    userTypeNorm.includes('buyer') ||
+    userTypeNorm.includes('seller') ||
+    roleName.includes('buyer') ||
+    roleName.includes('seller')
+  ) {
+    return false;
+  }
+
+  const planName = String(
+    profile?.membership?.plan_name || profile?.membership?.name || profile?.plan_name || ''
+  ).toLowerCase();
+
+  return (
+    !userTypeNorm ||
+    userTypeNorm === 'regular' ||
+    roleName === 'regular' ||
+    planName === 'guest' ||
+    planName === 'regular'
+  );
+}
+
+/**
+ * Returns true if the user's membership plan is expired/inactive.
+ */
+export function isMembershipExpired(profile?: any): boolean {
+  if (!profile) return false;
+  const membership = profile?.membership;
+  const status = String(membership?.status || profile?.membership_status || '').toUpperCase();
+  if (status === 'EXPIRED' || status === 'CANCELLED' || status === 'INACTIVE') {
+    return true;
+  }
+  const expiryRaw = membership?.membership_expiry_date || profile?.membership_expiry_date;
+  if (expiryRaw) {
+    const expiryDate = new Date(expiryRaw);
+    if (!isNaN(expiryDate.getTime()) && expiryDate.getTime() < Date.now()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Determines whether user is a guest, registered non-member, or active member.
  *
  * Rules:
@@ -62,21 +115,15 @@ export function getMembershipStatus(
   }
 
   // Profile exists or user has auth cookie
-  const userTypeNorm = getNormalizedUserType(profile?.user_type);
-  const roleName = String(profile?.role?.name || profile?.role || '').toLowerCase();
   const membership = profile?.membership;
   const planName = String(membership?.plan_name || membership?.name || '').toLowerCase();
 
-  const isRegular =
-    !profile?.user_type ||
-    userTypeNorm === 'regular' ||
-    (typeof profile?.user_type === 'object' && profile?.user_type?.name?.toLowerCase() === 'regular') ||
-    roleName === 'regular' ||
-    planName === 'guest' ||
-    planName === 'regular';
+  const isRegular = isRegularAccount(profile);
+  const expired = isMembershipExpired(profile);
 
   const hasActiveMembership = Boolean(
     membership &&
+    !expired &&
     planName &&
     planName !== 'guest' &&
     planName !== 'regular' &&

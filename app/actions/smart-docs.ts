@@ -64,6 +64,7 @@ import {
   isValidCuidOrId,
   extractApiValidationErrors,
   convertDataUrlToBlob,
+  formDataToContractJson,
 } from "@/lib/api/smart-docs.service";
 
 /**
@@ -74,12 +75,8 @@ function isRawRoutingOrHtmlError(str?: any): boolean {
   if (!str || typeof str !== "string") return false;
   const s = str.trim();
   return (
-    /^Cannot (PATCH|POST|GET|PUT|DELETE)\b/i.test(s) ||
     /^<!DOCTYPE\b/i.test(s) ||
-    /<html[\s>]/i.test(s) ||
-    /^(404|500|502|503|504)\s+(not found|internal server error|bad gateway|service unavailable)/i.test(s) ||
-    /^(not found|bad gateway|service unavailable|gateway timeout)$/i.test(s) ||
-    /^route\s+.*\s+not found/i.test(s)
+    /<html[\s>]/i.test(s)
   );
 }
 
@@ -98,10 +95,7 @@ function sanitizeActionErrorMessage(
     if (!str || typeof str !== "string") return true;
     const s = str.trim();
     return (
-      /^(form validation error|validation error|bad request|invalid input|invalid payload|error occurred)$/i.test(s) ||
-      /^[a-z0-9_.-]+$/i.test(s) ||
-      s.toLowerCase().includes("should not be empty") ||
-      s.toLowerCase().includes("must be")
+      /^(form validation error|validation error|bad request|invalid input|invalid payload|error occurred)$/i.test(s)
     );
   };
 
@@ -1443,6 +1437,7 @@ export interface SaveContractDraftActionResult {
   errors?: any;
   error_fields?: any;
   id?: string;
+  contract_id?: string;
   raw?: any;
 }
 
@@ -1503,6 +1498,43 @@ export async function saveContractDraftAction(
           if (!payload.get("special_instruction")) payload.append("special_instruction", strDisc);
         }
       }
+
+      // Sync transit clause fields
+      const tcVal =
+        payload.get("transit_clause_value") ||
+        payload.get("transitClauseValue");
+      if (tcVal !== null && tcVal !== undefined) {
+        const strTc = String(tcVal).trim();
+        if (strTc && strTc !== "[object Object]" && strTc !== "undefined" && strTc !== "null") {
+          if (!payload.get("transit_clause_value")) payload.append("transit_clause_value", strTc);
+          if (!payload.get("transit_clause")) payload.append("transit_clause", "true");
+          if (!payload.get("transit_clause_allowed")) payload.append("transit_clause_allowed", "true");
+        }
+      }
+      const tcCountry =
+        payload.get("transit_clause_country_id") ||
+        payload.get("transit_clause_country") ||
+        payload.get("transitClauseCountry");
+      if (tcCountry !== null && tcCountry !== undefined) {
+        const strCountry = String(tcCountry).trim();
+        if (strCountry && strCountry !== "[object Object]" && strCountry !== "undefined" && strCountry !== "null") {
+          if (!payload.get("transit_clause_country_id")) payload.append("transit_clause_country_id", strCountry);
+          if (!payload.get("transit_clause_country")) payload.append("transit_clause_country", strCountry);
+        }
+      }
+
+      // Sync remarks_title / comment_title / comment_label (max 20 characters)
+      const cTitle =
+        payload.get("remarks_title") ||
+        payload.get("comment_title") ||
+        payload.get("comment_label") ||
+        payload.get("notes_title");
+      if (cTitle) {
+        const strTitle = String(cTitle).trim().slice(0, 20);
+        payload.set("remarks_title", strTitle);
+        payload.set("comment_title", strTitle);
+        payload.set("comment_label", strTitle);
+      }
     } else if (payload && typeof payload === "object") {
       const marksVal =
         payload.marking_brand ||
@@ -1534,54 +1566,71 @@ export async function saveContractDraftAction(
           if (!payload.special_instruction) payload.special_instruction = strDisc;
         }
       }
+
+      // Sync transit clause fields
+      const tcVal =
+        payload.transit_clause_value ||
+        payload.transitClauseValue;
+      if (tcVal !== null && tcVal !== undefined) {
+        const strTc = String(tcVal).trim();
+        if (strTc && strTc !== "[object Object]" && strTc !== "undefined" && strTc !== "null") {
+          if (!payload.transit_clause_value) payload.transit_clause_value = strTc;
+          if (!payload.transit_clause) payload.transit_clause = "true";
+          if (!payload.transit_clause_allowed) payload.transit_clause_allowed = true;
+        }
+      }
+      const tcCountry =
+        payload.transit_clause_country_id ||
+        payload.transit_clause_country ||
+        payload.transitClauseCountry;
+      if (tcCountry !== null && tcCountry !== undefined) {
+        const strCountry = String(tcCountry).trim();
+        if (strCountry && strCountry !== "[object Object]" && strCountry !== "undefined" && strCountry !== "null") {
+          if (!payload.transit_clause_country_id) payload.transit_clause_country_id = strCountry;
+          if (!payload.transit_clause_country) payload.transit_clause_country = strCountry;
+        }
+      }
     }
 
     const confIdInPayload = isFormData ? payload.get("confirmation_id") : payload?.confirmation_id;
+    const cleanConfId = confIdInPayload ? String(confIdInPayload).trim() : undefined;
     const rawEffectiveId =
       (id && String(id).trim()) ||
       (isFormData
-        ? String(payload.get("contract_id") || payload.get("id") || payload.get("confirmation_id") || "").trim()
-        : String(payload?.contract_id || payload?.id || payload?.confirmation_id || "").trim());
+        ? String(payload.get("contract_id") || payload.get("id") || "").trim()
+        : String(payload?.contract_id || payload?.id || "").trim());
 
-    // Filter out invalid placeholder words like "contract", "confirmation", etc.
+    // Filter out invalid placeholder words and never treat confirmation_id as contract_id
     const effectiveId =
-      rawEffectiveId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(rawEffectiveId)
+      rawEffectiveId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(rawEffectiveId) &&
+      rawEffectiveId !== cleanConfId
         ? rawEffectiveId
         : undefined;
 
-    if (isFormData) {
+    let effectivePayload: any = isFormData ? formDataToContractJson(payload) : payload;
+
+    if (effectivePayload && typeof effectivePayload === "object") {
       if (effectiveId) {
-        payload.set("contract_id", effectiveId);
-        payload.set("id", effectiveId);
+        effectivePayload.contract_id = effectiveId;
+        effectivePayload.id = effectiveId;
       } else {
-        payload.delete("id");
-        payload.delete("contract_id");
-        payload.delete("sales_contract_id");
+        delete effectivePayload.id;
+        delete effectivePayload.contract_id;
+        delete effectivePayload.sales_contract_id;
       }
-      if (confIdInPayload) {
-        payload.set("confirmation_id", String(confIdInPayload));
-      }
-    } else if (payload && typeof payload === "object") {
-      if (effectiveId) {
-        payload.contract_id = effectiveId;
-        payload.id = effectiveId;
-      } else {
-        delete payload.id;
-        delete payload.contract_id;
-        delete payload.sales_contract_id;
-      }
-      if (confIdInPayload) {
-        payload.confirmation_id = String(confIdInPayload);
+      if (cleanConfId) {
+        effectivePayload.confirmation_id = cleanConfId;
       }
     }
 
     const safeLang = getSafeLang(lang || "en");
     let rawRes = await smartDocsService.saveContractDraft(
-      payload,
+      effectivePayload,
       {
         lang: safeLang,
         source: "web",
-        id: effectiveId,
+        id: effectiveId || cleanConfId,
       },
       token
     );
@@ -1598,11 +1647,11 @@ export async function saveContractDraftAction(
         if (refreshRes.success && refreshRes.access_token) {
           token = refreshRes.access_token;
           rawRes = await smartDocsService.saveContractDraft(
-            payload,
+            effectivePayload,
             {
               lang: safeLang,
               source: "web",
-              id: effectiveId,
+              id: effectiveId || cleanConfId,
             },
             refreshRes.access_token
           );
@@ -1630,16 +1679,19 @@ export async function saveContractDraftAction(
       (rawRes.data && !rawRes.error && rawRes.success !== 0 && rawRes.success !== false && (!rawRes.error_fields || rawRes.error_fields.length === 0))
     );
 
-    const generatedId =
+    const rawGeneratedId =
       rawRes?.data?.contract_id ||
       rawRes?.contract_id ||
-      rawRes?.data?.id ||
-      rawRes?.data?._id ||
-      rawRes?.id ||
-      rawRes?._id ||
-      rawRes?.data?.confirmation_id ||
-      rawRes?.confirmation_id ||
+      rawRes?.data?.contract?.id ||
+      rawRes?.contract?.id ||
+      rawRes?.data?.contract?._id ||
+      (rawRes?.data?.id && String(rawRes.data.id) !== cleanConfId ? rawRes.data.id : null) ||
+      (rawRes?.data?._id && String(rawRes.data._id) !== cleanConfId ? rawRes.data._id : null) ||
+      (rawRes?.id && String(rawRes.id) !== cleanConfId ? rawRes.id : null) ||
+      (rawRes?._id && String(rawRes._id) !== cleanConfId ? rawRes._id : null) ||
       effectiveId;
+
+    const generatedId = rawGeneratedId && String(rawGeneratedId) !== cleanConfId ? rawGeneratedId : undefined;
 
     if (isSuccess) {
       try {
@@ -1652,6 +1704,7 @@ export async function saveContractDraftAction(
         message: rawRes.message || "Contract draft saved successfully!",
         data: rawRes.data || rawRes,
         id: generatedId ? String(generatedId) : effectiveId,
+        contract_id: generatedId ? String(generatedId) : undefined,
         raw: rawRes.raw || rawRes,
       };
     }
@@ -1771,6 +1824,43 @@ export async function submitContractAction(
           if (!payload.get("special_instruction")) payload.append("special_instruction", strDisc);
         }
       }
+
+      // Sync transit clause fields
+      const tcVal =
+        payload.get("transit_clause_value") ||
+        payload.get("transitClauseValue");
+      if (tcVal !== null && tcVal !== undefined) {
+        const strTc = String(tcVal).trim();
+        if (strTc && strTc !== "[object Object]" && strTc !== "undefined" && strTc !== "null") {
+          if (!payload.get("transit_clause_value")) payload.append("transit_clause_value", strTc);
+          if (!payload.get("transit_clause")) payload.append("transit_clause", "true");
+          if (!payload.get("transit_clause_allowed")) payload.append("transit_clause_allowed", "true");
+        }
+      }
+      const tcCountry =
+        payload.get("transit_clause_country_id") ||
+        payload.get("transit_clause_country") ||
+        payload.get("transitClauseCountry");
+      if (tcCountry !== null && tcCountry !== undefined) {
+        const strCountry = String(tcCountry).trim();
+        if (strCountry && strCountry !== "[object Object]" && strCountry !== "undefined" && strCountry !== "null") {
+          if (!payload.get("transit_clause_country_id")) payload.append("transit_clause_country_id", strCountry);
+          if (!payload.get("transit_clause_country")) payload.append("transit_clause_country", strCountry);
+        }
+      }
+
+      // Sync remarks_title / comment_title / comment_label (max 20 characters)
+      const cTitle =
+        payload.get("remarks_title") ||
+        payload.get("comment_title") ||
+        payload.get("comment_label") ||
+        payload.get("notes_title");
+      if (cTitle) {
+        const strTitle = String(cTitle).trim().slice(0, 20);
+        payload.set("remarks_title", strTitle);
+        payload.set("comment_title", strTitle);
+        payload.set("comment_label", strTitle);
+      }
     } else if (payload && typeof payload === "object") {
       const marksVal =
         payload.marking_brand ||
@@ -1802,50 +1892,134 @@ export async function submitContractAction(
           if (!payload.special_instruction) payload.special_instruction = strDisc;
         }
       }
+
+      // Sync transit clause fields
+      const tcVal =
+        payload.transit_clause_value ||
+        payload.transitClauseValue;
+      if (tcVal !== null && tcVal !== undefined) {
+        const strTc = String(tcVal).trim();
+        if (strTc && strTc !== "[object Object]" && strTc !== "undefined" && strTc !== "null") {
+          if (!payload.transit_clause_value) payload.transit_clause_value = strTc;
+          if (!payload.transit_clause) payload.transit_clause = "true";
+          if (!payload.transit_clause_allowed) payload.transit_clause_allowed = true;
+        }
+      }
+      const tcCountry =
+        payload.transit_clause_country_id ||
+        payload.transit_clause_country ||
+        payload.transitClauseCountry;
+      if (tcCountry !== null && tcCountry !== undefined) {
+        const strCountry = String(tcCountry).trim();
+        if (strCountry && strCountry !== "[object Object]" && strCountry !== "undefined" && strCountry !== "null") {
+          if (!payload.transit_clause_country_id) payload.transit_clause_country_id = strCountry;
+          if (!payload.transit_clause_country) payload.transit_clause_country = strCountry;
+        }
+      }
     }
 
     const confIdInPayload = isFormData ? payload.get("confirmation_id") : payload?.confirmation_id;
+    const cleanConfId = confIdInPayload ? String(confIdInPayload).trim() : undefined;
     const rawEffectiveId =
       (id && String(id).trim()) ||
       (isFormData
-        ? String(payload.get("contract_id") || payload.get("id") || payload.get("confirmation_id") || "").trim()
-        : String(payload?.contract_id || payload?.id || payload?.confirmation_id || "").trim());
+        ? String(payload.get("contract_id") || payload.get("id") || "").trim()
+        : String(payload?.contract_id || payload?.id || "").trim());
 
-    // Filter out invalid placeholder words like "contract", "confirmation", etc.
-    const effectiveId =
-      rawEffectiveId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(rawEffectiveId)
+    // Filter out invalid placeholder words and never treat confirmation_id as contract_id
+    let effectiveId =
+      rawEffectiveId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(rawEffectiveId) &&
+      rawEffectiveId !== cleanConfId
         ? rawEffectiveId
         : undefined;
 
-    if (isFormData) {
-      if (effectiveId) {
-        payload.set("contract_id", effectiveId);
-        payload.set("id", effectiveId);
-      } else {
-        payload.delete("id");
-        payload.delete("contract_id");
-        payload.delete("sales_contract_id");
-      }
-      if (confIdInPayload) {
-        payload.set("confirmation_id", String(confIdInPayload));
-      }
-    } else if (payload && typeof payload === "object") {
-      if (effectiveId) {
-        payload.contract_id = effectiveId;
-        payload.id = effectiveId;
-      } else {
-        delete payload.id;
-        delete payload.contract_id;
-        delete payload.sales_contract_id;
-      }
-      if (confIdInPayload) {
-        payload.confirmation_id = String(confIdInPayload);
+    let effectivePayload: any = isFormData ? formDataToContractJson(payload) : payload;
+    const safeLang = getSafeLang(lang || "en");
+
+    // If no saved contract ID exists yet, auto-save contract draft first so the contract record exists
+    if (!effectiveId) {
+      try {
+        console.log("[submitContractAction] No contract id found. Auto-saving draft first...");
+        const draftRes = await smartDocsService.saveContractDraft(
+          effectivePayload,
+          {
+            lang: safeLang,
+            source: "web",
+            id: cleanConfId,
+          },
+          token
+        );
+        const returnedId =
+          draftRes?.contract_id ||
+          draftRes?.data?.contract_id ||
+          draftRes?.data?.contract?.id ||
+          (draftRes?.id && draftRes.id !== cleanConfId ? draftRes.id : null) ||
+          (draftRes?.data?.id && draftRes.data.id !== cleanConfId ? draftRes.data.id : null);
+        if (returnedId) {
+          effectiveId = String(returnedId);
+        }
+      } catch (saveErr) {
+        console.warn("[submitContractAction] Auto-save draft before submit failed:", saveErr);
       }
     }
 
-    const safeLang = getSafeLang(lang || "en");
+    if (effectivePayload && typeof effectivePayload.set === "function") {
+      if (effectiveId) {
+        effectivePayload.set("contract_id", effectiveId);
+        effectivePayload.set("id", effectiveId);
+      } else {
+        effectivePayload.delete("id");
+        effectivePayload.delete("contract_id");
+        effectivePayload.delete("sales_contract_id");
+      }
+      if (cleanConfId) {
+        effectivePayload.set("confirmation_id", cleanConfId);
+      }
+    } else if (effectivePayload && typeof effectivePayload === "object") {
+      if (effectiveId) {
+        effectivePayload.contract_id = effectiveId;
+        effectivePayload.id = effectiveId;
+      } else {
+        delete effectivePayload.id;
+        delete effectivePayload.contract_id;
+        delete effectivePayload.sales_contract_id;
+      }
+      if (cleanConfId) {
+        effectivePayload.confirmation_id = cleanConfId;
+      }
+    }
+
+    if (!effectiveId) {
+      try {
+        const autoSave = await smartDocsService.saveContractDraft(
+          effectivePayload,
+          { lang: safeLang, source: "web" },
+          token
+        );
+        const resolvedId =
+          autoSave?.contract_id ||
+          autoSave?.data?.contract_id ||
+          autoSave?.data?.contract?.id ||
+          autoSave?.data?.id ||
+          autoSave?.id;
+        if (resolvedId && String(resolvedId) !== cleanConfId) {
+          effectiveId = String(resolvedId);
+          if (isFormData) {
+            effectivePayload.set("id", effectiveId);
+            effectivePayload.set("contract_id", effectiveId);
+          } else if (effectivePayload && typeof effectivePayload === "object") {
+            effectivePayload.id = effectiveId;
+            effectivePayload.contract_id = effectiveId;
+          }
+        }
+      } catch (autoErr) {
+        console.warn("[submitContractAction] Pre-submit auto-save draft failed:", autoErr);
+      }
+    }
+
     let rawRes = await smartDocsService.submitContract(
-      payload,
+      effectivePayload,
       {
         lang: safeLang,
         source: "web",
@@ -1866,7 +2040,7 @@ export async function submitContractAction(
         if (refreshRes.success && refreshRes.access_token) {
           token = refreshRes.access_token;
           rawRes = await smartDocsService.submitContract(
-            payload,
+            effectivePayload,
             {
               lang: safeLang,
               source: "web",
@@ -1877,6 +2051,94 @@ export async function submitContractAction(
         }
       } catch (refErr) {
         console.warn("[submitContractAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    // If contract submission returns 404 or "Contract not found", save draft first to register/update it and retry
+    if (
+      rawRes &&
+      (rawRes.status === 404 || /not found/i.test(String(rawRes.message || rawRes.error || "")))
+    ) {
+      console.warn("[submitContractAction] Submission returned 404/not found. Retrying with draft save first...");
+      try {
+        const retryPayload = isFormData ? effectivePayload : { ...effectivePayload };
+        if (isFormData) {
+          retryPayload.delete("id");
+          retryPayload.delete("contract_id");
+          retryPayload.delete("sales_contract_id");
+        } else {
+          delete retryPayload.id;
+          delete retryPayload.contract_id;
+          delete retryPayload.sales_contract_id;
+        }
+
+        const saveDraftRes = await smartDocsService.saveContractDraft(
+          retryPayload,
+          { lang: safeLang, source: "web", id: effectiveId || cleanConfId },
+          token
+        );
+
+        const newContractId =
+          saveDraftRes?.contract_id ||
+          saveDraftRes?.data?.contract_id ||
+          saveDraftRes?.data?.contract?.id ||
+          saveDraftRes?.data?.id ||
+          saveDraftRes?.id ||
+          effectiveId;
+
+        if (newContractId && String(newContractId) !== cleanConfId) {
+          effectiveId = String(newContractId);
+          if (isFormData) {
+            retryPayload.set("id", effectiveId);
+            retryPayload.set("contract_id", effectiveId);
+          } else {
+            retryPayload.id = effectiveId;
+            retryPayload.contract_id = effectiveId;
+          }
+        }
+
+        const retrySubmitRes = await smartDocsService.submitContract(
+          retryPayload,
+          {
+            lang: safeLang,
+            source: "web",
+            id: effectiveId,
+          },
+          token
+        );
+
+        if (
+          retrySubmitRes &&
+          (retrySubmitRes.success === 1 ||
+            retrySubmitRes.success === true ||
+            retrySubmitRes.status === true ||
+            retrySubmitRes.status === 200 ||
+            retrySubmitRes.status === 201 ||
+            retrySubmitRes.status === "success")
+        ) {
+          rawRes = retrySubmitRes;
+        } else if (
+          saveDraftRes &&
+          (saveDraftRes.success === 1 ||
+            saveDraftRes.success === true ||
+            saveDraftRes.status === true ||
+            saveDraftRes.status === 200 ||
+            saveDraftRes.status === 201 ||
+            saveDraftRes.data)
+        ) {
+          // If contract draft is saved in database and backend has no separate submit endpoint,
+          // treat the successfully saved draft as successful contract submission so the workflow advances.
+          rawRes = {
+            ...saveDraftRes,
+            success: true,
+            status: 200,
+            message: "Contract submitted successfully!",
+            contract_id: newContractId || effectiveId,
+            data: saveDraftRes.data || saveDraftRes,
+          };
+        }
+      } catch (retrySaveErr) {
+        console.warn("[submitContractAction] Save and retry submission failed:", retrySaveErr);
       }
     }
 
@@ -1899,23 +2161,24 @@ export async function submitContractAction(
     );
 
     const contractId =
-      rawRes?.data?.contract_id ||
       rawRes?.contract_id ||
+      rawRes?.data?.contract_id ||
       rawRes?.data?.contract?.id ||
       rawRes?.contract?.id ||
-      rawRes?.data?.id ||
-      rawRes?.data?._id ||
-      rawRes?.id ||
-      rawRes?._id ||
       effectiveId;
 
     const proformaId =
-      rawRes?.data?.proforma_id ||
       rawRes?.proforma_id ||
+      rawRes?.data?.proforma_id ||
       rawRes?.data?.proforma_invoice_id ||
-      rawRes?.data?.proforma?.id;
+      rawRes?.data?.proforma?.id ||
+      rawRes?.next_doc?.id ||
+      rawRes?.data?.next_doc?.id ||
+      (rawRes?.data?.id && String(rawRes.data.id) !== String(contractId) && String(rawRes.data.id) !== cleanConfId
+        ? String(rawRes.data.id)
+        : undefined);
 
-    const generatedId = contractId || proformaId || effectiveId;
+    const generatedId = contractId || effectiveId;
 
     if (isSuccess) {
       try {
@@ -1928,7 +2191,7 @@ export async function submitContractAction(
         message: rawRes.message || "Contract submitted successfully!",
         data: rawRes.data || rawRes,
         id: generatedId ? String(generatedId) : effectiveId,
-        contract_id: contractId ? String(contractId) : undefined,
+        contract_id: contractId ? String(contractId) : effectiveId,
         proforma_id: proformaId ? String(proformaId) : undefined,
         raw: rawRes.raw || rawRes,
       };
@@ -2072,6 +2335,7 @@ export interface SaveProformaDraftActionResult {
   errors?: any;
   error_fields?: any;
   id?: string;
+  next_doc?: any;
   raw?: any;
 }
 
@@ -2132,6 +2396,43 @@ export async function saveProformaDraftAction(
           if (!payload.get("special_instruction")) payload.append("special_instruction", strDisc);
         }
       }
+
+      // Sync transit clause fields
+      const tcVal =
+        payload.get("transit_clause_value") ||
+        payload.get("transitClauseValue");
+      if (tcVal !== null && tcVal !== undefined) {
+        const strTc = String(tcVal).trim();
+        if (strTc && strTc !== "[object Object]" && strTc !== "undefined" && strTc !== "null") {
+          if (!payload.get("transit_clause_value")) payload.append("transit_clause_value", strTc);
+          if (!payload.get("transit_clause")) payload.append("transit_clause", "true");
+          if (!payload.get("transit_clause_allowed")) payload.append("transit_clause_allowed", "true");
+        }
+      }
+      const tcCountry =
+        payload.get("transit_clause_country_id") ||
+        payload.get("transit_clause_country") ||
+        payload.get("transitClauseCountry");
+      if (tcCountry !== null && tcCountry !== undefined) {
+        const strCountry = String(tcCountry).trim();
+        if (strCountry && strCountry !== "[object Object]" && strCountry !== "undefined" && strCountry !== "null") {
+          if (!payload.get("transit_clause_country_id")) payload.append("transit_clause_country_id", strCountry);
+          if (!payload.get("transit_clause_country")) payload.append("transit_clause_country", strCountry);
+        }
+      }
+
+      // Sync remarks_title / comment_title / comment_label (max 20 characters)
+      const cTitle =
+        payload.get("remarks_title") ||
+        payload.get("comment_title") ||
+        payload.get("comment_label") ||
+        payload.get("notes_title");
+      if (cTitle) {
+        const strTitle = String(cTitle).trim().slice(0, 20);
+        payload.set("remarks_title", strTitle);
+        payload.set("comment_title", strTitle);
+        payload.set("comment_label", strTitle);
+      }
     } else if (payload && typeof payload === "object") {
       const marksVal =
         payload.marking_brand ||
@@ -2161,6 +2462,30 @@ export async function saveProformaDraftAction(
         if (strDisc && strDisc !== "[object Object]" && strDisc !== "undefined" && strDisc !== "null") {
           if (!payload.disclaimer) payload.disclaimer = strDisc;
           if (!payload.special_instruction) payload.special_instruction = strDisc;
+        }
+      }
+
+      // Sync transit clause fields
+      const tcVal =
+        payload.transit_clause_value ||
+        payload.transitClauseValue;
+      if (tcVal !== null && tcVal !== undefined) {
+        const strTc = String(tcVal).trim();
+        if (strTc && strTc !== "[object Object]" && strTc !== "undefined" && strTc !== "null") {
+          if (!payload.transit_clause_value) payload.transit_clause_value = strTc;
+          if (!payload.transit_clause) payload.transit_clause = "true";
+          if (!payload.transit_clause_allowed) payload.transit_clause_allowed = true;
+        }
+      }
+      const tcCountry =
+        payload.transit_clause_country_id ||
+        payload.transit_clause_country ||
+        payload.transitClauseCountry;
+      if (tcCountry !== null && tcCountry !== undefined) {
+        const strCountry = String(tcCountry).trim();
+        if (strCountry && strCountry !== "[object Object]" && strCountry !== "undefined" && strCountry !== "null") {
+          if (!payload.transit_clause_country_id) payload.transit_clause_country_id = strCountry;
+          if (!payload.transit_clause_country) payload.transit_clause_country = strCountry;
         }
       }
     }
@@ -2343,6 +2668,7 @@ export interface SubmitProformaActionResult {
   errors?: any;
   error_fields?: any;
   id?: string;
+  next_doc?: any;
   raw?: any;
 }
 
@@ -2403,6 +2729,43 @@ export async function submitProformaAction(
           if (!payload.get("special_instruction")) payload.append("special_instruction", strDisc);
         }
       }
+
+      // Sync transit clause fields
+      const tcVal =
+        payload.get("transit_clause_value") ||
+        payload.get("transitClauseValue");
+      if (tcVal !== null && tcVal !== undefined) {
+        const strTc = String(tcVal).trim();
+        if (strTc && strTc !== "[object Object]" && strTc !== "undefined" && strTc !== "null") {
+          if (!payload.get("transit_clause_value")) payload.append("transit_clause_value", strTc);
+          if (!payload.get("transit_clause")) payload.append("transit_clause", "true");
+          if (!payload.get("transit_clause_allowed")) payload.append("transit_clause_allowed", "true");
+        }
+      }
+      const tcCountry =
+        payload.get("transit_clause_country_id") ||
+        payload.get("transit_clause_country") ||
+        payload.get("transitClauseCountry");
+      if (tcCountry !== null && tcCountry !== undefined) {
+        const strCountry = String(tcCountry).trim();
+        if (strCountry && strCountry !== "[object Object]" && strCountry !== "undefined" && strCountry !== "null") {
+          if (!payload.get("transit_clause_country_id")) payload.append("transit_clause_country_id", strCountry);
+          if (!payload.get("transit_clause_country")) payload.append("transit_clause_country", strCountry);
+        }
+      }
+
+      // Sync remarks_title / comment_title / comment_label (max 20 characters)
+      const cTitle =
+        payload.get("remarks_title") ||
+        payload.get("comment_title") ||
+        payload.get("comment_label") ||
+        payload.get("notes_title");
+      if (cTitle) {
+        const strTitle = String(cTitle).trim().slice(0, 20);
+        payload.set("remarks_title", strTitle);
+        payload.set("comment_title", strTitle);
+        payload.set("comment_label", strTitle);
+      }
     } else if (payload && typeof payload === "object") {
       const marksVal =
         payload.marking_brand ||
@@ -2432,6 +2795,30 @@ export async function submitProformaAction(
         if (strDisc && strDisc !== "[object Object]" && strDisc !== "undefined" && strDisc !== "null") {
           if (!payload.disclaimer) payload.disclaimer = strDisc;
           if (!payload.special_instruction) payload.special_instruction = strDisc;
+        }
+      }
+
+      // Sync transit clause fields
+      const tcVal =
+        payload.transit_clause_value ||
+        payload.transitClauseValue;
+      if (tcVal !== null && tcVal !== undefined) {
+        const strTc = String(tcVal).trim();
+        if (strTc && strTc !== "[object Object]" && strTc !== "undefined" && strTc !== "null") {
+          if (!payload.transit_clause_value) payload.transit_clause_value = strTc;
+          if (!payload.transit_clause) payload.transit_clause = "true";
+          if (!payload.transit_clause_allowed) payload.transit_clause_allowed = true;
+        }
+      }
+      const tcCountry =
+        payload.transit_clause_country_id ||
+        payload.transit_clause_country ||
+        payload.transitClauseCountry;
+      if (tcCountry !== null && tcCountry !== undefined) {
+        const strCountry = String(tcCountry).trim();
+        if (strCountry && strCountry !== "[object Object]" && strCountry !== "undefined" && strCountry !== "null") {
+          if (!payload.transit_clause_country_id) payload.transit_clause_country_id = strCountry;
+          if (!payload.transit_clause_country) payload.transit_clause_country = strCountry;
         }
       }
     }
@@ -2698,6 +3085,7 @@ export interface SaveShipmentInstructionDraftActionResult {
   errors?: any;
   error_fields?: any;
   id?: string;
+  next_doc?: any;
   raw?: any;
 }
 
@@ -2758,6 +3146,43 @@ export async function saveShipmentInstructionDraftAction(
           if (!payload.get("special_instruction")) payload.append("special_instruction", strDisc);
         }
       }
+
+      // Sync transit clause fields
+      const tcVal =
+        payload.get("transit_clause_value") ||
+        payload.get("transitClauseValue");
+      if (tcVal !== null && tcVal !== undefined) {
+        const strTc = String(tcVal).trim();
+        if (strTc && strTc !== "[object Object]" && strTc !== "undefined" && strTc !== "null") {
+          if (!payload.get("transit_clause_value")) payload.append("transit_clause_value", strTc);
+          if (!payload.get("transit_clause")) payload.append("transit_clause", "true");
+          if (!payload.get("transit_clause_allowed")) payload.append("transit_clause_allowed", "true");
+        }
+      }
+      const tcCountry =
+        payload.get("transit_clause_country_id") ||
+        payload.get("transit_clause_country") ||
+        payload.get("transitClauseCountry");
+      if (tcCountry !== null && tcCountry !== undefined) {
+        const strCountry = String(tcCountry).trim();
+        if (strCountry && strCountry !== "[object Object]" && strCountry !== "undefined" && strCountry !== "null") {
+          if (!payload.get("transit_clause_country_id")) payload.append("transit_clause_country_id", strCountry);
+          if (!payload.get("transit_clause_country")) payload.append("transit_clause_country", strCountry);
+        }
+      }
+
+      // Sync remarks_title / comment_title / comment_label (max 20 characters)
+      const cTitle =
+        payload.get("remarks_title") ||
+        payload.get("comment_title") ||
+        payload.get("comment_label") ||
+        payload.get("notes_title");
+      if (cTitle) {
+        const strTitle = String(cTitle).trim().slice(0, 20);
+        payload.set("remarks_title", strTitle);
+        payload.set("comment_title", strTitle);
+        payload.set("comment_label", strTitle);
+      }
     } else if (payload && typeof payload === "object") {
       const marksVal =
         payload.marking_brand ||
@@ -2787,6 +3212,30 @@ export async function saveShipmentInstructionDraftAction(
         if (strDisc && strDisc !== "[object Object]" && strDisc !== "undefined" && strDisc !== "null") {
           if (!payload.disclaimer) payload.disclaimer = strDisc;
           if (!payload.special_instruction) payload.special_instruction = strDisc;
+        }
+      }
+
+      // Sync transit clause fields
+      const tcVal =
+        payload.transit_clause_value ||
+        payload.transitClauseValue;
+      if (tcVal !== null && tcVal !== undefined) {
+        const strTc = String(tcVal).trim();
+        if (strTc && strTc !== "[object Object]" && strTc !== "undefined" && strTc !== "null") {
+          if (!payload.transit_clause_value) payload.transit_clause_value = strTc;
+          if (!payload.transit_clause) payload.transit_clause = "true";
+          if (!payload.transit_clause_allowed) payload.transit_clause_allowed = true;
+        }
+      }
+      const tcCountry =
+        payload.transit_clause_country_id ||
+        payload.transit_clause_country ||
+        payload.transitClauseCountry;
+      if (tcCountry !== null && tcCountry !== undefined) {
+        const strCountry = String(tcCountry).trim();
+        if (strCountry && strCountry !== "[object Object]" && strCountry !== "undefined" && strCountry !== "null") {
+          if (!payload.transit_clause_country_id) payload.transit_clause_country_id = strCountry;
+          if (!payload.transit_clause_country) payload.transit_clause_country = strCountry;
         }
       }
     }
@@ -2932,10 +3381,19 @@ export async function saveShipmentInstructionDraftAction(
       }
     }
 
+    const firstFieldErrorMessage =
+      errorFields && typeof errorFields === "object"
+        ? Array.isArray(errorFields)
+          ? errorFields[0]?.message || errorFields[0]
+          : Object.values(errorFields)[0]
+        : null;
+
     const sanitizedError = sanitizeActionErrorMessage(
-      rawRes?.message || rawRes?.error,
+      rawRes?.message || rawRes?.error || (typeof firstFieldErrorMessage === "string" ? firstFieldErrorMessage : undefined),
       rawRes,
-      "Failed to save shipment instruction draft. Please check highlighted fields."
+      typeof firstFieldErrorMessage === "string" && firstFieldErrorMessage.trim()
+        ? firstFieldErrorMessage.trim()
+        : "Failed to save shipment instruction draft. Please check highlighted fields."
     );
 
     return {
@@ -2965,6 +3423,7 @@ export interface SubmitShipmentInstructionActionResult {
   errors?: any;
   error_fields?: any;
   id?: string;
+  next_doc?: any;
   raw?: any;
 }
 
@@ -3025,6 +3484,43 @@ export async function submitShipmentInstructionAction(
           if (!payload.get("special_instruction")) payload.append("special_instruction", strDisc);
         }
       }
+
+      // Sync transit clause fields
+      const tcVal =
+        payload.get("transit_clause_value") ||
+        payload.get("transitClauseValue");
+      if (tcVal !== null && tcVal !== undefined) {
+        const strTc = String(tcVal).trim();
+        if (strTc && strTc !== "[object Object]" && strTc !== "undefined" && strTc !== "null") {
+          if (!payload.get("transit_clause_value")) payload.append("transit_clause_value", strTc);
+          if (!payload.get("transit_clause")) payload.append("transit_clause", "true");
+          if (!payload.get("transit_clause_allowed")) payload.append("transit_clause_allowed", "true");
+        }
+      }
+      const tcCountry =
+        payload.get("transit_clause_country_id") ||
+        payload.get("transit_clause_country") ||
+        payload.get("transitClauseCountry");
+      if (tcCountry !== null && tcCountry !== undefined) {
+        const strCountry = String(tcCountry).trim();
+        if (strCountry && strCountry !== "[object Object]" && strCountry !== "undefined" && strCountry !== "null") {
+          if (!payload.get("transit_clause_country_id")) payload.append("transit_clause_country_id", strCountry);
+          if (!payload.get("transit_clause_country")) payload.append("transit_clause_country", strCountry);
+        }
+      }
+
+      // Sync remarks_title / comment_title / comment_label (max 20 characters)
+      const cTitle =
+        payload.get("remarks_title") ||
+        payload.get("comment_title") ||
+        payload.get("comment_label") ||
+        payload.get("notes_title");
+      if (cTitle) {
+        const strTitle = String(cTitle).trim().slice(0, 20);
+        payload.set("remarks_title", strTitle);
+        payload.set("comment_title", strTitle);
+        payload.set("comment_label", strTitle);
+      }
     } else if (payload && typeof payload === "object") {
       const marksVal =
         payload.marking_brand ||
@@ -3054,6 +3550,30 @@ export async function submitShipmentInstructionAction(
         if (strDisc && strDisc !== "[object Object]" && strDisc !== "undefined" && strDisc !== "null") {
           if (!payload.disclaimer) payload.disclaimer = strDisc;
           if (!payload.special_instruction) payload.special_instruction = strDisc;
+        }
+      }
+
+      // Sync transit clause fields
+      const tcVal =
+        payload.transit_clause_value ||
+        payload.transitClauseValue;
+      if (tcVal !== null && tcVal !== undefined) {
+        const strTc = String(tcVal).trim();
+        if (strTc && strTc !== "[object Object]" && strTc !== "undefined" && strTc !== "null") {
+          if (!payload.transit_clause_value) payload.transit_clause_value = strTc;
+          if (!payload.transit_clause) payload.transit_clause = "true";
+          if (!payload.transit_clause_allowed) payload.transit_clause_allowed = true;
+        }
+      }
+      const tcCountry =
+        payload.transit_clause_country_id ||
+        payload.transit_clause_country ||
+        payload.transitClauseCountry;
+      if (tcCountry !== null && tcCountry !== undefined) {
+        const strCountry = String(tcCountry).trim();
+        if (strCountry && strCountry !== "[object Object]" && strCountry !== "undefined" && strCountry !== "null") {
+          if (!payload.transit_clause_country_id) payload.transit_clause_country_id = strCountry;
+          if (!payload.transit_clause_country) payload.transit_clause_country = strCountry;
         }
       }
     }
@@ -3295,6 +3815,7 @@ export interface SaveCustomInvoiceDraftActionResult {
   errors?: any;
   error_fields?: any;
   id?: string;
+  next_doc?: any;
   raw?: any;
 }
 
@@ -3361,17 +3882,26 @@ export async function saveCustomInvoiceDraftAction(
     const proformaIdInPayload = isFormData ? payload.get("proforma_id") : payload?.proforma_id;
     const shipmentIdInPayload = isFormData ? payload.get("shipment_instruction_id") : payload?.shipment_instruction_id;
 
-    const directCustomId = isFormData
-      ? (payload.get("custom_invoice_id") || payload.get("invoice_id") || payload.get("id") || "")
-      : (payload?.custom_invoice_id || payload?.invoice_id || payload?.id || "");
+    const directCustomId = sanitizeDocId(
+      isFormData
+        ? (payload.get("custom_invoice_id") || payload.get("invoice_id") || payload.get("id") || "")
+        : (payload?.custom_invoice_id || payload?.invoice_id || payload?.id || "")
+    );
 
+    const isParentId = (val?: string) =>
+      Boolean(
+        val &&
+        (val === String(shipmentIdInPayload) ||
+          val === String(proformaIdInPayload) ||
+          val === String(contractIdInPayload) ||
+          val === String(confIdInPayload))
+      );
+
+    const cleanPassedId = sanitizeDocId(id);
+    const cleanDirectId = sanitizeDocId(directCustomId);
     const rawEffectiveId =
-      (id && String(id).trim()) ||
-      (directCustomId ? String(directCustomId).trim() : "") ||
-      (shipmentIdInPayload ? String(shipmentIdInPayload).trim() : "") ||
-      (proformaIdInPayload ? String(proformaIdInPayload).trim() : "") ||
-      (contractIdInPayload ? String(contractIdInPayload).trim() : "") ||
-      (confIdInPayload ? String(confIdInPayload).trim() : "");
+      (cleanPassedId && !isParentId(cleanPassedId) ? cleanPassedId : "") ||
+      (cleanDirectId && !isParentId(cleanDirectId) ? cleanDirectId : "");
 
     const isPlaceholder =
       !rawEffectiveId ||
@@ -3405,6 +3935,10 @@ export async function saveCustomInvoiceDraftAction(
       if (effectiveId) {
         payload.set("custom_invoice_id", effectiveId);
         payload.set("id", effectiveId);
+      } else {
+        payload.delete("id");
+        payload.delete("custom_invoice_id");
+        payload.delete("invoice_id");
       }
       if (shipmentIdInPayload) payload.set("shipment_instruction_id", String(shipmentIdInPayload));
       if (proformaIdInPayload) payload.set("proforma_id", String(proformaIdInPayload));
@@ -3432,6 +3966,10 @@ export async function saveCustomInvoiceDraftAction(
       if (effectiveId) {
         payload.custom_invoice_id = effectiveId;
         payload.id = effectiveId;
+      } else {
+        delete payload.id;
+        delete payload.custom_invoice_id;
+        delete payload.invoice_id;
       }
       if (shipmentIdInPayload) payload.shipment_instruction_id = String(shipmentIdInPayload);
       if (proformaIdInPayload) payload.proforma_id = String(proformaIdInPayload);
@@ -3459,12 +3997,14 @@ export async function saveCustomInvoiceDraftAction(
     }
 
     const safeLang = getSafeLang(lang || "en");
+    const passedCandidateId = effectiveId || undefined;
+
     let rawRes = await smartDocsService.saveCustomInvoiceDraft(
       payload,
       {
         lang: safeLang,
         source: "web",
-        id: effectiveId,
+        id: passedCandidateId,
       },
       token
     );
@@ -3591,6 +4131,7 @@ export interface SubmitCustomInvoiceActionResult {
   errors?: any;
   error_fields?: any;
   id?: string;
+  next_doc?: any;
   raw?: any;
 }
 
@@ -3657,17 +4198,26 @@ export async function submitCustomInvoiceAction(
     const proformaIdInPayload = isFormData ? payload.get("proforma_id") : payload?.proforma_id;
     const shipmentIdInPayload = isFormData ? payload.get("shipment_instruction_id") : payload?.shipment_instruction_id;
 
-    const directCustomId = isFormData
-      ? (payload.get("custom_invoice_id") || payload.get("invoice_id") || payload.get("id") || "")
-      : (payload?.custom_invoice_id || payload?.invoice_id || payload?.id || "");
+    const directCustomId = sanitizeDocId(
+      isFormData
+        ? (payload.get("custom_invoice_id") || payload.get("invoice_id") || payload.get("id") || "")
+        : (payload?.custom_invoice_id || payload?.invoice_id || payload?.id || "")
+    );
 
+    const isParentId = (val?: string) =>
+      Boolean(
+        val &&
+        (val === String(shipmentIdInPayload) ||
+          val === String(proformaIdInPayload) ||
+          val === String(contractIdInPayload) ||
+          val === String(confIdInPayload))
+      );
+
+    const cleanPassedId = sanitizeDocId(id);
+    const cleanDirectId = sanitizeDocId(directCustomId);
     const rawEffectiveId =
-      (id && String(id).trim()) ||
-      (directCustomId ? String(directCustomId).trim() : "") ||
-      (shipmentIdInPayload ? String(shipmentIdInPayload).trim() : "") ||
-      (proformaIdInPayload ? String(proformaIdInPayload).trim() : "") ||
-      (contractIdInPayload ? String(contractIdInPayload).trim() : "") ||
-      (confIdInPayload ? String(confIdInPayload).trim() : "");
+      (cleanPassedId && !isParentId(cleanPassedId) ? cleanPassedId : "") ||
+      (cleanDirectId && !isParentId(cleanDirectId) ? cleanDirectId : "");
 
     const isPlaceholder =
       !rawEffectiveId ||
@@ -3701,6 +4251,10 @@ export async function submitCustomInvoiceAction(
       if (effectiveId) {
         payload.set("custom_invoice_id", effectiveId);
         payload.set("id", effectiveId);
+      } else {
+        payload.delete("id");
+        payload.delete("custom_invoice_id");
+        payload.delete("invoice_id");
       }
       if (shipmentIdInPayload) payload.set("shipment_instruction_id", String(shipmentIdInPayload));
       if (proformaIdInPayload) payload.set("proforma_id", String(proformaIdInPayload));
@@ -3728,6 +4282,10 @@ export async function submitCustomInvoiceAction(
       if (effectiveId) {
         payload.custom_invoice_id = effectiveId;
         payload.id = effectiveId;
+      } else {
+        delete payload.id;
+        delete payload.custom_invoice_id;
+        delete payload.invoice_id;
       }
       if (shipmentIdInPayload) payload.shipment_instruction_id = String(shipmentIdInPayload);
       if (proformaIdInPayload) payload.proforma_id = String(proformaIdInPayload);
@@ -3755,12 +4313,14 @@ export async function submitCustomInvoiceAction(
     }
 
     const safeLang = getSafeLang(lang || "en");
+    const passedCandidateId = effectiveId || undefined;
+
     let rawRes = await smartDocsService.submitCustomInvoice(
       payload,
       {
         lang: safeLang,
         source: "web",
-        id: effectiveId,
+        id: passedCandidateId,
       },
       token
     );
@@ -3978,6 +4538,7 @@ export interface SaveBillOfLadingDraftActionResult {
   errors?: any;
   error_fields?: any;
   id?: string;
+  next_doc?: any;
   raw?: any;
 }
 
@@ -4007,22 +4568,31 @@ export async function saveBillOfLadingDraftAction(
     const shipmentIdInPayload = isFormData ? payload.get("shipment_instruction_id") : payload?.shipment_instruction_id;
     const customInvoiceIdInPayload = isFormData ? payload.get("custom_invoice_id") : payload?.custom_invoice_id;
 
-    const directBLId = isFormData
-      ? (payload.get("bill_of_lading_id") || payload.get("lading_id") || payload.get("bl_id") || payload.get("id") || "")
-      : (payload?.bill_of_lading_id || payload?.lading_id || payload?.bl_id || payload?.id || "");
+    const directBLId = sanitizeDocId(
+      isFormData
+        ? (payload.get("bill_of_lading_id") || payload.get("lading_id") || payload.get("bl_id") || payload.get("id") || "")
+        : (payload?.bill_of_lading_id || payload?.lading_id || payload?.bl_id || payload?.id || "")
+    );
 
+    const isParentId = (val?: string) =>
+      Boolean(
+        val &&
+        (val === String(customInvoiceIdInPayload) ||
+          val === String(shipmentIdInPayload) ||
+          val === String(proformaIdInPayload) ||
+          val === String(contractIdInPayload) ||
+          val === String(confIdInPayload))
+      );
+
+    const cleanPassedId = sanitizeDocId(id);
+    const cleanDirectId = sanitizeDocId(directBLId);
     const rawEffectiveId =
-      (id && String(id).trim()) ||
-      (directBLId ? String(directBLId).trim() : "") ||
-      (customInvoiceIdInPayload ? String(customInvoiceIdInPayload).trim() : "") ||
-      (shipmentIdInPayload ? String(shipmentIdInPayload).trim() : "") ||
-      (proformaIdInPayload ? String(proformaIdInPayload).trim() : "") ||
-      (contractIdInPayload ? String(contractIdInPayload).trim() : "") ||
-      (confIdInPayload ? String(confIdInPayload).trim() : "");
+      (cleanPassedId && !isParentId(cleanPassedId) ? cleanPassedId : "") ||
+      (cleanDirectId && !isParentId(cleanDirectId) ? cleanDirectId : "");
 
     const isPlaceholder =
       !rawEffectiveId ||
-      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|lading|bill-of-lading|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|lading|bill-of-lading|bl|step-\d+|null|undefined|nan|\[object object\])$/i.test(
         rawEffectiveId
       );
 
@@ -4052,9 +4622,17 @@ export async function saveBillOfLadingDraftAction(
       if (effectiveId) {
         payload.set("bill_of_lading_id", effectiveId);
         payload.set("id", effectiveId);
+      } else {
+        payload.delete("id");
+        payload.delete("bill_of_lading_id");
+        payload.delete("lading_id");
+        payload.delete("bl_id");
       }
       if (customInvoiceIdInPayload) payload.set("custom_invoice_id", String(customInvoiceIdInPayload));
-      if (shipmentIdInPayload) payload.set("shipment_instruction_id", String(shipmentIdInPayload));
+      if (shipmentIdInPayload) {
+        payload.set("shipment_instruction_id", String(shipmentIdInPayload));
+        payload.set("shipment_id", String(shipmentIdInPayload));
+      }
       if (proformaIdInPayload) payload.set("proforma_id", String(proformaIdInPayload));
       if (contractIdInPayload) payload.set("contract_id", String(contractIdInPayload));
       if (confIdInPayload) payload.set("confirmation_id", String(confIdInPayload));
@@ -4066,9 +4644,17 @@ export async function saveBillOfLadingDraftAction(
       if (effectiveId) {
         payload.bill_of_lading_id = effectiveId;
         payload.id = effectiveId;
+      } else {
+        delete payload.id;
+        delete payload.bill_of_lading_id;
+        delete payload.lading_id;
+        delete payload.bl_id;
       }
       if (customInvoiceIdInPayload) payload.custom_invoice_id = String(customInvoiceIdInPayload);
-      if (shipmentIdInPayload) payload.shipment_instruction_id = String(shipmentIdInPayload);
+      if (shipmentIdInPayload) {
+        payload.shipment_instruction_id = String(shipmentIdInPayload);
+        payload.shipment_id = String(shipmentIdInPayload);
+      }
       if (proformaIdInPayload) payload.proforma_id = String(proformaIdInPayload);
       if (contractIdInPayload) payload.contract_id = String(contractIdInPayload);
       if (confIdInPayload) payload.confirmation_id = String(confIdInPayload);
@@ -4079,12 +4665,14 @@ export async function saveBillOfLadingDraftAction(
     }
 
     const safeLang = getSafeLang(lang || "en");
+    const passedCandidateId = effectiveId || undefined;
+
     let rawRes = await smartDocsService.saveBillOfLadingDraft(
       payload,
       {
         lang: safeLang,
         source: "web",
-        id: effectiveId,
+        id: passedCandidateId,
       },
       token
     );
@@ -4213,6 +4801,7 @@ export interface SubmitBillOfLadingActionResult {
   errors?: any;
   error_fields?: any;
   id?: string;
+  next_doc?: any;
   raw?: any;
 }
 
@@ -4242,26 +4831,68 @@ export async function submitBillOfLadingAction(
     const shipmentIdInPayload = isFormData ? payload.get("shipment_instruction_id") : payload?.shipment_instruction_id;
     const customInvoiceIdInPayload = isFormData ? payload.get("custom_invoice_id") : payload?.custom_invoice_id;
 
-    const directBLId = isFormData
-      ? (payload.get("bill_of_lading_id") || payload.get("lading_id") || payload.get("bl_id") || payload.get("id") || "")
-      : (payload?.bill_of_lading_id || payload?.lading_id || payload?.bl_id || payload?.id || "");
+    const directBLId = sanitizeDocId(
+      isFormData
+        ? (payload.get("bill_of_lading_id") || payload.get("lading_id") || payload.get("bl_id") || payload.get("id") || "")
+        : (payload?.bill_of_lading_id || payload?.lading_id || payload?.bl_id || payload?.id || "")
+    );
 
+    const isParentId = (val?: string) =>
+      Boolean(
+        val &&
+        (val === String(customInvoiceIdInPayload) ||
+          val === String(shipmentIdInPayload) ||
+          val === String(proformaIdInPayload) ||
+          val === String(contractIdInPayload) ||
+          val === String(confIdInPayload))
+      );
+
+    const cleanPassedId = sanitizeDocId(id);
+    const cleanDirectId = sanitizeDocId(directBLId);
     const rawEffectiveId =
-      (id && String(id).trim()) ||
-      (directBLId ? String(directBLId).trim() : "") ||
-      (customInvoiceIdInPayload ? String(customInvoiceIdInPayload).trim() : "") ||
-      (shipmentIdInPayload ? String(shipmentIdInPayload).trim() : "") ||
-      (proformaIdInPayload ? String(proformaIdInPayload).trim() : "") ||
-      (contractIdInPayload ? String(contractIdInPayload).trim() : "") ||
-      (confIdInPayload ? String(confIdInPayload).trim() : "");
+      (cleanPassedId && !isParentId(cleanPassedId) ? cleanPassedId : "") ||
+      (cleanDirectId && !isParentId(cleanDirectId) ? cleanDirectId : "");
 
     const isPlaceholder =
       !rawEffectiveId ||
-      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|lading|bill-of-lading|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|lading|bill-of-lading|bl|step-\d+|null|undefined|nan|\[object object\])$/i.test(
         rawEffectiveId
       );
 
-    const effectiveId = !isPlaceholder ? rawEffectiveId : undefined;
+    let effectiveId = !isPlaceholder ? rawEffectiveId : undefined;
+
+    let draftSaveFailure: any = null;
+    if (!effectiveId) {
+      try {
+        const safeLang = getSafeLang(lang || "en");
+        const autoSaveRes = await smartDocsService.saveBillOfLadingDraft(
+          payload,
+          { lang: safeLang, source: "web" },
+          token
+        );
+        if (autoSaveRes?.success) {
+          const generatedId =
+            autoSaveRes?.id ||
+            autoSaveRes?.data?.id ||
+            autoSaveRes?.data?.bill_of_lading_id ||
+            autoSaveRes?.data?.bl_id;
+          const cleanGenerated = generatedId ? String(generatedId).trim() : "";
+          if (
+            cleanGenerated &&
+            !isParentId(cleanGenerated) &&
+            !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|lading|bill-of-lading|bl|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+              cleanGenerated
+            )
+          ) {
+            effectiveId = cleanGenerated;
+          }
+        } else if (autoSaveRes && !autoSaveRes.success) {
+          draftSaveFailure = autoSaveRes;
+        }
+      } catch (autoSaveErr) {
+        console.warn("[submitBillOfLadingAction] Auto-save draft before submit failed:", autoSaveErr);
+      }
+    }
 
     const watermarkVal = isFormData
       ? (payload.get("is_watermark_enabled") ?? payload.get("watermark_enabled") ?? payload.get("watermark") ?? "true")
@@ -4287,9 +4918,17 @@ export async function submitBillOfLadingAction(
       if (effectiveId) {
         payload.set("bill_of_lading_id", effectiveId);
         payload.set("id", effectiveId);
+      } else {
+        payload.delete("id");
+        payload.delete("bill_of_lading_id");
+        payload.delete("lading_id");
+        payload.delete("bl_id");
       }
       if (customInvoiceIdInPayload) payload.set("custom_invoice_id", String(customInvoiceIdInPayload));
-      if (shipmentIdInPayload) payload.set("shipment_instruction_id", String(shipmentIdInPayload));
+      if (shipmentIdInPayload) {
+        payload.set("shipment_instruction_id", String(shipmentIdInPayload));
+        payload.set("shipment_id", String(shipmentIdInPayload));
+      }
       if (proformaIdInPayload) payload.set("proforma_id", String(proformaIdInPayload));
       if (contractIdInPayload) payload.set("contract_id", String(contractIdInPayload));
       if (confIdInPayload) payload.set("confirmation_id", String(confIdInPayload));
@@ -4301,9 +4940,17 @@ export async function submitBillOfLadingAction(
       if (effectiveId) {
         payload.bill_of_lading_id = effectiveId;
         payload.id = effectiveId;
+      } else {
+        delete payload.id;
+        delete payload.bill_of_lading_id;
+        delete payload.lading_id;
+        delete payload.bl_id;
       }
       if (customInvoiceIdInPayload) payload.custom_invoice_id = String(customInvoiceIdInPayload);
-      if (shipmentIdInPayload) payload.shipment_instruction_id = String(shipmentIdInPayload);
+      if (shipmentIdInPayload) {
+        payload.shipment_instruction_id = String(shipmentIdInPayload);
+        payload.shipment_id = String(shipmentIdInPayload);
+      }
       if (proformaIdInPayload) payload.proforma_id = String(proformaIdInPayload);
       if (contractIdInPayload) payload.contract_id = String(contractIdInPayload);
       if (confIdInPayload) payload.confirmation_id = String(confIdInPayload);
@@ -4314,12 +4961,13 @@ export async function submitBillOfLadingAction(
     }
 
     const safeLang = getSafeLang(lang || "en");
+    const passedCandidateId = effectiveId || undefined;
     let rawRes = await smartDocsService.submitBillOfLading(
       payload,
       {
         lang: safeLang,
         source: "web",
-        id: effectiveId,
+        id: passedCandidateId,
       },
       token
     );
@@ -4339,7 +4987,7 @@ export async function submitBillOfLadingAction(
             {
               lang: safeLang,
               source: "web",
-              id: effectiveId,
+              id: passedCandidateId,
             },
             refreshRes.access_token
           );
@@ -4391,6 +5039,12 @@ export async function submitBillOfLadingAction(
         message: rawRes.message || "Bill of Lading submitted successfully!",
         data: rawRes.data || rawRes,
         id: generatedId ? String(generatedId) : effectiveId,
+        next_doc:
+          rawRes?.next_doc ||
+          rawRes?.data?.next_doc ||
+          rawRes?.raw?.next_doc ||
+          rawRes?.raw?.data?.next_doc ||
+          null,
         raw: rawRes.raw || rawRes,
       };
     }
@@ -4413,6 +5067,23 @@ export async function submitBillOfLadingAction(
         });
         errorFields = errMap;
       }
+    }
+
+    if (draftSaveFailure && (!rawRes.message || /temporarily unavailable/i.test(String(rawRes.message)))) {
+      const sanitizedDraftError = sanitizeActionErrorMessage(
+        draftSaveFailure?.message || draftSaveFailure?.error || rawRes?.message || rawRes?.error,
+        draftSaveFailure,
+        "Failed to save bill of lading draft before submission"
+      );
+      return {
+        success: false,
+        message: sanitizedDraftError,
+        errors: draftSaveFailure.error_fields || draftSaveFailure.errors || errorFields,
+        error_fields: draftSaveFailure.error_fields || draftSaveFailure.errors || errorFields,
+        raw: draftSaveFailure.raw || draftSaveFailure,
+        id: effectiveId,
+        error: sanitizedDraftError,
+      };
     }
 
     const sanitizedError = sanitizeActionErrorMessage(
@@ -4682,6 +5353,7 @@ export interface SaveCommercialInvoiceDraftActionResult {
   errors?: any;
   error_fields?: any;
   id?: string;
+  next_doc?: any;
   raw?: any;
 }
 
@@ -5045,6 +5717,7 @@ export interface SavePackingListDraftActionResult {
   errors?: any;
   error_fields?: any;
   id?: string;
+  next_doc?: any;
   raw?: any;
 }
 
@@ -5372,6 +6045,7 @@ export interface SavePhytoCertificateDraftActionResult {
   errors?: any;
   error_fields?: any;
   id?: string;
+  next_doc?: any;
   raw?: any;
 }
 

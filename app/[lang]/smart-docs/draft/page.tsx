@@ -318,6 +318,7 @@ async function DraftPageDataLoader({
       paymentTermsRes,
       currenciesRes,
       documentListRes,
+      countriesRes,
       confirmationRes,
       contractRes,
       proformaRes,
@@ -363,6 +364,10 @@ async function DraftPageDataLoader({
         console.error('[SmartDocsDraftPage] Document list fetch error:', err);
         return null;
       }),
+      smartDocsService.getCountries({ lang, source: 'web' }, token).catch((err) => {
+        console.error('[SmartDocsDraftPage] Countries fetch error:', err);
+        return null;
+      }),
       draftId
         ? smartDocsService.getConfirmation(draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
@@ -399,6 +404,13 @@ async function DraftPageDataLoader({
     const initialPaymentTerms = extractPaymentTermsData(paymentTermsRes);
     const initialCurrencies = extractCurrenciesData(currenciesRes);
     const initialDocumentList = extractDocumentListData(documentListRes);
+    const initialCountries = Array.isArray(countriesRes)
+      ? countriesRes
+      : Array.isArray((countriesRes as any)?.data)
+      ? (countriesRes as any).data
+      : Array.isArray((countriesRes as any)?.countries)
+      ? (countriesRes as any).countries
+      : [];
     let initialConfirmationData = extractConfirmationData(confirmationRes);
     let initialContractData: any = extractContractData(contractRes);
     let initialProformaData: any = extractProformaData(proformaRes);
@@ -1021,6 +1033,10 @@ async function DraftPageDataLoader({
           updated.status = s.status;
         }
       }
+      if (updated.status === 'completed' || (updated.redirect_id && updated.redirect_id !== 'new-confirmation' && !/^(null|undefined|step-\d+)$/i.test(String(updated.redirect_id)))) {
+        updated.is_enabled = true;
+        updated.isEnabled = true;
+      }
       return updated;
     });
 
@@ -1082,6 +1098,7 @@ async function DraftPageDataLoader({
               initialPaymentTerms={initialPaymentTerms}
               initialCurrencies={initialCurrencies}
               initialDocumentList={initialDocumentList}
+              initialCountries={initialCountries}
               initialData={initialConfirmationData}
               initialContractData={initialContractData}
               initialProformaData={initialProformaData}
@@ -1121,6 +1138,7 @@ async function DraftPageDataLoader({
               initialPaymentTerms={[]}
               initialCurrencies={DEFAULT_CURRENCIES}
               initialDocumentList={[]}
+              initialCountries={[]}
               initialData={null}
               initialContractData={null}
               initialProformaData={null}

@@ -10,7 +10,7 @@ import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } fro
 import MembershipPlansClient from '@/components/membership/MembershipPlansClient';
 import MembershipLoading, { MembershipInnerSkeleton } from './loading';
 
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }];
@@ -118,7 +118,7 @@ async function MembershipContent({
   const [plans, profileRes] = await Promise.all([
     withTimeout(userService.getMembershipPlans(lang), 3000, []),
     token
-      ? withTimeout(userService.getUserProfile(token, lang), 2000, {
+      ? withTimeout(userService.getUserProfile(token, lang, true), 2000, {
           userProfile: null,
           shouldLogout: false,
         })

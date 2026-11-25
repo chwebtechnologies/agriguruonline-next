@@ -67,6 +67,7 @@ import {
   isSameWorkflowStep,
   mergeStepperWithHidden,
   getWorkflowSubmitButtonInfo,
+  isStepEnabled,
 } from '@/lib/api/smart-docs.service';
 import DocumentStatusStepper, { cleanDocNumber, isPureDbId, isPlaceholderDocNumber, isLikelyInvoiceNumber, cleanBaseContractNumber } from './DocumentStatusStepper';
 import ConfirmationDocumentForm, { FormOptionItem } from './form/ConfirmationDocumentForm';
@@ -545,6 +546,7 @@ export interface DocumentDraftWorkspaceProps {
   initialCurrencies?: FormOptionItem[];
   shippingTerms?: FormOptionItem[];
   initialDocumentList?: SmartDocsSelectionDocumentOption[];
+  initialCountries?: any[];
   initialData?: any;
   initialContractData?: any;
   initialProformaData?: any;
@@ -689,6 +691,7 @@ export function DocumentDraftWorkspace({
   initialCurrencies = [],
   shippingTerms,
   initialDocumentList = [],
+  initialCountries = [],
   initialData,
   initialContractData,
   initialProformaData,
@@ -996,13 +999,21 @@ export function DocumentDraftWorkspace({
       return linked;
     }
 
-    // 4. Fallback to initialId or draftId ONLY if not in contract/proforma/shipment mode
+    // 4. Fallback to initialId or draftId ONLY if in confirmation mode (not downstream document modes)
+    const isDownstreamDocMode =
+      isContract ||
+      isProforma ||
+      isShipmentInstruction ||
+      isBillOfLading ||
+      isCustomInvoice ||
+      isCommercialInvoice ||
+      isPackingList ||
+      isPhytoCertificate;
+
     const cleanInitial = sanitizeDocId(initialId);
     if (
       cleanInitial &&
-      !isContract &&
-      !isProforma &&
-      !isShipmentInstruction &&
+      !isDownstreamDocMode &&
       !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(cleanInitial)
     ) {
       return cleanInitial;
@@ -1011,9 +1022,7 @@ export function DocumentDraftWorkspace({
     const cleanDraft = sanitizeDocId(draftId);
     if (
       cleanDraft &&
-      !isContract &&
-      !isProforma &&
-      !isShipmentInstruction &&
+      !isDownstreamDocMode &&
       !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(cleanDraft)
     ) {
       return cleanDraft;
@@ -1037,10 +1046,32 @@ export function DocumentDraftWorkspace({
     isShipmentInstruction,
   ]);
 
+  // In the original project (ConfirmationForm.tsx: documentsListDisabled={!hasSubmittedConfirmation}),
+  // Document List hide/show management is disabled for new unsubmitted confirmations until an ID is established.
+  const documentsListDisabled = Boolean(
+    isConfirmation &&
+    !effectiveConfirmationId &&
+    !draftId &&
+    !confirmationData?.id &&
+    !confirmationData?.confirmation_id
+  );
+
   // Canonical Contract Document ID (strictly contract)
   const canonicalContractId = useMemo(() => {
     const hasContractMarkers = (data: any) =>
-      Boolean(data && (data.contract_number || data.contract_no || data.sales_contract_id || data._is_contract_loaded));
+      Boolean(
+        data &&
+        (data.contract_number ||
+         data.contractNumber ||
+         data.contract_no ||
+         data.contract_date ||
+         data.contractDate ||
+         data.sales_contract_id ||
+         data.salesContractId ||
+         data._is_contract_loaded)
+      );
+
+    const confId = sanitizeDocId(effectiveConfirmationId);
 
     // 1. Direct contract data
     const directContractId = sanitizeDocId(
@@ -1051,8 +1082,18 @@ export function DocumentDraftWorkspace({
       initialContractData?.contract_id ||
       initialContractData?.contractId
     );
+    const knownProformaId = sanitizeDocId(
+      proformaData?.id ||
+      proformaData?.proforma_id ||
+      initialProformaData?.id ||
+      initialProformaData?.proforma_id ||
+      steps.find((s) => isProformaStep(s))?.redirect_id
+    );
+
     if (
       directContractId &&
+      directContractId !== confId &&
+      (!knownProformaId || directContractId !== knownProformaId) &&
       !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(directContractId)
     ) {
       return directContractId;
@@ -1061,6 +1102,7 @@ export function DocumentDraftWorkspace({
     // 2. Stepper list Step 1 (Sales Contract) redirect_id / contract_id
     const stepperContractStep = steps.find((s) => isContractStep(s)) || null;
     const stepperContractId = sanitizeDocId(
+      getStepSelfId(stepperContractStep) ||
       stepperContractStep?.contract_id ||
       (stepperContractStep as any)?.contractId ||
       stepperContractStep?.sales_contract_id ||
@@ -1069,6 +1111,8 @@ export function DocumentDraftWorkspace({
     );
     if (
       stepperContractId &&
+      stepperContractId !== confId &&
+      (!knownProformaId || stepperContractId !== knownProformaId) &&
       !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(stepperContractId)
     ) {
       return stepperContractId;
@@ -1085,23 +1129,21 @@ export function DocumentDraftWorkspace({
     );
     if (
       linked &&
+      linked !== confId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(linked)
     ) {
       return linked;
     }
 
-    // 4. Fallback to draftId or confirmation ID if isContract is true
+    // 4. Fallback to draftId ONLY IF isContract is true and draftId is not the confirmation ID
     const cleanDraft = sanitizeDocId(draftId);
     if (
       isContract &&
       cleanDraft &&
+      cleanDraft !== confId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(cleanDraft)
     ) {
       return cleanDraft;
-    }
-
-    if (isContract && effectiveConfirmationId) {
-      return effectiveConfirmationId;
     }
 
     return '';
@@ -1309,11 +1351,30 @@ export function DocumentDraftWorkspace({
   ]);
 
   // Canonical Bill of Lading Document ID
-  const canonicalBillOfLadingId = useMemo(() => {
+  const canonicalBillOfLadingId = useMemo((): string => {
+    const parentIds = new Set<string>(
+      [
+        canonicalShipmentInstructionId,
+        canonicalProformaId,
+        canonicalContractId,
+        effectiveConfirmationId,
+        initialId,
+      ]
+        .map((x) => sanitizeDocId(x))
+        .filter(Boolean)
+    );
+
     const hasLadingMarkers = (data: any) =>
       Boolean(
         data &&
-        (data.bl_no || data.bill_of_lading_number || data.vessel_name || data._is_lading_loaded || data.bill_of_lading_id)
+        (data.bl_no ||
+          data.bl_number ||
+          data.bill_of_lading_number ||
+          data.vessel_name ||
+          data._is_lading_loaded ||
+          data.bill_of_lading_id ||
+          data.contract_number ||
+          data.fcl_quantity !== undefined)
       );
 
     // 1. Direct bill of lading data
@@ -1327,6 +1388,7 @@ export function DocumentDraftWorkspace({
     );
     if (
       directLadingId &&
+      !parentIds.has(directLadingId) &&
       !(/^\d+$/.test(directLadingId) && Number(directLadingId) <= 20) &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|invoice|step-\d+)$/i.test(directLadingId)
     ) {
@@ -1347,6 +1409,7 @@ export function DocumentDraftWorkspace({
     );
     if (
       fromStepper &&
+      !parentIds.has(fromStepper) &&
       !(/^\d+$/.test(fromStepper) && Number(fromStepper) <= 20) &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|invoice|step-\d+)$/i.test(fromStepper)
     ) {
@@ -1365,10 +1428,7 @@ export function DocumentDraftWorkspace({
     );
     if (
       linkedCandidate &&
-      linkedCandidate !== effectiveConfirmationId &&
-      linkedCandidate !== canonicalContractId &&
-      linkedCandidate !== canonicalProformaId &&
-      linkedCandidate !== canonicalShipmentInstructionId &&
+      !parentIds.has(linkedCandidate) &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|step-\d+)$/i.test(linkedCandidate)
     ) {
       return linkedCandidate;
@@ -1378,13 +1438,10 @@ export function DocumentDraftWorkspace({
     if (
       isBillOfLading &&
       cleanDraftId &&
+      !parentIds.has(cleanDraftId) &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|step-\d+)$/i.test(cleanDraftId)
     ) {
       return cleanDraftId;
-    }
-
-    if (isBillOfLading && (canonicalShipmentInstructionId || effectiveConfirmationId)) {
-      return canonicalShipmentInstructionId || effectiveConfirmationId;
     }
 
     return '';
@@ -1394,6 +1451,7 @@ export function DocumentDraftWorkspace({
     steps,
     selectedStep,
     effectiveConfirmationId,
+    initialId,
     canonicalContractId,
     canonicalProformaId,
     canonicalShipmentInstructionId,
@@ -1407,7 +1465,20 @@ export function DocumentDraftWorkspace({
   ]);
 
   // Custom Invoice ID extracted strictly from Stepper list / selectedStep or linked discovery
-  const canonicalCustomInvoiceId = useMemo(() => {
+  const canonicalCustomInvoiceId = useMemo((): string => {
+    const parentIds = new Set<string>(
+      [
+        canonicalBillOfLadingId,
+        canonicalShipmentInstructionId,
+        canonicalProformaId,
+        canonicalContractId,
+        effectiveConfirmationId,
+        initialId,
+      ]
+        .map((x) => sanitizeDocId(x))
+        .filter(Boolean)
+    );
+
     const hasCustomMarkers = (data: any) =>
       Boolean(
         data &&
@@ -1425,10 +1496,7 @@ export function DocumentDraftWorkspace({
     );
     if (
       directCustomId &&
-      directCustomId !== effectiveConfirmationId &&
-      directCustomId !== canonicalContractId &&
-      directCustomId !== canonicalProformaId &&
-      directCustomId !== canonicalShipmentInstructionId &&
+      !parentIds.has(directCustomId) &&
       directCustomId !== canonicalBillOfLadingId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|invoice|step-\d+)$/i.test(directCustomId)
     ) {
@@ -1449,6 +1517,8 @@ export function DocumentDraftWorkspace({
     );
     if (
       fromStepper &&
+      !parentIds.has(fromStepper) &&
+      fromStepper !== canonicalBillOfLadingId &&
       !(/^\d+$/.test(fromStepper) && Number(fromStepper) <= 20) &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|invoice|step-\d+)$/i.test(fromStepper)
     ) {
@@ -1469,10 +1539,7 @@ export function DocumentDraftWorkspace({
     );
     if (
       linkedCandidate &&
-      linkedCandidate !== effectiveConfirmationId &&
-      linkedCandidate !== canonicalContractId &&
-      linkedCandidate !== canonicalProformaId &&
-      linkedCandidate !== canonicalShipmentInstructionId &&
+      !parentIds.has(linkedCandidate) &&
       linkedCandidate !== canonicalBillOfLadingId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|invoice|step-\d+)$/i.test(linkedCandidate)
     ) {
@@ -1483,13 +1550,11 @@ export function DocumentDraftWorkspace({
     if (
       isCustomInvoice &&
       cleanDraftId &&
+      !parentIds.has(cleanDraftId) &&
+      cleanDraftId !== canonicalBillOfLadingId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|invoice|step-\d+)$/i.test(cleanDraftId)
     ) {
       return cleanDraftId;
-    }
-
-    if (isCustomInvoice && (canonicalBillOfLadingId || canonicalShipmentInstructionId || effectiveConfirmationId)) {
-      return canonicalBillOfLadingId || canonicalShipmentInstructionId || effectiveConfirmationId;
     }
 
     return '';
@@ -1499,6 +1564,7 @@ export function DocumentDraftWorkspace({
     steps,
     selectedStep,
     effectiveConfirmationId,
+    initialId,
     canonicalContractId,
     canonicalProformaId,
     canonicalShipmentInstructionId,
@@ -1512,7 +1578,6 @@ export function DocumentDraftWorkspace({
     confirmationData,
     isCustomInvoice,
     draftId,
-    initialId,
   ]);
 
   // Canonical Commercial Invoice Document ID
@@ -1553,6 +1618,12 @@ export function DocumentDraftWorkspace({
     );
     if (
       fromStepper &&
+      fromStepper !== effectiveConfirmationId &&
+      fromStepper !== canonicalContractId &&
+      fromStepper !== canonicalProformaId &&
+      fromStepper !== canonicalShipmentInstructionId &&
+      fromStepper !== canonicalBillOfLadingId &&
+      fromStepper !== canonicalCustomInvoiceId &&
       !(/^\d+$/.test(fromStepper) && Number(fromStepper) <= 20) &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+)$/i.test(fromStepper)
     ) {
@@ -1587,13 +1658,15 @@ export function DocumentDraftWorkspace({
     if (
       isCommercialInvoice &&
       cleanDraftId &&
+      cleanDraftId !== effectiveConfirmationId &&
+      cleanDraftId !== canonicalContractId &&
+      cleanDraftId !== canonicalProformaId &&
+      cleanDraftId !== canonicalShipmentInstructionId &&
+      cleanDraftId !== canonicalBillOfLadingId &&
+      cleanDraftId !== canonicalCustomInvoiceId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+)$/i.test(cleanDraftId)
     ) {
       return cleanDraftId;
-    }
-
-    if (isCommercialInvoice && (canonicalCustomInvoiceId || canonicalBillOfLadingId || canonicalShipmentInstructionId || effectiveConfirmationId)) {
-      return canonicalCustomInvoiceId || canonicalBillOfLadingId || canonicalShipmentInstructionId || effectiveConfirmationId;
     }
 
     return '';
@@ -1662,6 +1735,13 @@ export function DocumentDraftWorkspace({
     );
     if (
       fromStepper &&
+      fromStepper !== effectiveConfirmationId &&
+      fromStepper !== canonicalContractId &&
+      fromStepper !== canonicalProformaId &&
+      fromStepper !== canonicalShipmentInstructionId &&
+      fromStepper !== canonicalBillOfLadingId &&
+      fromStepper !== canonicalCustomInvoiceId &&
+      fromStepper !== canonicalCommercialInvoiceId &&
       !(/^\d+$/.test(fromStepper) && Number(fromStepper) <= 20) &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+)$/i.test(fromStepper)
     ) {
@@ -1697,13 +1777,16 @@ export function DocumentDraftWorkspace({
     if (
       isPackingList &&
       cleanDraftId &&
+      cleanDraftId !== effectiveConfirmationId &&
+      cleanDraftId !== canonicalContractId &&
+      cleanDraftId !== canonicalProformaId &&
+      cleanDraftId !== canonicalShipmentInstructionId &&
+      cleanDraftId !== canonicalBillOfLadingId &&
+      cleanDraftId !== canonicalCustomInvoiceId &&
+      cleanDraftId !== canonicalCommercialInvoiceId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+)$/i.test(cleanDraftId)
     ) {
       return cleanDraftId;
-    }
-
-    if (isPackingList && (canonicalCommercialInvoiceId || canonicalCustomInvoiceId || canonicalShipmentInstructionId || effectiveConfirmationId)) {
-      return canonicalCommercialInvoiceId || canonicalCustomInvoiceId || canonicalShipmentInstructionId || effectiveConfirmationId;
     }
 
     return '';
@@ -1775,6 +1858,14 @@ export function DocumentDraftWorkspace({
     );
     if (
       fromStepper &&
+      fromStepper !== effectiveConfirmationId &&
+      fromStepper !== canonicalContractId &&
+      fromStepper !== canonicalProformaId &&
+      fromStepper !== canonicalShipmentInstructionId &&
+      fromStepper !== canonicalBillOfLadingId &&
+      fromStepper !== canonicalCustomInvoiceId &&
+      fromStepper !== canonicalCommercialInvoiceId &&
+      fromStepper !== canonicalPackingListId &&
       !(/^\d+$/.test(fromStepper) && Number(fromStepper) <= 20) &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+)$/i.test(fromStepper)
     ) {
@@ -1812,13 +1903,17 @@ export function DocumentDraftWorkspace({
     if (
       isPhytoCertificate &&
       cleanDraftId &&
+      cleanDraftId !== effectiveConfirmationId &&
+      cleanDraftId !== canonicalContractId &&
+      cleanDraftId !== canonicalProformaId &&
+      cleanDraftId !== canonicalShipmentInstructionId &&
+      cleanDraftId !== canonicalBillOfLadingId &&
+      cleanDraftId !== canonicalCustomInvoiceId &&
+      cleanDraftId !== canonicalCommercialInvoiceId &&
+      cleanDraftId !== canonicalPackingListId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+)$/i.test(cleanDraftId)
     ) {
       return cleanDraftId;
-    }
-
-    if (isPhytoCertificate && (canonicalPackingListId || canonicalCommercialInvoiceId || canonicalCustomInvoiceId || canonicalShipmentInstructionId || effectiveConfirmationId)) {
-      return canonicalPackingListId || canonicalCommercialInvoiceId || canonicalCustomInvoiceId || canonicalShipmentInstructionId || effectiveConfirmationId;
     }
 
     return '';
@@ -3211,8 +3306,15 @@ export function DocumentDraftWorkspace({
       if (isTargetBillOfLading) {
         setIsLoadingBillOfLading(true);
 
+        const ladingParentIds = new Set(
+          [canonicalCustomInvoiceId, canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId, effectiveConfirmationId, rootWorkflowId]
+            .map((x) => sanitizeDocId(x))
+            .filter(Boolean)
+        );
+
         const isPlaceholderLadingId = (val: string) =>
           !val ||
+          ladingParentIds.has(val) ||
           (/^\d+$/.test(val) && Number(val) <= 20) ||
           /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|invoice|step-\d+)$/i.test(val);
 
@@ -3316,8 +3418,16 @@ export function DocumentDraftWorkspace({
       if (isTargetCustomInvoice) {
         setIsLoadingCustomInvoice(true);
 
+        const customParentIds = new Set(
+          [canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId, effectiveConfirmationId, rootWorkflowId]
+            .map((x) => sanitizeDocId(x))
+            .filter(Boolean)
+        );
+
         const isPlaceholderCustomId = (val: string) =>
           !val ||
+          customParentIds.has(val) ||
+          val === canonicalBillOfLadingId ||
           (/^\d+$/.test(val) && Number(val) <= 20) ||
           /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|invoice|step-\d+)$/i.test(val);
 
@@ -3424,8 +3534,15 @@ export function DocumentDraftWorkspace({
       if (isTargetCommercialInvoice) {
         setIsLoadingCommercialInvoice(true);
 
+        const commercialParentIds = new Set(
+          [canonicalCustomInvoiceId, canonicalBillOfLadingId, canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId]
+            .map((x) => sanitizeDocId(x))
+            .filter(Boolean)
+        );
+
         const isPlaceholderCommercialId = (val?: string | null) =>
           !val ||
+          commercialParentIds.has(String(val).trim()) ||
           (/^\d+$/.test(val) && Number(val) <= 20) ||
           /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+)$/i.test(val);
 
@@ -3441,7 +3558,9 @@ export function DocumentDraftWorkspace({
           extractLinkedCommercialInvoiceId(billOfLadingData) ||
           extractLinkedCommercialInvoiceId(shipmentInstructionData) ||
           extractLinkedCommercialInvoiceId(proformaData) ||
-          extractLinkedCommercialInvoiceId(contractData)
+          extractLinkedCommercialInvoiceId(contractData) ||
+          effectiveConfirmationId ||
+          rootWorkflowId
         );
 
         const applyFreshCommercialInvoice = (rawData: any): boolean => {
@@ -3527,8 +3646,15 @@ export function DocumentDraftWorkspace({
       if (isTargetPackingList) {
         setIsLoadingPackingList(true);
 
+        const packingParentIds = new Set(
+          [canonicalCommercialInvoiceId, canonicalCustomInvoiceId, canonicalBillOfLadingId, canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId, effectiveConfirmationId, rootWorkflowId]
+            .map((x) => sanitizeDocId(x))
+            .filter(Boolean)
+        );
+
         const isPlaceholderPackingId = (val?: string | null) =>
           !val ||
+          packingParentIds.has(String(val).trim()) ||
           (/^\d+$/.test(val) && Number(val) <= 20) ||
           /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+)$/i.test(val);
 
@@ -3630,8 +3756,15 @@ export function DocumentDraftWorkspace({
       if (isTargetPhytoCertificate) {
         setIsLoadingPhytoCertificate(true);
 
+        const phytoParentIds = new Set(
+          [canonicalPackingListId, canonicalCommercialInvoiceId, canonicalCustomInvoiceId, canonicalBillOfLadingId, canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId, effectiveConfirmationId, rootWorkflowId]
+            .map((x) => sanitizeDocId(x))
+            .filter(Boolean)
+        );
+
         const isPlaceholderPhytoId = (val?: string | null) =>
           !val ||
+          phytoParentIds.has(String(val).trim()) ||
           (/^\d+$/.test(val) && Number(val) <= 20) ||
           /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+)$/i.test(val);
 
@@ -3779,6 +3912,19 @@ export function DocumentDraftWorkspace({
         isSameWorkflowStep(selectedStep, step) &&
         resolvedIndex === selectedStepIndex
       ) {
+        return;
+      }
+
+      // Guard: If step is locked/disabled according to workflow rules, strictly block selection
+      const stepEnabled = isStepEnabled(step, resolvedIndex, steps, selectedStepIndex, {
+        isConfirmation,
+        isContract,
+        isDocumentWorkflow,
+        confirmationId: effectiveConfirmationId,
+        contractId: canonicalContractId,
+        shipmentInstructionId: effectiveShipmentInstructionId,
+      });
+      if (!stepEnabled && resolvedIndex !== selectedStepIndex) {
         return;
       }
 
@@ -4392,8 +4538,22 @@ export function DocumentDraftWorkspace({
       extractLinkedBillOfLadingId(contractData)
     );
 
+    const parentIds = new Set(
+      [
+        canonicalCustomInvoiceId,
+        canonicalShipmentInstructionId,
+        canonicalProformaId,
+        canonicalContractId,
+        effectiveConfirmationId,
+        rootWorkflowId,
+      ]
+        .map((x) => sanitizeDocId(x))
+        .filter(Boolean)
+    );
+
     if (
       !effectiveId ||
+      parentIds.has(effectiveId) ||
       (/^\d+$/.test(effectiveId) && Number(effectiveId) <= 20) ||
       /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|invoice|step-\d+)$/i.test(effectiveId)
     ) {
@@ -4472,8 +4632,22 @@ export function DocumentDraftWorkspace({
       extractLinkedCustomInvoiceId(contractData)
     );
 
+    const parentIds = new Set(
+      [
+        canonicalShipmentInstructionId,
+        canonicalProformaId,
+        canonicalContractId,
+        effectiveConfirmationId,
+        rootWorkflowId,
+      ]
+        .map((x) => sanitizeDocId(x))
+        .filter(Boolean)
+    );
+
     if (
       !effectiveId ||
+      parentIds.has(effectiveId) ||
+      effectiveId === canonicalBillOfLadingId ||
       (/^\d+$/.test(effectiveId) && Number(effectiveId) <= 20) ||
       /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|invoice|step-\d+)$/i.test(effectiveId)
     ) {
@@ -4550,11 +4724,26 @@ export function DocumentDraftWorkspace({
       extractLinkedCommercialInvoiceId(billOfLadingData) ||
       extractLinkedCommercialInvoiceId(shipmentInstructionData) ||
       extractLinkedCommercialInvoiceId(proformaData) ||
-      extractLinkedCommercialInvoiceId(contractData)
+      extractLinkedCommercialInvoiceId(contractData) ||
+      effectiveConfirmationId ||
+      rootWorkflowId
+    );
+
+    const parentIds = new Set(
+      [
+        canonicalCustomInvoiceId,
+        canonicalBillOfLadingId,
+        canonicalShipmentInstructionId,
+        canonicalProformaId,
+        canonicalContractId,
+      ]
+        .map((x) => sanitizeDocId(x))
+        .filter(Boolean)
     );
 
     if (
       !effectiveId ||
+      parentIds.has(effectiveId) ||
       (/^\d+$/.test(effectiveId) && Number(effectiveId) <= 20) ||
       /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+)$/i.test(effectiveId)
     ) {
@@ -4635,8 +4824,24 @@ export function DocumentDraftWorkspace({
       extractLinkedPackingListId(contractData)
     );
 
+    const parentIds = new Set(
+      [
+        canonicalCommercialInvoiceId,
+        canonicalCustomInvoiceId,
+        canonicalBillOfLadingId,
+        canonicalShipmentInstructionId,
+        canonicalProformaId,
+        canonicalContractId,
+        effectiveConfirmationId,
+        rootWorkflowId,
+      ]
+        .map((x) => sanitizeDocId(x))
+        .filter(Boolean)
+    );
+
     if (
       !effectiveId ||
+      parentIds.has(effectiveId) ||
       (/^\d+$/.test(effectiveId) && Number(effectiveId) <= 20) ||
       /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+)$/i.test(effectiveId)
     ) {
@@ -4719,8 +4924,25 @@ export function DocumentDraftWorkspace({
       extractLinkedPhytoCertificateId(contractData)
     );
 
+    const parentIds = new Set(
+      [
+        canonicalPackingListId,
+        canonicalCommercialInvoiceId,
+        canonicalCustomInvoiceId,
+        canonicalBillOfLadingId,
+        canonicalShipmentInstructionId,
+        canonicalProformaId,
+        canonicalContractId,
+        effectiveConfirmationId,
+        rootWorkflowId,
+      ]
+        .map((x) => sanitizeDocId(x))
+        .filter(Boolean)
+    );
+
     if (
       !effectiveId ||
+      parentIds.has(effectiveId) ||
       (/^\d+$/.test(effectiveId) && Number(effectiveId) <= 20) ||
       /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+)$/i.test(effectiveId)
     ) {
@@ -4878,6 +5100,39 @@ export function DocumentDraftWorkspace({
     effectiveConfirmationId,
   ]);
 
+  // Helper to ensure comment fields from prior documents are never merged into another document
+  const isDocCommentKey = (key: string): boolean => {
+    const k = key.toLowerCase();
+    return (
+      k.includes('comment') ||
+      k === 'notes_title' ||
+      k === 'notes_comment' ||
+      k === 'remarks_title' ||
+      k === 'remarks_comment' ||
+      k === 'extra_title' ||
+      k === 'extra_comment' ||
+      k === 'notes'
+    );
+  };
+
+  // Helper to ensure invoice numbers, dates, and bank account details from prior documents (e.g. Proforma)
+  // are never automatically copied into downstream documents like Custom Invoice, Commercial Invoice, Packing List, etc.
+  const isDocInvoiceOrBankKey = (key: string): boolean => {
+    const k = key.toLowerCase();
+    return (
+      k === 'invoice_number' ||
+      k === 'invoice_no' ||
+      k === 'invoice_date' ||
+      k === 'date' ||
+      k.includes('proforma') ||
+      k.includes('custom_invoice') ||
+      k.includes('commercial_invoice') ||
+      k.includes('packing_list') ||
+      k.includes('phyto') ||
+      k.includes('bank')
+    );
+  };
+
   // Comprehensive data merge for Custom Invoice so trade context is inherited
   const mergedCustomInvoiceData = useMemo(() => {
     const sources = [
@@ -4902,7 +5157,15 @@ export function DocumentDraftWorkspace({
         if (
           src !== customInvoiceData &&
           src !== initialCustomInvoiceData &&
-          (key === 'id' || key === '_id' || key === 'status' || key === 'document_status' || key === 'title' || key === 'pdf_title' || key === 'document_title')
+          (key === 'id' ||
+            key === '_id' ||
+            key === 'status' ||
+            key === 'document_status' ||
+            key === 'title' ||
+            key === 'pdf_title' ||
+            key === 'document_title' ||
+            isDocCommentKey(key) ||
+            isDocInvoiceOrBankKey(key))
         ) {
           continue;
         }
@@ -4917,6 +5180,19 @@ export function DocumentDraftWorkspace({
         }
         merged[key] = val;
       }
+    }
+    if (!customInvoiceData && !initialCustomInvoiceData) {
+      delete merged.invoice_number;
+      delete merged.invoice_no;
+      delete merged.invoice_date;
+      delete merged.bank_details_id;
+      delete merged.bank_account_id;
+      delete merged.bank_id;
+      delete merged.selectedBankId;
+      delete merged.bank_details;
+      delete merged.bank_account_details;
+      delete merged.bank;
+      delete merged.bank_account;
     }
     return merged;
   }, [
@@ -4969,7 +5245,9 @@ export function DocumentDraftWorkspace({
             key === 'document_title' ||
             key === 'invoice_number' ||
             key === 'invoice_no' ||
-            key === 'invoice_date')
+            key === 'invoice_date' ||
+            isDocCommentKey(key) ||
+            isDocInvoiceOrBankKey(key))
         ) {
           continue;
         }
@@ -4984,6 +5262,19 @@ export function DocumentDraftWorkspace({
         }
         merged[key] = val;
       }
+    }
+    if (!commercialInvoiceData && !initialCommercialInvoiceData) {
+      delete merged.invoice_number;
+      delete merged.invoice_no;
+      delete merged.invoice_date;
+      delete merged.bank_details_id;
+      delete merged.bank_account_id;
+      delete merged.bank_id;
+      delete merged.selectedBankId;
+      delete merged.bank_details;
+      delete merged.bank_account_details;
+      delete merged.bank;
+      delete merged.bank_account;
     }
     return merged;
   }, [
@@ -5044,7 +5335,9 @@ export function DocumentDraftWorkspace({
             key === 'packing_list_date' ||
             key === 'invoice_number' ||
             key === 'invoice_no' ||
-            key === 'invoice_date')
+            key === 'invoice_date' ||
+            isDocCommentKey(key) ||
+            isDocInvoiceOrBankKey(key))
         ) {
           continue;
         }
@@ -5131,7 +5424,9 @@ export function DocumentDraftWorkspace({
             key === 'phyto_certificate_no' ||
             key === 'phyto_number' ||
             key === 'phyto_certificate_date' ||
-            key === 'phyto_date')
+            key === 'phyto_date' ||
+            isDocCommentKey(key) ||
+            isDocInvoiceOrBankKey(key))
         ) {
           continue;
         }
@@ -5401,35 +5696,67 @@ export function DocumentDraftWorkspace({
   // Effective initial data for Contract form:
   // Must always maintain the clean base contract number (e.g. CON/ABC/0001)
   // and NEVER overwrite it with partial split suffixes (/A, /B) from other workflow documents!
+  // CRITICAL: A new contract must NEVER inherit comments from Trade Confirmation!
   const effectiveContractInitialData = useMemo(() => {
+    const isRealContract = Boolean(
+      (contractData && (contractData.id || contractData.contract_number || contractData._is_contract_loaded)) ||
+      (initialContractData && (initialContractData.id || initialContractData.contract_number || initialContractData._is_contract_loaded))
+    );
     const base = contractData || initialContractData || confirmationData || initialData || null;
     if (!base) return null;
 
+    let cleanBase: any = base;
+    if (!isRealContract) {
+      cleanBase = { ...base };
+      delete cleanBase.comment_label;
+      delete cleanBase.commentLabel;
+      delete cleanBase.comment_value;
+      delete cleanBase.commentValue;
+      delete cleanBase.comment_title;
+      delete cleanBase.commentTitle;
+      delete cleanBase.comment_text;
+      delete cleanBase.commentText;
+      delete cleanBase.comment;
+      delete cleanBase.comments;
+      delete cleanBase.additional_comment;
+      delete cleanBase.additionalComment;
+      delete cleanBase.notes_title;
+      delete cleanBase.notes_comment;
+      delete cleanBase.remarks_title;
+      delete cleanBase.remarks_comment;
+      delete cleanBase.extra_title;
+      delete cleanBase.extra_comment;
+      delete cleanBase.confirmation_comment_label;
+      delete cleanBase.confirmation_comment_value;
+      delete cleanBase.contract_comment_label;
+      delete cleanBase.contract_comment_value;
+    }
+
     const rawContNum =
-      base.contract_number ||
-      base.contractNumber ||
-      base.contract_no ||
-      base.contract?.contract_number ||
-      base.contract?.contractNumber ||
-      base.contract?.contract_no ||
+      cleanBase.contract_number ||
+      cleanBase.contractNumber ||
+      cleanBase.contract_no ||
+      cleanBase.contract?.contract_number ||
+      cleanBase.contract?.contractNumber ||
+      cleanBase.contract?.contract_no ||
       (pinnedWorkflowContractNumber && !isPureDbId(pinnedWorkflowContractNumber) && !isLikelyInvoiceNumber(pinnedWorkflowContractNumber) ? pinnedWorkflowContractNumber : null) ||
       activeStepContractNumber;
 
     const hasSplits = Boolean(
-      (base.splits && Array.isArray(base.splits) && base.splits.length > 0) ||
-      base.has_splits ||
-      base.is_split ||
-      base.is_partial ||
-      base.partial_shipment_allowed
+      (cleanBase.splits && Array.isArray(cleanBase.splits) && cleanBase.splits.length > 0) ||
+      cleanBase.has_splits ||
+      cleanBase.is_split ||
+      cleanBase.is_partial ||
+      cleanBase.partial_shipment_allowed
     );
 
     const cleanContNum = cleanBaseContractNumber(rawContNum, hasSplits || isPartialContractNumber(rawContNum));
 
     if (cleanContNum) {
       const updatedContractObj =
-        base.contract && typeof base.contract === 'object'
+        cleanBase.contract && typeof cleanBase.contract === 'object'
           ? {
-              ...base.contract,
+              ...cleanBase.contract,
               contract_number: cleanContNum,
               contractNumber: cleanContNum,
               contract_no: cleanContNum,
@@ -5437,14 +5764,14 @@ export function DocumentDraftWorkspace({
           : undefined;
 
       return {
-        ...base,
+        ...cleanBase,
         contract_number: cleanContNum,
         contractNumber: cleanContNum,
         contract_no: cleanContNum,
         ...(updatedContractObj ? { contract: updatedContractObj } : {}),
       };
     }
-    return base;
+    return cleanBase;
   }, [
     contractData,
     initialContractData,
@@ -5455,6 +5782,10 @@ export function DocumentDraftWorkspace({
   ]);
 
   const effectiveProformaInitialData = useMemo(() => {
+    const isRealProforma = Boolean(
+      (proformaData && (proformaData.id || proformaData.proforma_id || proformaData.invoice_number || proformaData.invoice_no || proformaData._is_proforma_loaded)) ||
+      (initialProformaData && (initialProformaData.id || initialProformaData.proforma_id || initialProformaData.invoice_number || initialProformaData.invoice_no || initialProformaData._is_proforma_loaded))
+    );
     const base =
       proformaData ||
       initialProformaData ||
@@ -5464,6 +5795,34 @@ export function DocumentDraftWorkspace({
       initialData ||
       null;
     if (!base) return null;
+
+    let cleanBase: any = base;
+    if (!isRealProforma) {
+      cleanBase = { ...base };
+      delete cleanBase.comment_label;
+      delete cleanBase.commentLabel;
+      delete cleanBase.comment_value;
+      delete cleanBase.commentValue;
+      delete cleanBase.comment_title;
+      delete cleanBase.commentTitle;
+      delete cleanBase.comment_text;
+      delete cleanBase.commentText;
+      delete cleanBase.comment;
+      delete cleanBase.comments;
+      delete cleanBase.additional_comment;
+      delete cleanBase.additionalComment;
+      delete cleanBase.notes_title;
+      delete cleanBase.notes_comment;
+      delete cleanBase.remarks_title;
+      delete cleanBase.remarks_comment;
+      delete cleanBase.extra_title;
+      delete cleanBase.extra_comment;
+      delete cleanBase.confirmation_comment_label;
+      delete cleanBase.confirmation_comment_value;
+      delete cleanBase.contract_comment_label;
+      delete cleanBase.contract_comment_value;
+    }
+
     const activeDocContNum =
       (pinnedWorkflowContractNumber && !isPureDbId(pinnedWorkflowContractNumber) && !isLikelyInvoiceNumber(pinnedWorkflowContractNumber) ? pinnedWorkflowContractNumber : null) ||
       extractDocContractNumber(shipmentInstructionData) ||
@@ -5471,9 +5830,9 @@ export function DocumentDraftWorkspace({
       activeStepContractNumber;
     if (activeDocContNum && !isPureDbId(activeDocContNum) && !isLikelyInvoiceNumber(activeDocContNum)) {
       const updatedContractObj =
-        base.contract && typeof base.contract === 'object'
+        cleanBase.contract && typeof cleanBase.contract === 'object'
           ? {
-              ...base.contract,
+              ...cleanBase.contract,
               contract_number: activeDocContNum,
               contractNumber: activeDocContNum,
               contract_no: activeDocContNum,
@@ -5481,14 +5840,14 @@ export function DocumentDraftWorkspace({
           : undefined;
 
       return {
-        ...base,
+        ...cleanBase,
         contract_number: activeDocContNum,
         contractNumber: activeDocContNum,
         contract_no: activeDocContNum,
         ...(updatedContractObj ? { contract: updatedContractObj } : {}),
       };
     }
-    return base;
+    return cleanBase;
   }, [
     proformaData,
     initialProformaData,
@@ -5616,6 +5975,7 @@ export function DocumentDraftWorkspace({
               contractNumber={activeStepContractNumber}
               activeDocNumber={stepperHeaderDocNumber}
               isContractStep={isContract}
+              documentsListDisabled={documentsListDisabled}
             />
           </div>
         )}
@@ -5635,7 +5995,7 @@ export function DocumentDraftWorkspace({
         {/* Confirmation Document Form: Visible when Confirmation Step is active */}
         <div className={`w-full h-full ${isConfirmation ? 'flex flex-col' : 'hidden'}`}>
           <ConfirmationDocumentForm
-            key={`confirmation-${effectiveConfirmationId || confirmationData?.id || 'default'}`}
+            key="draft-form-confirmation"
             dataVersion={confirmationVersion}
             initialData={
               confirmationData || initialData
@@ -5697,8 +6057,8 @@ export function DocumentDraftWorkspace({
                   formData?._id;
                 setConfirmationData((prev: any) => ({
                   ...(prev || {}),
-                  ...(formData || {}),
                   ...(res.data || {}),
+                  ...(formData || {}),
                   ...(confNum ? { confirmation_number: confNum } : {}),
                   ...(cleanSavedId ? { id: cleanSavedId, _id: cleanSavedId } : {}),
                 }));
@@ -5750,6 +6110,8 @@ export function DocumentDraftWorkspace({
                       ...s,
                       status: 'COMPLETED',
                       completed: true,
+                      is_enabled: true,
+                      isEnabled: true,
                       redirect_id: confId || s.redirect_id,
                       redirectId: confId || s.redirectId,
                     };
@@ -5757,6 +6119,8 @@ export function DocumentDraftWorkspace({
                   if (isContractStep(s) && generatedContractId) {
                     return {
                       ...s,
+                      is_enabled: true,
+                      isEnabled: true,
                       redirect_id: generatedContractId,
                       redirectId: generatedContractId,
                     };
@@ -5822,10 +6186,10 @@ export function DocumentDraftWorkspace({
         {/* Contract Document Form: Visible when Contract Step is active */}
         <div className={`w-full h-full ${isContract ? 'flex flex-col' : 'hidden'}`}>
           <ContractDocumentForm
-            key={`contract-${canonicalContractId || contractData?.id || 'default'}`}
+            key="draft-form-contract"
             dataVersion={contractVersion}
             initialData={effectiveContractInitialData}
-            contractId={contractIdFromStepper || canonicalContractId}
+            contractId={contractIdFromStepper && contractIdFromStepper !== effectiveConfirmationId ? contractIdFromStepper : (canonicalContractId && canonicalContractId !== effectiveConfirmationId ? canonicalContractId : '')}
             steps={steps}
             selectedStep={selectedStep}
             onUpdateSteps={handleUpdateSteps}
@@ -5876,9 +6240,7 @@ export function DocumentDraftWorkspace({
                 if (typeof window !== 'undefined') {
                   const url = new URL(window.location.href);
                   const cleanSavedId = sanitizeDocId(savedId);
-                  const targetWorkflowId = isDocumentWorkflow
-                    ? (workflowAnchorId || initialId || rootWorkflowId || canonicalContractId || cleanSavedId)
-                    : (rootWorkflowId || effectiveConfirmationId || canonicalContractId || cleanSavedId);
+                  const targetWorkflowId = cleanSavedId || canonicalContractId || effectiveConfirmationId || rootWorkflowId;
                   if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
                     url.searchParams.set('id', targetWorkflowId);
                   }
@@ -5890,39 +6252,70 @@ export function DocumentDraftWorkspace({
               }
             }}
               onSaveDraft={async (formData) => {
-                const activeDocId =
-                  canonicalContractId ||
-                  contractIdFromStepper ||
-                  sanitizeDocId(contractData?.contract_id || contractData?.id || initialContractData?.contract_id || initialContractData?.id) ||
-                  getStepSelfId(steps[1]) ||
-                  steps[1]?.redirect_id ||
+                const confId = sanitizeDocId(
                   effectiveConfirmationId ||
-                  rootWorkflowId ||
-                  draftId;
+                  initialData?.confirmation_id ||
+                  initialData?.confirmationId
+                );
+
+                const activeDocId =
+                  (canonicalContractId && canonicalContractId !== confId ? canonicalContractId : null) ||
+                  (contractIdFromStepper && contractIdFromStepper !== confId ? contractIdFromStepper : null) ||
+                  (() => {
+                    const cid = sanitizeDocId(contractData?.contract_id || contractData?.id || initialContractData?.contract_id || initialContractData?.id);
+                    return cid && cid !== confId ? cid : null;
+                  })() ||
+                  (() => {
+                    const stepId = getStepSelfId(steps[1]) || steps[1]?.redirect_id;
+                    return stepId && stepId !== confId ? stepId : null;
+                  })() ||
+                  (draftId && draftId !== confId ? draftId : null);
 
                 const validEffectiveId =
                   activeDocId &&
-                  !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(activeDocId)
+                  !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(activeDocId) &&
+                  activeDocId !== confId
                     ? activeDocId
                     : undefined;
 
                 if (validEffectiveId && typeof formData?.set === 'function') {
                   formData.set('id', validEffectiveId);
                   formData.set('contract_id', validEffectiveId);
+                } else if (typeof formData?.delete === 'function') {
+                  formData.delete('id');
+                  formData.delete('contract_id');
+                  formData.delete('sales_contract_id');
+                } else if (formData && typeof formData === 'object') {
+                  if (validEffectiveId) {
+                    formData.id = validEffectiveId;
+                    formData.contract_id = validEffectiveId;
+                  } else {
+                    delete formData.id;
+                    delete formData.contract_id;
+                    delete formData.sales_contract_id;
+                  }
                 }
 
-                const confId = sanitizeDocId(
-                  effectiveConfirmationId ||
-                  initialData?.confirmation_id ||
-                  initialData?.confirmationId
-                );
                 if (confId && typeof formData?.set === 'function' && !formData.get('confirmation_id')) {
                   formData.set('confirmation_id', confId);
+                } else if (confId && formData && typeof formData === 'object' && !formData.confirmation_id) {
+                  formData.confirmation_id = confId;
                 }
 
                 const res = await saveContractDraftAction(formData, lang, validEffectiveId);
                 if (res?.success) {
-                  const newId = res.id || res.data?.id || res.data?.contract_id || (res as any)?.contract_id;
+                  const returnedContractId =
+                    res.contract_id ||
+                    res.data?.contract_id ||
+                    res.data?.contract?.id ||
+                    res.data?.contract?._id ||
+                    (res.id && res.id !== confId ? res.id : null) ||
+                    (res.data?.id && res.data.id !== confId ? res.data.id : null);
+
+                  const newId = returnedContractId && returnedContractId !== confId ? String(returnedContractId) : (validEffectiveId || '');
+                  if (newId && !effectiveConfirmationId) {
+                    setDraftId(String(newId));
+                  }
                   if (newId && !effectiveConfirmationId) {
                     setDraftId(String(newId));
                   }
@@ -6040,53 +6433,78 @@ export function DocumentDraftWorkspace({
                 return res;
               }}
               onSubmitContract={async (formData, passedId, passedNextStep) => {
-                const activeDocId =
-                  passedId ||
-                  canonicalContractId ||
-                  contractIdFromStepper ||
-                  sanitizeDocId(contractData?.contract_id || contractData?.id || initialContractData?.contract_id || initialContractData?.id) ||
-                  getStepSelfId(steps[1]) ||
-                  steps[1]?.redirect_id ||
-                  effectiveConfirmationId ||
-                  rootWorkflowId ||
-                  draftId;
-
-                const validEffectiveId =
-                  activeDocId &&
-                  !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(activeDocId)
-                    ? activeDocId
-                    : undefined;
-
-                if (validEffectiveId && typeof formData?.set === 'function') {
-                  formData.set('id', validEffectiveId);
-                  formData.set('contract_id', validEffectiveId);
-                }
-
                 const confId = sanitizeDocId(
                   effectiveConfirmationId ||
                   initialData?.confirmation_id ||
                   initialData?.confirmationId
                 );
-                if (confId && typeof formData?.set === 'function' && !formData.get('confirmation_id')) {
-                  formData.set('confirmation_id', confId);
+
+                const rawContractId =
+                  (passedId && passedId !== confId ? passedId : null) ||
+                  (canonicalContractId && canonicalContractId !== confId ? canonicalContractId : null) ||
+                  (contractIdFromStepper && contractIdFromStepper !== confId ? contractIdFromStepper : null) ||
+                  (() => {
+                    const cid = sanitizeDocId(contractData?.contract_id || contractData?.id || initialContractData?.contract_id || initialContractData?.id);
+                    return cid && cid !== confId ? cid : null;
+                  })() ||
+                  (() => {
+                    const stepContract = steps.find((s) => isContractStep(s));
+                    const stepId = getStepSelfId(stepContract) || stepContract?.redirect_id;
+                    return stepId && stepId !== confId ? stepId : null;
+                  })() ||
+                  (draftId && draftId !== confId ? draftId : null);
+
+                const validEffectiveId =
+                  rawContractId &&
+                  !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(rawContractId) &&
+                  rawContractId !== confId
+                    ? rawContractId
+                    : undefined;
+
+                if (validEffectiveId && typeof formData?.set === 'function') {
+                  formData.set('id', validEffectiveId);
+                  formData.set('contract_id', validEffectiveId);
+                } else if (typeof formData?.delete === 'function') {
+                  formData.delete('id');
+                  formData.delete('contract_id');
+                  formData.delete('sales_contract_id');
+                } else if (formData && typeof formData === 'object') {
+                  if (validEffectiveId) {
+                    formData.id = validEffectiveId;
+                    formData.contract_id = validEffectiveId;
+                  } else {
+                    delete formData.id;
+                    delete formData.contract_id;
+                    delete formData.sales_contract_id;
+                  }
                 }
 
-                const res = await submitContractAction(formData, lang, validEffectiveId);
+                if (confId && typeof formData?.set === 'function' && !formData.get('confirmation_id')) {
+                  formData.set('confirmation_id', confId);
+                } else if (confId && formData && typeof formData === 'object' && !formData.confirmation_id) {
+                  formData.confirmation_id = confId;
+                }
+
+                const contractDocId = validEffectiveId || (canonicalContractId && canonicalContractId !== confId ? canonicalContractId : undefined);
+                const res = await submitContractAction(formData, lang, contractDocId);
                 if (res?.success) {
                   setContractVersion((v) => v + 1);
-                  const newId = res.id || res.data?.id || res.data?.contract_id || (res as any)?.contract_id;
-                  if (newId && !effectiveConfirmationId) {
-                    setDraftId(String(newId));
+                  const returnedContractId =
+                    res.contract_id ||
+                    (res.id && res.id !== res.proforma_id ? res.id : null) ||
+                    contractDocId;
+
+                  if (returnedContractId) {
+                    setDraftId(String(returnedContractId));
                   }
                   if (res.data) {
-                    const extracted = extractContractData(res.data) || res.data;
+                    const isNextDocProforma = Boolean(res.data.proforma_number || res.data.proforma_id);
+                    const extracted = !isNextDocProforma ? (extractContractData(res.data) || res.data) : null;
                     const rawContNum =
                       extracted?.contract_number ||
                       extracted?.contractNumber ||
                       extracted?.contract_no ||
-                      res.data?.contract_number ||
-                      res.data?.contractNumber ||
-                      (typeof formData?.get === 'function' ? formData.get('contract_number') : null);
+                      (typeof formData?.get === 'function' ? formData.get('contract_number') : (formData as any)?.contract_number);
                     const hasSplits = Boolean(
                       (extracted?.splits && Array.isArray(extracted.splits) && extracted.splits.length > 0) ||
                       extracted?.has_splits ||
@@ -6103,6 +6521,10 @@ export function DocumentDraftWorkspace({
                             updated[k] = v;
                           }
                         }
+                      }
+                      if (returnedContractId) {
+                        updated.id = String(returnedContractId);
+                        updated.contract_id = String(returnedContractId);
                       }
                       if (contNum) {
                         updated.contract_number = contNum;
@@ -6198,13 +6620,21 @@ export function DocumentDraftWorkspace({
                     console.error('[DocumentDraftWorkspace] Post-submit contract stepper error:', stepErr);
                   }
 
-                  if (nextDocId) {
-                    targetList = targetList.map((s) =>
-                      isProformaStep(s)
-                        ? { ...s, redirect_id: nextDocId, redirectId: nextDocId }
-                        : s
-                    );
-                  }
+                  targetList = targetList.map((s) =>
+                    isProformaStep(s)
+                      ? { ...s, redirect_id: nextDocId || s.redirect_id, redirectId: nextDocId || s.redirectId, is_enabled: true, isEnabled: true }
+                      : isContractStep(s)
+                      ? {
+                          ...s,
+                          status: 'COMPLETED',
+                          is_enabled: true,
+                          isEnabled: true,
+                          redirect_id: String(returnedContractId || s.redirect_id || ''),
+                          redirectId: String(returnedContractId || s.redirectId || ''),
+                          contract_id: String(returnedContractId || s.contract_id || ''),
+                        }
+                      : s
+                  );
                   setSteps(targetList);
 
                   const visibleList = targetList.filter(isVisibleWorkflowStep);
@@ -6221,6 +6651,13 @@ export function DocumentDraftWorkspace({
                       nextStepToSelect = visibleList[targetIdx];
                     }
                   }
+                  if (!nextStepToSelect) {
+                    const profIndex = visibleList.findIndex((s) => isProformaStep(s));
+                    if (profIndex >= 0) {
+                      targetIdx = profIndex;
+                      nextStepToSelect = visibleList[profIndex];
+                    }
+                  }
                   if (nextStepToSelect && targetIdx >= 0) {
                     handleSelectStep(nextStepToSelect, targetIdx);
                   }
@@ -6233,7 +6670,7 @@ export function DocumentDraftWorkspace({
         {/* Proforma Invoice Document Form: Visible when Proforma Step is active */}
         <div className={`w-full h-full ${isProforma ? 'flex flex-col' : 'hidden'}`}>
           <ProformaDocumentForm
-            key={`proforma-${canonicalProformaId || (proformaData?.id ? String(proformaData.id) : 'default')}-${activeStepContractNumber || ''}`}
+            key="draft-form-proforma"
             dataVersion={proformaVersion}
             initialData={effectiveProformaInitialData}
             proformaId={canonicalProformaId}
@@ -6270,9 +6707,7 @@ export function DocumentDraftWorkspace({
                 if (typeof window !== 'undefined') {
                   const url = new URL(window.location.href);
                   const cleanSavedId = sanitizeDocId(savedId);
-                  const targetWorkflowId = isDocumentWorkflow
-                    ? (workflowAnchorId || initialId || rootWorkflowId || canonicalContractId || cleanSavedId)
-                    : (rootWorkflowId || effectiveConfirmationId || canonicalContractId || cleanSavedId);
+                  const targetWorkflowId = cleanSavedId || canonicalProformaId || canonicalContractId || effectiveConfirmationId || rootWorkflowId;
                   if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
                     url.searchParams.set('id', targetWorkflowId);
                   }
@@ -6313,7 +6748,6 @@ export function DocumentDraftWorkspace({
 
                 const res = await saveProformaDraftAction(formData, lang, validEffectiveId);
                 if (res?.success) {
-                  setProformaVersion((v) => v + 1);
                   const newId = res.id || res.data?.id || res.data?.proforma_id || res.data?.proforma_invoice_id;
                   if (newId) {
                     setSteps((prevSteps) =>
@@ -6561,7 +6995,9 @@ export function DocumentDraftWorkspace({
                   if (nextDocId) {
                     targetList = targetList.map((s) =>
                       isShipmentInstructionStep(s)
-                        ? { ...s, redirect_id: nextDocId, redirectId: nextDocId }
+                        ? { ...s, redirect_id: nextDocId, redirectId: nextDocId, is_enabled: true, isEnabled: true }
+                        : isProformaStep(s)
+                        ? { ...s, status: 'COMPLETED', is_enabled: true, isEnabled: true }
                         : s
                     );
                   }
@@ -6593,7 +7029,7 @@ export function DocumentDraftWorkspace({
         {/* Shipment Instruction Document Form: Visible when Shipment Instruction Step is active */}
         <div className={`w-full h-full ${isShipmentInstruction ? 'flex flex-col' : 'hidden'}`}>
           <ShipmentInstructionDocumentForm
-            key={`shipment-${canonicalShipmentInstructionId || (shipmentInstructionData?.id ? String(shipmentInstructionData.id) : 'default')}`}
+            key="draft-form-shipment-instruction"
             dataVersion={shipmentVersion}
             initialData={shipmentInstructionData || initialShipmentInstructionData || mergedShipmentInstructionData || null}
               buyerInstructionId={buyerInstructionIdForShipment}
@@ -6628,26 +7064,43 @@ export function DocumentDraftWorkspace({
               products={initialProducts}
               currencies={initialCurrencies}
               shippingTerms={shippingTerms}
-              onSaveSuccess={(savedId: string, savedData?: any) => {
+              countries={initialCountries}
+              onSaveSuccess={async (savedId: string, savedData?: any) => {
                 if (savedId) {
+                  const cleanSavedId = sanitizeDocId(savedId);
+                  let freshData = savedData;
+                  if (cleanSavedId && (!savedData || !savedData.goods_details || !savedData.port_of_loading)) {
+                    try {
+                      const freshRes = await getShipmentInstructionAction(cleanSavedId, lang);
+                      if (freshRes?.success && freshRes.data) {
+                        freshData = freshRes.data;
+                      }
+                    } catch (e) {
+                      console.warn('[DocumentDraftWorkspace] Re-fetch SI onSaveSuccess warning:', e);
+                    }
+                  }
+                  const extracted = extractShipmentInstructionData(freshData) || (freshData && typeof freshData === 'object' ? freshData : {});
                   setShipmentInstructionData((prev: any) => ({
                     ...(prev || {}),
                     ...(savedData || {}),
-                    id: savedId,
-                    shipment_instruction_id: savedId,
+                    ...(extracted && typeof extracted === 'object' ? extracted : {}),
+                    ...(savedData?.transit_clause_value !== undefined ? { transit_clause_value: savedData.transit_clause_value } : {}),
+                    ...(savedData?.transit_clause_country_id !== undefined ? { transit_clause_country_id: savedData.transit_clause_country_id } : {}),
+                    id: cleanSavedId,
+                    shipment_instruction_id: cleanSavedId,
                   }));
+                  setShipmentVersion((v) => v + 1);
                   // Update stepper item for shipment instruction so checkmark and redirect_id reflect the saved document
                   setSteps((prevSteps) =>
                     prevSteps.map((s) =>
                       isShipmentInstructionStep(s)
-                        ? { ...s, redirect_id: savedId, redirectId: savedId, status: s.status || 'draft' }
+                        ? { ...s, redirect_id: cleanSavedId, redirectId: cleanSavedId, status: s.status || 'draft' }
                         : s
                     )
                   );
                   if (typeof window !== 'undefined') {
                     const url = new URL(window.location.href);
-                    const cleanSavedId = sanitizeDocId(savedId);
-                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId || cleanSavedId;
+                    const targetWorkflowId = cleanSavedId || canonicalShipmentInstructionId || rootWorkflowId;
                     if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
                       url.searchParams.set('id', targetWorkflowId);
                     }
@@ -6717,32 +7170,58 @@ export function DocumentDraftWorkspace({
 
                 const res = await saveShipmentInstructionDraftAction(formData, lang, validEffectiveId);
                 if (res?.success) {
-                  const newId = res.id || res.data?.id || res.data?.shipment_instruction_id;
+                  const newId = res.id || res.data?.id || res.data?.shipment_instruction_id || validEffectiveId;
                   if (newId) {
+                    const cleanNewId = String(newId);
                     setSteps((prevSteps) =>
                       prevSteps.map((s) =>
                         isShipmentInstructionStep(s)
-                          ? { ...s, redirect_id: String(newId), redirectId: String(newId), status: s.status || 'draft' }
+                          ? { ...s, redirect_id: cleanNewId, redirectId: cleanNewId, status: s.status || 'draft' }
                           : s
                       )
                     );
+                    const savedTcVal =
+                      formData.get('transit_clause_value') ||
+                      formData.get('transitClauseValue');
+                    const savedTcCountry =
+                      formData.get('transit_clause_country_id') ||
+                      formData.get('transit_clause_country') ||
+                      formData.get('transitClauseCountry');
+
                     let freshData = res.data;
                     try {
-                      const freshRes = await getShipmentInstructionAction(String(newId), lang);
+                      const freshRes = await getShipmentInstructionAction(cleanNewId, lang);
                       if (freshRes?.success && freshRes.data) {
                         freshData = freshRes.data;
                       }
                     } catch (e) {
-                      console.warn('[DocumentDraftWorkspace] Re-fetch shipment instruction after save warning:', e);
+                      console.warn('[DocumentDraftWorkspace] Re-fetch SI onSaveDraft warning:', e);
                     }
+
+                    const extracted = extractShipmentInstructionData(freshData) || (freshData && typeof freshData === 'object' ? freshData : {});
+
                     setShipmentInstructionData((prev: any) => ({
                       ...(prev || {}),
-                      ...(freshData || {}),
-                      id: String(newId),
-                      shipment_instruction_id: String(newId),
+                      ...(res.data || {}),
+                      ...(extracted && typeof extracted === 'object' ? extracted : {}),
+                      ...(savedTcVal !== null && savedTcVal !== undefined ? { transit_clause_value: String(savedTcVal) } : {}),
+                      ...(savedTcCountry !== null && savedTcCountry !== undefined ? { transit_clause_country_id: String(savedTcCountry) } : {}),
+                      id: cleanNewId,
+                      shipment_instruction_id: cleanNewId,
                     }));
-                    setPinnedWorkflowAnchorId(String(newId));
+                    setShipmentVersion((v) => v + 1);
+                    setPinnedWorkflowAnchorId(cleanNewId);
                     setPinnedWorkflowAnchorType('document');
+                    if (typeof window !== 'undefined') {
+                      const url = new URL(window.location.href);
+                      url.searchParams.set('id', cleanNewId);
+                      url.searchParams.set('step', 'shipment');
+                      window.history.replaceState(null, '', url.toString());
+                    }
+                    return {
+                      ...res,
+                      data: freshData || res.data,
+                    };
                   }
                 }
                 return res;
@@ -6836,6 +7315,7 @@ export function DocumentDraftWorkspace({
                     shipment_status: 'COMPLETED',
                     ...(newId ? { id: String(newId), shipment_instruction_id: String(newId) } : {}),
                   }));
+                  setShipmentVersion((v) => v + 1);
 
                   const nextDoc = (res as any)?.next_doc || res?.data?.next_doc || res?.data?.data?.next_doc;
                   const nextDocId = nextDoc?.id ? String(nextDoc.id) : '';
@@ -6867,7 +7347,9 @@ export function DocumentDraftWorkspace({
                   if (nextDocId) {
                     targetList = targetList.map((s) =>
                       isBillOfLadingStep(s)
-                        ? { ...s, redirect_id: nextDocId, redirectId: nextDocId }
+                        ? { ...s, redirect_id: nextDocId, redirectId: nextDocId, is_enabled: true, isEnabled: true }
+                        : isShipmentInstructionStep(s)
+                        ? { ...s, status: 'COMPLETED', is_enabled: true, isEnabled: true }
                         : s
                     );
                   }
@@ -6902,7 +7384,7 @@ export function DocumentDraftWorkspace({
             <DocumentDraftSkeleton mode="contract" isFormCardOnly={true} />
           ) : (
           <BillOfLadingDocumentForm
-            key={`bill-of-lading-${canonicalBillOfLadingId || (billOfLadingData?.id ? String(billOfLadingData.id) : 'default')}`}
+            key="draft-form-bill-of-lading"
             dataVersion={billOfLadingVersion}
             initialData={billOfLadingData || initialBillOfLadingData || null}
             billOfLadingId={canonicalBillOfLadingId || ''}
@@ -6925,11 +7407,23 @@ export function DocumentDraftWorkspace({
             readOnly={false}
             onSaveSuccess={(savedId, savedData) => {
               if (savedId) {
+                const rawServerData =
+                  savedData?.data && typeof savedData.data === 'object'
+                    ? savedData.data
+                    : savedData && typeof savedData === 'object'
+                    ? savedData
+                    : {};
+                const cleanServerData: Record<string, any> = {};
+                for (const [k, v] of Object.entries(rawServerData)) {
+                  if (k === 'success' || k === 'status' || k === 'message' || k === 'data') continue;
+                  if (v !== undefined) cleanServerData[k] = v;
+                }
                 setBillOfLadingData((prev: any) => ({
                   ...(prev || {}),
-                  ...(savedData || {}),
+                  ...cleanServerData,
                   id: savedId,
                   bill_of_lading_id: savedId,
+                  _is_lading_loaded: true,
                 }));
                 setSteps((prevSteps) =>
                   prevSteps.map((s) =>
@@ -6941,7 +7435,7 @@ export function DocumentDraftWorkspace({
                 if (typeof window !== 'undefined') {
                   const url = new URL(window.location.href);
                   const cleanSavedId = sanitizeDocId(savedId);
-                  const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId || cleanSavedId;
+                  const targetWorkflowId = cleanSavedId || canonicalBillOfLadingId || rootWorkflowId;
                   if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
                     url.searchParams.set('id', targetWorkflowId);
                   }
@@ -6952,27 +7446,26 @@ export function DocumentDraftWorkspace({
             }}
             onSaveDraft={async (formData) => {
               const ladingStep = getBillOfLadingStep(steps, selectedStep);
+              const parentIds = new Set(
+                [canonicalCustomInvoiceId, canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId, effectiveConfirmationId, rootWorkflowId]
+                  .map((x) => sanitizeDocId(x))
+                  .filter(Boolean)
+              );
               const activeDocId =
                 canonicalBillOfLadingId ||
                 sanitizeDocId(
                   billOfLadingData?.bill_of_lading_id ||
-                  ((billOfLadingData?.bl_number || billOfLadingData?.bl_no) ? billOfLadingData?.id : '')
+                  ((billOfLadingData?._is_lading_loaded || billOfLadingData?.bl_number || billOfLadingData?.bl_no || billOfLadingData?.contract_number) ? billOfLadingData?.id : '')
                 ) ||
                 getStepSelfId(ladingStep) ||
                 extractStepRedirectId(ladingStep) ||
                 (ladingStep?.redirect_id) ||
                 (ladingStep as any)?.redirectId ||
-                extractLinkedBillOfLadingId(billOfLadingData) ||
-                extractLinkedBillOfLadingId(shipmentInstructionData) ||
-                canonicalShipmentInstructionId ||
-                canonicalProformaId ||
-                canonicalContractId ||
-                effectiveConfirmationId ||
-                rootWorkflowId ||
-                draftId;
+                extractLinkedBillOfLadingId(billOfLadingData);
 
               const validEffectiveId =
                 activeDocId &&
+                !parentIds.has(activeDocId) &&
                 !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|bl|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
                   ? activeDocId
                   : undefined;
@@ -6985,9 +7478,13 @@ export function DocumentDraftWorkspace({
                   formData.delete('id');
                   formData.delete('bill_of_lading_id');
                   formData.delete('lading_id');
+                  formData.delete('bl_id');
                 }
                 if (!formData.get('shipment_instruction_id') && canonicalShipmentInstructionId) {
                   formData.set('shipment_instruction_id', canonicalShipmentInstructionId);
+                }
+                if (!formData.get('custom_invoice_id') && canonicalCustomInvoiceId) {
+                  formData.set('custom_invoice_id', canonicalCustomInvoiceId);
                 }
                 if (!formData.get('proforma_id') && canonicalProformaId) formData.set('proforma_id', canonicalProformaId);
                 if (!formData.get('contract_id') && canonicalContractId) formData.set('contract_id', canonicalContractId);
@@ -7002,9 +7499,13 @@ export function DocumentDraftWorkspace({
                   delete formData.id;
                   delete formData.bill_of_lading_id;
                   delete formData.lading_id;
+                  delete formData.bl_id;
                 }
                 if (!formData.shipment_instruction_id && canonicalShipmentInstructionId) {
                   formData.shipment_instruction_id = canonicalShipmentInstructionId;
+                }
+                if (!formData.custom_invoice_id && canonicalCustomInvoiceId) {
+                  formData.custom_invoice_id = canonicalCustomInvoiceId;
                 }
                 if (!formData.proforma_id && canonicalProformaId) formData.proforma_id = canonicalProformaId;
                 if (!formData.contract_id && canonicalContractId) formData.contract_id = canonicalContractId;
@@ -7015,9 +7516,24 @@ export function DocumentDraftWorkspace({
 
               const res = await saveBillOfLadingDraftAction(formData, lang, validEffectiveId);
               if (res?.success) {
-                const newId = res.id || res.data?.id || res.data?.bill_of_lading_id || res.data?.lading_id;
-                if (newId) {
-                  const cleanNewId = String(newId);
+                const newId = res.id || res.data?.id || res.data?.bill_of_lading_id || res.data?.lading_id || validEffectiveId;
+                const savedPayload =
+                  formData && typeof formData === 'object' && typeof (formData as any).get !== 'function'
+                    ? formData
+                    : {};
+                const rawServerData =
+                  res.data?.data && typeof res.data.data === 'object'
+                    ? res.data.data
+                    : res.data && typeof res.data === 'object'
+                    ? res.data
+                    : {};
+                const cleanServerData: Record<string, any> = {};
+                for (const [k, v] of Object.entries(rawServerData)) {
+                  if (k === 'success' || k === 'status' || k === 'message' || k === 'data') continue;
+                  if (v !== undefined) cleanServerData[k] = v;
+                }
+                const cleanNewId = newId ? String(newId) : '';
+                if (cleanNewId) {
                   setSteps((prevSteps) =>
                     prevSteps.map((s) =>
                       isBillOfLadingStep(s)
@@ -7025,21 +7541,19 @@ export function DocumentDraftWorkspace({
                         : s
                     )
                   );
-                  let freshData = res.data;
-                  try {
-                    const freshRes = await getBillOfLadingAction(cleanNewId, lang);
-                    if (freshRes?.success && freshRes.data) {
-                      freshData = freshRes.data;
-                    }
-                  } catch (e) {
-                    console.warn('[DocumentDraftWorkspace] Re-fetch bill of lading after save warning:', e);
-                  }
-                  setBillOfLadingData((prev: any) => ({
-                    ...(prev || {}),
-                    ...(freshData || {}),
-                    id: cleanNewId,
-                    bill_of_lading_id: cleanNewId,
-                  }));
+                }
+                setBillOfLadingData((prev: any) => ({
+                  ...(prev || {}),
+                  ...savedPayload,
+                  ...cleanServerData,
+                  ...(cleanNewId ? { id: cleanNewId, bill_of_lading_id: cleanNewId } : {}),
+                  _is_lading_loaded: true,
+                }));
+                if (cleanNewId && typeof window !== 'undefined') {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set('id', cleanNewId);
+                  url.searchParams.set('step', 'bill-of-lading');
+                  window.history.replaceState(null, '', url.toString());
                 }
               }
               return res;
@@ -7047,31 +7561,35 @@ export function DocumentDraftWorkspace({
             onSubmitLading={async (formData, id, passedNextStep) => {
               const cleanPassed = sanitizeDocId(id);
               const ladingStep = getBillOfLadingStep(steps, selectedStep);
+              const parentIds = new Set(
+                [canonicalCustomInvoiceId, canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId, effectiveConfirmationId, rootWorkflowId]
+                  .map((x) => sanitizeDocId(x))
+                  .filter(Boolean)
+              );
               const activeDocId =
-                cleanPassed ||
+                (cleanPassed && !parentIds.has(cleanPassed) ? cleanPassed : '') ||
                 canonicalBillOfLadingId ||
                 sanitizeDocId(
                   billOfLadingData?.bill_of_lading_id ||
-                  ((billOfLadingData?.bl_number || billOfLadingData?.bl_no) ? billOfLadingData?.id : '')
+                  ((billOfLadingData?._is_lading_loaded || billOfLadingData?.bl_number || billOfLadingData?.bl_no || billOfLadingData?.contract_number) ? billOfLadingData?.id : '')
                 ) ||
                 getStepSelfId(ladingStep) ||
                 extractStepRedirectId(ladingStep) ||
                 (ladingStep?.redirect_id) ||
                 (ladingStep as any)?.redirectId ||
-                extractLinkedBillOfLadingId(billOfLadingData) ||
-                extractLinkedBillOfLadingId(shipmentInstructionData) ||
-                canonicalShipmentInstructionId ||
-                canonicalProformaId ||
-                canonicalContractId ||
-                effectiveConfirmationId ||
-                rootWorkflowId ||
-                draftId;
+                extractLinkedBillOfLadingId(billOfLadingData);
 
               const validEffectiveId =
                 activeDocId &&
+                !parentIds.has(activeDocId) &&
                 !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|bl|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
                   ? activeDocId
                   : undefined;
+
+              const submitTargetId =
+                validEffectiveId ||
+                (cleanPassed && !parentIds.has(cleanPassed) && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|bl|step-\d+|null|undefined|nan|\[object object\])$/i.test(cleanPassed) ? cleanPassed : '') ||
+                undefined;
 
               if (typeof formData?.set === 'function') {
                 if (validEffectiveId) {
@@ -7081,9 +7599,13 @@ export function DocumentDraftWorkspace({
                   formData.delete('id');
                   formData.delete('bill_of_lading_id');
                   formData.delete('lading_id');
+                  formData.delete('bl_id');
                 }
                 if (!formData.get('shipment_instruction_id') && canonicalShipmentInstructionId) {
                   formData.set('shipment_instruction_id', canonicalShipmentInstructionId);
+                }
+                if (!formData.get('custom_invoice_id') && canonicalCustomInvoiceId) {
+                  formData.set('custom_invoice_id', canonicalCustomInvoiceId);
                 }
                 if (!formData.get('proforma_id') && canonicalProformaId) formData.set('proforma_id', canonicalProformaId);
                 if (!formData.get('contract_id') && canonicalContractId) formData.set('contract_id', canonicalContractId);
@@ -7098,9 +7620,13 @@ export function DocumentDraftWorkspace({
                   delete formData.id;
                   delete formData.bill_of_lading_id;
                   delete formData.lading_id;
+                  delete formData.bl_id;
                 }
                 if (!formData.shipment_instruction_id && canonicalShipmentInstructionId) {
                   formData.shipment_instruction_id = canonicalShipmentInstructionId;
+                }
+                if (!formData.custom_invoice_id && canonicalCustomInvoiceId) {
+                  formData.custom_invoice_id = canonicalCustomInvoiceId;
                 }
                 if (!formData.proforma_id && canonicalProformaId) formData.proforma_id = canonicalProformaId;
                 if (!formData.contract_id && canonicalContractId) formData.contract_id = canonicalContractId;
@@ -7109,7 +7635,7 @@ export function DocumentDraftWorkspace({
                 }
               }
 
-              const res = await submitBillOfLadingAction(formData, lang, validEffectiveId);
+              const res = await submitBillOfLadingAction(formData, lang, submitTargetId);
               if (res?.success) {
                 const newId = res.id || res.data?.id || res.data?.bill_of_lading_id || res.data?.lading_id;
                 const cleanNewId = newId ? String(newId) : validEffectiveId || '';
@@ -7141,15 +7667,13 @@ export function DocumentDraftWorkspace({
                   ...(cleanNewId ? { id: cleanNewId, bill_of_lading_id: cleanNewId } : {}),
                 }));
 
-                const nextDoc = (res as any)?.next_doc || res?.data?.next_doc || res?.data?.data?.next_doc;
+                const nextDoc =
+                  (res as any)?.next_doc ||
+                  res?.data?.next_doc ||
+                  res?.data?.data?.next_doc ||
+                  (res as any)?.raw?.next_doc ||
+                  (res as any)?.raw?.data?.next_doc;
                 const nextDocId = nextDoc?.id ? String(nextDoc.id) : '';
-                if (nextDocId) {
-                  setCustomInvoiceData((prev: any) => ({
-                    ...(prev || {}),
-                    id: nextDocId,
-                    custom_invoice_id: nextDocId,
-                  }));
-                }
 
                 let targetList = steps;
                 try {
@@ -7166,31 +7690,69 @@ export function DocumentDraftWorkspace({
                   console.error('[DocumentDraftWorkspace] Post-submit bill of lading stepper error:', stepErr);
                 }
 
-                if (nextDocId) {
-                  targetList = targetList.map((s) =>
-                    isCustomInvoiceStep(s)
-                      ? { ...s, redirect_id: nextDocId, redirectId: nextDocId }
-                      : s
-                  );
-                }
-                setSteps(targetList);
-
-                const visibleList = targetList.filter(isVisibleWorkflowStep);
+                const preVisibleList = targetList.filter(isVisibleWorkflowStep);
                 let nextStepToSelect: StepperDocumentItem | null = null;
                 let targetIdx = -1;
                 if (passedNextStep) {
-                  targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
-                  if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                  targetIdx = preVisibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                  if (targetIdx >= 0) nextStepToSelect = preVisibleList[targetIdx];
                 }
                 if (!nextStepToSelect || targetIdx === -1) {
-                  const ladingIndex = visibleList.findIndex((s) => isBillOfLadingStep(s));
-                  if (ladingIndex >= 0 && ladingIndex + 1 < visibleList.length) {
+                  const ladingIndex = preVisibleList.findIndex((s) => isBillOfLadingStep(s));
+                  if (ladingIndex >= 0 && ladingIndex + 1 < preVisibleList.length) {
                     targetIdx = ladingIndex + 1;
-                    nextStepToSelect = visibleList[targetIdx];
+                    nextStepToSelect = preVisibleList[targetIdx];
                   }
                 }
+
+                if (nextDocId && nextStepToSelect) {
+                  if (isCommercialInvoiceStep(nextStepToSelect)) {
+                    setCommercialInvoiceData((prev: any) => ({
+                      ...(prev || {}),
+                      ...(nextDoc && typeof nextDoc === 'object' ? nextDoc : {}),
+                      id: nextDocId,
+                      commercial_invoice_id: nextDocId,
+                    }));
+                    setCommercialInvoiceVersion((v) => v + 1);
+                  } else if (isCustomInvoiceStep(nextStepToSelect)) {
+                    setCustomInvoiceData((prev: any) => ({
+                      ...(prev || {}),
+                      id: nextDocId,
+                      custom_invoice_id: nextDocId,
+                    }));
+                  } else if (isPackingListStep(nextStepToSelect)) {
+                    setPackingListData((prev: any) => ({
+                      ...(prev || {}),
+                      id: nextDocId,
+                      packing_list_id: nextDocId,
+                    }));
+                  }
+                }
+
+                targetList = targetList.map((s) => {
+                  if (isBillOfLadingStep(s)) {
+                    return { ...s, status: 'COMPLETED', is_enabled: true, isEnabled: true };
+                  }
+                  if (nextStepToSelect && isSameWorkflowStep(s, nextStepToSelect)) {
+                    return {
+                      ...s,
+                      ...(nextDocId ? { redirect_id: nextDocId, redirectId: nextDocId } : {}),
+                      is_enabled: true,
+                      isEnabled: true,
+                    };
+                  }
+                  return s;
+                });
+                setSteps(targetList);
+
                 if (nextStepToSelect && targetIdx >= 0) {
-                  handleSelectStep(nextStepToSelect, targetIdx);
+                  const enabledNextStep: StepperDocumentItem = {
+                    ...nextStepToSelect,
+                    ...(nextDocId ? { redirect_id: nextDocId, redirectId: nextDocId } : {}),
+                    is_enabled: true,
+                    isEnabled: true,
+                  };
+                  handleSelectStep(enabledNextStep, targetIdx);
                 }
               }
               return res;
@@ -7202,7 +7764,7 @@ export function DocumentDraftWorkspace({
         {/* Custom Invoice Document Form: Visible when Custom Invoice Step is active */}
         <div className={`w-full h-full ${isCustomInvoice ? 'flex flex-col' : 'hidden'}`}>
           <CustomInvoiceDocumentForm
-            key={`custom-invoice-${canonicalCustomInvoiceId || (customInvoiceData?.id ? String(customInvoiceData.id) : 'default')}`}
+            key="draft-form-custom-invoice"
             dataVersion={customInvoiceVersion}
             initialData={customInvoiceData || initialCustomInvoiceData || mergedCustomInvoiceData || null}
             customInvoiceId={canonicalCustomInvoiceId || ''}
@@ -7240,7 +7802,7 @@ export function DocumentDraftWorkspace({
                   if (typeof window !== 'undefined') {
                     const url = new URL(window.location.href);
                     const cleanSavedId = sanitizeDocId(savedId);
-                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId || cleanSavedId;
+                    const targetWorkflowId = cleanSavedId || canonicalCustomInvoiceId || rootWorkflowId;
                     if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
                       url.searchParams.set('id', targetWorkflowId);
                     }
@@ -7251,6 +7813,11 @@ export function DocumentDraftWorkspace({
               }}
               onSaveDraft={async (formData) => {
                 const customStep = getCustomInvoiceStep(steps, selectedStep);
+                const parentIds = new Set(
+                  [canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId, effectiveConfirmationId, rootWorkflowId]
+                    .map((x) => sanitizeDocId(x))
+                    .filter(Boolean)
+                );
                 const activeDocId =
                   canonicalCustomInvoiceId ||
                   sanitizeDocId(
@@ -7261,17 +7828,11 @@ export function DocumentDraftWorkspace({
                   extractStepRedirectId(customStep) ||
                   (customStep?.redirect_id) ||
                   (customStep as any)?.redirectId ||
-                  extractLinkedCustomInvoiceId(customInvoiceData) ||
-                  extractLinkedCustomInvoiceId(shipmentInstructionData) ||
-                  canonicalShipmentInstructionId ||
-                  canonicalProformaId ||
-                  canonicalContractId ||
-                  effectiveConfirmationId ||
-                  rootWorkflowId ||
-                  draftId;
+                  extractLinkedCustomInvoiceId(customInvoiceData);
 
                 const validEffectiveId =
                   activeDocId &&
+                  !parentIds.has(activeDocId) &&
                   !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
                     ? activeDocId
                     : undefined;
@@ -7292,7 +7853,7 @@ export function DocumentDraftWorkspace({
                 const cValueCandidate = typeof formData?.get === 'function'
                   ? (formData.get('comment_value') ?? formData.get('comment_text') ?? formData.get('notes_comment') ?? formData.get('comment') ?? '')
                   : (formData?.comment_value ?? formData?.comment_text ?? formData?.notes_comment ?? formData?.comment ?? '');
-                const effectiveCLabel = String(cLabelCandidate || (cValueCandidate ? 'Comments' : '')).trim();
+                const effectiveCLabel = String(cLabelCandidate || (cValueCandidate ? 'Comments' : '')).trim().slice(0, 20);
                 const effectiveCValue = String(cValueCandidate || '').trim();
 
                 if (typeof formData?.set === 'function') {
@@ -7380,22 +7941,18 @@ export function DocumentDraftWorkspace({
                           : s
                       )
                     );
-                    let freshData = res.data;
-                    try {
-                      const freshRes = await getCustomInvoiceAction(cleanNewId, lang);
-                      if (freshRes?.success && freshRes.data) {
-                        freshData = freshRes.data;
-                      }
-                    } catch (e) {
-                      console.warn('[DocumentDraftWorkspace] Re-fetch custom invoice after save warning:', e);
-                    }
                     setCustomInvoiceData((prev: any) => ({
                       ...(prev || {}),
-                      ...(freshData || {}),
+                      ...(res.data || {}),
                       id: cleanNewId,
                       custom_invoice_id: cleanNewId,
                     }));
-                    setCustomInvoiceVersion((v) => v + 1);
+                    if (typeof window !== 'undefined') {
+                      const url = new URL(window.location.href);
+                      url.searchParams.set('id', cleanNewId);
+                      url.searchParams.set('step', 'custom-invoice');
+                      window.history.replaceState(null, '', url.toString());
+                    }
                   }
                 }
                 return res;
@@ -7403,8 +7960,13 @@ export function DocumentDraftWorkspace({
               onSubmitInvoice={async (formData, id, passedNextStep) => {
                 const cleanPassed = sanitizeDocId(id);
                 const customStep = getCustomInvoiceStep(steps, selectedStep);
+                const parentIds = new Set(
+                  [canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId, effectiveConfirmationId, rootWorkflowId]
+                    .map((x) => sanitizeDocId(x))
+                    .filter(Boolean)
+                );
                 const activeDocId =
-                  cleanPassed ||
+                  (cleanPassed && !parentIds.has(cleanPassed) ? cleanPassed : '') ||
                   canonicalCustomInvoiceId ||
                   sanitizeDocId(
                     customInvoiceData?.custom_invoice_id ||
@@ -7414,20 +7976,19 @@ export function DocumentDraftWorkspace({
                   extractStepRedirectId(customStep) ||
                   (customStep?.redirect_id) ||
                   (customStep as any)?.redirectId ||
-                  extractLinkedCustomInvoiceId(customInvoiceData) ||
-                  extractLinkedCustomInvoiceId(shipmentInstructionData) ||
-                  canonicalShipmentInstructionId ||
-                  canonicalProformaId ||
-                  canonicalContractId ||
-                  effectiveConfirmationId ||
-                  rootWorkflowId ||
-                  draftId;
+                  extractLinkedCustomInvoiceId(customInvoiceData);
 
                 const validEffectiveId =
                   activeDocId &&
+                  !parentIds.has(activeDocId) &&
                   !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
                     ? activeDocId
                     : undefined;
+
+                const submitTargetId =
+                  validEffectiveId ||
+                  (cleanPassed && !parentIds.has(cleanPassed) && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(cleanPassed) ? cleanPassed : '') ||
+                  undefined;
 
                 const watermarkVal = typeof formData?.get === 'function'
                   ? (formData.get('is_watermark_enabled') ?? formData.get('watermark_enabled') ?? formData.get('watermark') ?? 'true')
@@ -7445,7 +8006,7 @@ export function DocumentDraftWorkspace({
                 const cValueCandidate = typeof formData?.get === 'function'
                   ? (formData.get('comment_value') ?? formData.get('comment_text') ?? formData.get('notes_comment') ?? formData.get('comment') ?? '')
                   : (formData?.comment_value ?? formData?.comment_text ?? formData?.notes_comment ?? formData?.comment ?? '');
-                const effectiveCLabel = String(cLabelCandidate || (cValueCandidate ? 'Comments' : '')).trim();
+                const effectiveCLabel = String(cLabelCandidate || (cValueCandidate ? 'Comments' : '')).trim().slice(0, 20);
                 const effectiveCValue = String(cValueCandidate || '').trim();
 
                 if (typeof formData?.set === 'function') {
@@ -7521,7 +8082,7 @@ export function DocumentDraftWorkspace({
                   }
                 }
 
-                const res = await submitCustomInvoiceAction(formData, lang, validEffectiveId);
+                const res = await submitCustomInvoiceAction(formData, lang, submitTargetId);
                 if (res?.success) {
                   const newId = res.id || res.data?.id || res.data?.custom_invoice_id || res.data?.invoice_id || validEffectiveId;
                   if (newId) {
@@ -7582,7 +8143,9 @@ export function DocumentDraftWorkspace({
                   if (nextDocId) {
                     targetList = targetList.map((s) =>
                       isCommercialInvoiceStep(s)
-                        ? { ...s, redirect_id: nextDocId, redirectId: nextDocId }
+                        ? { ...s, redirect_id: nextDocId, redirectId: nextDocId, is_enabled: true, isEnabled: true }
+                        : isCustomInvoiceStep(s)
+                        ? { ...s, status: 'COMPLETED', is_enabled: true, isEnabled: true }
                         : s
                     );
                   }
@@ -7617,7 +8180,7 @@ export function DocumentDraftWorkspace({
             <DocumentDraftSkeleton mode="contract" />
           ) : (
             <CommercialInvoiceDocumentForm
-              key={`commercial-invoice-${canonicalCommercialInvoiceId || (commercialInvoiceData?.id ? String(commercialInvoiceData.id) : 'default')}`}
+              key="draft-form-commercial-invoice"
               dataVersion={commercialInvoiceVersion}
               initialData={commercialInvoiceData || initialCommercialInvoiceData || mergedCommercialInvoiceData || null}
               commercialInvoiceId={canonicalCommercialInvoiceId || ''}
@@ -7657,7 +8220,7 @@ export function DocumentDraftWorkspace({
                   if (typeof window !== 'undefined') {
                     const url = new URL(window.location.href);
                     const cleanSavedId = sanitizeDocId(savedId);
-                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId || cleanSavedId;
+                    const targetWorkflowId = cleanSavedId || canonicalCommercialInvoiceId || rootWorkflowId;
                     if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
                       url.searchParams.set('id', targetWorkflowId);
                     }
@@ -7668,29 +8231,32 @@ export function DocumentDraftWorkspace({
               }}
               onSaveDraft={async (formData) => {
                 const commercialStep = getCommercialInvoiceStep(steps, selectedStep);
-                const activeDocId =
+                const parentIds = new Set(
+                  [canonicalCustomInvoiceId, canonicalBillOfLadingId, canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId, effectiveConfirmationId]
+                    .map((x) => sanitizeDocId(x))
+                    .filter(Boolean)
+                );
+                const explicitStepOrDataId = sanitizeDocId(
                   canonicalCommercialInvoiceId ||
-                  sanitizeDocId(
-                    commercialInvoiceData?.commercial_invoice_id ||
-                    (commercialInvoiceData?.commercial_invoice_number ? commercialInvoiceData?.id : '')
-                  ) ||
+                  commercialInvoiceData?.commercial_invoice_id ||
+                  (commercialInvoiceData?._is_commercial_invoice_loaded || commercialInvoiceData?.commercial_invoice_number ? commercialInvoiceData?.id : '') ||
                   getStepSelfId(commercialStep) ||
                   extractStepRedirectId(commercialStep) ||
                   commercialStep?.redirect_id ||
                   (commercialStep as any)?.redirectId ||
-                  extractLinkedCommercialInvoiceId(commercialInvoiceData) ||
-                  extractLinkedCommercialInvoiceId(customInvoiceData) ||
-                  canonicalCustomInvoiceId ||
-                  canonicalShipmentInstructionId ||
-                  canonicalProformaId ||
-                  canonicalContractId ||
-                  effectiveConfirmationId ||
-                  rootWorkflowId ||
-                  draftId;
+                  extractLinkedCommercialInvoiceId(commercialInvoiceData)
+                );
+                const activeDocId =
+                  explicitStepOrDataId ||
+                  (isCommercialInvoice && rootWorkflowId && !parentIds.has(sanitizeDocId(rootWorkflowId)) ? sanitizeDocId(rootWorkflowId) : '');
+
+                const isPlaceholderDocId = (val: string) =>
+                  /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(val);
 
                 const validEffectiveId =
                   activeDocId &&
-                  !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
+                  !isPlaceholderDocId(activeDocId) &&
+                  (Boolean(explicitStepOrDataId) || !parentIds.has(activeDocId))
                     ? activeDocId
                     : undefined;
 
@@ -7706,22 +8272,18 @@ export function DocumentDraftWorkspace({
                           : s
                       )
                     );
-                    let freshData = res.data;
-                    try {
-                      const freshRes = await getCommercialInvoiceAction(cleanNewId, lang);
-                      if (freshRes?.success && freshRes.data) {
-                        freshData = freshRes.data;
-                      }
-                    } catch (e) {
-                      console.warn('[DocumentDraftWorkspace] Re-fetch commercial invoice after save warning:', e);
-                    }
                     setCommercialInvoiceData((prev: any) => ({
                       ...(prev || {}),
-                      ...(freshData || {}),
+                      ...(res.data || {}),
                       id: cleanNewId,
                       commercial_invoice_id: cleanNewId,
                     }));
-                    setCommercialInvoiceVersion((v) => v + 1);
+                    if (typeof window !== 'undefined') {
+                      const url = new URL(window.location.href);
+                      url.searchParams.set('id', cleanNewId);
+                      url.searchParams.set('step', 'commercial-invoice');
+                      window.history.replaceState(null, '', url.toString());
+                    }
                   }
                 }
                 return res;
@@ -7729,34 +8291,42 @@ export function DocumentDraftWorkspace({
               onSubmitCommercialInvoice={async (formData, id, passedNextStep) => {
                 const cleanPassed = sanitizeDocId(id);
                 const commercialStep = getCommercialInvoiceStep(steps, selectedStep);
-                const activeDocId =
-                  cleanPassed ||
+                const parentIds = new Set(
+                  [canonicalCustomInvoiceId, canonicalBillOfLadingId, canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId, effectiveConfirmationId]
+                    .map((x) => sanitizeDocId(x))
+                    .filter(Boolean)
+                );
+                const explicitStepOrDataId = sanitizeDocId(
+                  (cleanPassed && !parentIds.has(cleanPassed) ? cleanPassed : '') ||
                   canonicalCommercialInvoiceId ||
-                  sanitizeDocId(
-                    commercialInvoiceData?.commercial_invoice_id ||
-                    (commercialInvoiceData?.commercial_invoice_number ? commercialInvoiceData?.id : '')
-                  ) ||
+                  commercialInvoiceData?.commercial_invoice_id ||
+                  (commercialInvoiceData?._is_commercial_invoice_loaded || commercialInvoiceData?.commercial_invoice_number ? commercialInvoiceData?.id : '') ||
                   getStepSelfId(commercialStep) ||
                   extractStepRedirectId(commercialStep) ||
                   commercialStep?.redirect_id ||
                   (commercialStep as any)?.redirectId ||
-                  extractLinkedCommercialInvoiceId(commercialInvoiceData) ||
-                  extractLinkedCommercialInvoiceId(customInvoiceData) ||
-                  canonicalCustomInvoiceId ||
-                  canonicalShipmentInstructionId ||
-                  canonicalProformaId ||
-                  canonicalContractId ||
-                  effectiveConfirmationId ||
-                  rootWorkflowId ||
-                  draftId;
+                  extractLinkedCommercialInvoiceId(commercialInvoiceData)
+                );
+                const activeDocId =
+                  explicitStepOrDataId ||
+                  (isCommercialInvoice && rootWorkflowId && !parentIds.has(sanitizeDocId(rootWorkflowId)) ? sanitizeDocId(rootWorkflowId) : '');
+
+                const isPlaceholderDocId = (val: string) =>
+                  /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(val);
 
                 const validEffectiveId =
                   activeDocId &&
-                  !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
+                  !isPlaceholderDocId(activeDocId) &&
+                  (Boolean(explicitStepOrDataId) || !parentIds.has(activeDocId))
                     ? activeDocId
                     : undefined;
 
-                const res = await submitCommercialInvoiceAction(formData, lang, validEffectiveId);
+                const submitTargetId =
+                  validEffectiveId ||
+                  (cleanPassed && !parentIds.has(cleanPassed) && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(cleanPassed) ? cleanPassed : '') ||
+                  undefined;
+
+                const res = await submitCommercialInvoiceAction(formData, lang, submitTargetId);
                 if (res?.success) {
                   const newId = res.id || res.data?.id || res.data?.commercial_invoice_id || validEffectiveId;
                   if (newId) {
@@ -7816,7 +8386,9 @@ export function DocumentDraftWorkspace({
                   if (nextDocId) {
                     targetList = targetList.map((s) =>
                       isPackingListStep(s)
-                        ? { ...s, redirect_id: nextDocId, redirectId: nextDocId }
+                        ? { ...s, redirect_id: nextDocId, redirectId: nextDocId, is_enabled: true, isEnabled: true }
+                        : isCommercialInvoiceStep(s)
+                        ? { ...s, status: 'COMPLETED', is_enabled: true, isEnabled: true }
                         : s
                     );
                   }
@@ -7852,7 +8424,7 @@ export function DocumentDraftWorkspace({
             <DocumentDraftSkeleton mode="contract" />
           ) : (
             <PackingListDocumentForm
-              key={`packing-list-${canonicalPackingListId || (packingListData?.id ? String(packingListData.id) : 'default')}`}
+              key="draft-form-packing-list"
               dataVersion={packingListVersion}
               initialData={
                 packingListData && Object.keys(packingListData).length > 2
@@ -7899,7 +8471,7 @@ export function DocumentDraftWorkspace({
                   if (typeof window !== 'undefined') {
                     const url = new URL(window.location.href);
                     const cleanSavedId = sanitizeDocId(savedId);
-                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId || cleanSavedId;
+                    const targetWorkflowId = cleanSavedId || canonicalPackingListId || rootWorkflowId;
                     if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
                       url.searchParams.set('id', targetWorkflowId);
                     }
@@ -7910,6 +8482,11 @@ export function DocumentDraftWorkspace({
               }}
               onSaveDraft={async (formData) => {
                 const packingStep = getPackingListStep(steps, selectedStep);
+                const parentIds = new Set(
+                  [canonicalCommercialInvoiceId, canonicalCustomInvoiceId, canonicalBillOfLadingId, canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId, effectiveConfirmationId, rootWorkflowId]
+                    .map((x) => sanitizeDocId(x))
+                    .filter(Boolean)
+                );
                 const activeDocId =
                   canonicalPackingListId ||
                   sanitizeDocId(
@@ -7920,25 +8497,28 @@ export function DocumentDraftWorkspace({
                   extractStepRedirectId(packingStep) ||
                   packingStep?.redirect_id ||
                   (packingStep as any)?.redirectId ||
-                  extractLinkedPackingListId(packingListData) ||
-                  extractLinkedPackingListId(commercialInvoiceData) ||
-                  canonicalCommercialInvoiceId ||
-                  canonicalCustomInvoiceId ||
-                  canonicalShipmentInstructionId ||
-                  canonicalProformaId ||
-                  canonicalContractId ||
-                  effectiveConfirmationId ||
-                  rootWorkflowId ||
-                  draftId;
+                  extractLinkedPackingListId(packingListData);
 
                 const validEffectiveId =
                   activeDocId &&
+                  !parentIds.has(activeDocId) &&
                   !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
                     ? activeDocId
                     : undefined;
 
                 const res = await savePackingListDraftAction(formData, lang, validEffectiveId);
                 if (res?.success) {
+                  const isFd = typeof FormData !== 'undefined' && formData instanceof FormData;
+                  const submittedFields: Record<string, any> = isFd
+                    ? {
+                        ...(formData.get('pdf_title') !== null ? { pdf_title: String(formData.get('pdf_title')), document_title: String(formData.get('pdf_title')) } : {}),
+                        ...(formData.get('header_enabled') !== null ? { header_enabled: formData.get('header_enabled') !== 'false' } : {}),
+                        ...(formData.get('is_watermark_enabled') !== null ? { is_watermark_enabled: formData.get('is_watermark_enabled') !== 'false' } : {}),
+                        ...(formData.get('seller_signature_label') !== null ? { seller_signature_label: String(formData.get('seller_signature_label')) } : {}),
+                        ...(formData.get('comment_label') !== null ? { comment_label: String(formData.get('comment_label')) } : {}),
+                        ...(formData.get('comment_value') !== null ? { comment_value: String(formData.get('comment_value')) } : {}),
+                      }
+                    : {};
                   const newId = res.id || res.data?.id || res.data?.packing_list_id;
                   if (newId) {
                     const cleanNewId = String(newId);
@@ -7949,22 +8529,25 @@ export function DocumentDraftWorkspace({
                           : s
                       )
                     );
-                    let freshData = res.data;
-                    try {
-                      const freshRes = await getPackingListAction(cleanNewId, lang);
-                      if (freshRes?.success && freshRes.data) {
-                        freshData = freshRes.data;
-                      }
-                    } catch (e) {
-                      console.warn('[DocumentDraftWorkspace] Re-fetch packing list after save warning:', e);
-                    }
                     setPackingListData((prev: any) => ({
                       ...(prev || {}),
-                      ...(freshData || {}),
+                      ...submittedFields,
+                      ...(res.data || {}),
                       id: cleanNewId,
                       packing_list_id: cleanNewId,
                     }));
-                    setPackingListVersion((v) => v + 1);
+                    if (typeof window !== 'undefined') {
+                      const url = new URL(window.location.href);
+                      url.searchParams.set('id', cleanNewId);
+                      url.searchParams.set('step', 'packing-list');
+                      window.history.replaceState(null, '', url.toString());
+                    }
+                  } else if (Object.keys(submittedFields).length > 0) {
+                    setPackingListData((prev: any) => ({
+                      ...(prev || {}),
+                      ...submittedFields,
+                      ...(res.data || {}),
+                    }));
                   }
                 }
                 return res;
@@ -7972,8 +8555,13 @@ export function DocumentDraftWorkspace({
               onSubmitPackingList={async (formData, id, passedNextStep) => {
                 const cleanPassed = sanitizeDocId(id);
                 const packingStep = getPackingListStep(steps, selectedStep);
+                const parentIds = new Set(
+                  [canonicalCommercialInvoiceId, canonicalCustomInvoiceId, canonicalBillOfLadingId, canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId, effectiveConfirmationId, rootWorkflowId]
+                    .map((x) => sanitizeDocId(x))
+                    .filter(Boolean)
+                );
                 const activeDocId =
-                  cleanPassed ||
+                  (cleanPassed && !parentIds.has(cleanPassed) ? cleanPassed : '') ||
                   canonicalPackingListId ||
                   sanitizeDocId(
                     packingListData?.packing_list_id ||
@@ -7983,24 +8571,21 @@ export function DocumentDraftWorkspace({
                   extractStepRedirectId(packingStep) ||
                   packingStep?.redirect_id ||
                   (packingStep as any)?.redirectId ||
-                  extractLinkedPackingListId(packingListData) ||
-                  extractLinkedPackingListId(commercialInvoiceData) ||
-                  canonicalCommercialInvoiceId ||
-                  canonicalCustomInvoiceId ||
-                  canonicalShipmentInstructionId ||
-                  canonicalProformaId ||
-                  canonicalContractId ||
-                  effectiveConfirmationId ||
-                  rootWorkflowId ||
-                  draftId;
+                  extractLinkedPackingListId(packingListData);
 
                 const validEffectiveId =
                   activeDocId &&
+                  !parentIds.has(activeDocId) &&
                   !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
                     ? activeDocId
                     : undefined;
 
-                const res = await submitPackingListAction(formData, lang, validEffectiveId);
+                const submitTargetId =
+                  validEffectiveId ||
+                  (cleanPassed && !parentIds.has(cleanPassed) && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(cleanPassed) ? cleanPassed : '') ||
+                  undefined;
+
+                const res = await submitPackingListAction(formData, lang, submitTargetId);
                 if (res?.success) {
                   const newId = res.id || res.data?.id || res.data?.packing_list_id || validEffectiveId;
                   if (newId) {
@@ -8060,7 +8645,9 @@ export function DocumentDraftWorkspace({
                   if (nextDocId) {
                     targetList = targetList.map((s) =>
                       isPhytoCertificateStep(s)
-                        ? { ...s, redirect_id: nextDocId, redirectId: nextDocId }
+                        ? { ...s, redirect_id: nextDocId, redirectId: nextDocId, is_enabled: true, isEnabled: true }
+                        : isPackingListStep(s)
+                        ? { ...s, status: 'COMPLETED', is_enabled: true, isEnabled: true }
                         : s
                     );
                   }
@@ -8096,7 +8683,7 @@ export function DocumentDraftWorkspace({
             <DocumentDraftSkeleton mode="contract" />
           ) : (
             <PhytoCertificateDocumentForm
-              key={`phyto-certificate-${canonicalPhytoCertificateId || (phytoCertificateData?.id ? String(phytoCertificateData.id) : 'default')}`}
+              key="draft-form-phyto-certificate"
               dataVersion={phytoCertificateVersion}
               initialData={
                 phytoCertificateData && Object.keys(phytoCertificateData).length > 2
@@ -8144,7 +8731,7 @@ export function DocumentDraftWorkspace({
                   if (typeof window !== 'undefined') {
                     const url = new URL(window.location.href);
                     const cleanSavedId = sanitizeDocId(savedId);
-                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId || cleanSavedId;
+                    const targetWorkflowId = cleanSavedId || canonicalPhytoCertificateId || rootWorkflowId;
                     if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
                       url.searchParams.set('id', targetWorkflowId);
                     }
@@ -8155,6 +8742,11 @@ export function DocumentDraftWorkspace({
               }}
               onSaveDraft={async (formData) => {
                 const phytoStep = getPhytoCertificateStep(steps, selectedStep);
+                const parentIds = new Set(
+                  [canonicalPackingListId, canonicalCommercialInvoiceId, canonicalCustomInvoiceId, canonicalBillOfLadingId, canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId, effectiveConfirmationId, rootWorkflowId]
+                    .map((x) => sanitizeDocId(x))
+                    .filter(Boolean)
+                );
                 const activeDocId =
                   canonicalPhytoCertificateId ||
                   sanitizeDocId(
@@ -8165,19 +8757,11 @@ export function DocumentDraftWorkspace({
                   extractStepRedirectId(phytoStep) ||
                   phytoStep?.redirect_id ||
                   (phytoStep as any)?.redirectId ||
-                  extractLinkedPhytoCertificateId(phytoCertificateData) ||
-                  canonicalPackingListId ||
-                  canonicalCommercialInvoiceId ||
-                  canonicalCustomInvoiceId ||
-                  canonicalShipmentInstructionId ||
-                  canonicalProformaId ||
-                  canonicalContractId ||
-                  effectiveConfirmationId ||
-                  rootWorkflowId ||
-                  draftId;
+                  extractLinkedPhytoCertificateId(phytoCertificateData);
 
                 const validEffectiveId =
                   activeDocId &&
+                  !parentIds.has(activeDocId) &&
                   !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
                     ? activeDocId
                     : undefined;
@@ -8194,22 +8778,18 @@ export function DocumentDraftWorkspace({
                           : s
                       )
                     );
-                    let freshData = res.data;
-                    try {
-                      const freshRes = await getPhytoCertificateAction(cleanNewId, lang);
-                      if (freshRes?.success && freshRes.data) {
-                        freshData = freshRes.data;
-                      }
-                    } catch (e) {
-                      console.warn('[DocumentDraftWorkspace] Re-fetch phyto certificate after save warning:', e);
-                    }
                     setPhytoCertificateData((prev: any) => ({
                       ...(prev || {}),
-                      ...(freshData || {}),
+                      ...(res.data || {}),
                       id: cleanNewId,
                       phyto_certificate_id: cleanNewId,
                     }));
-                    setPhytoCertificateVersion((v) => v + 1);
+                    if (typeof window !== 'undefined') {
+                      const url = new URL(window.location.href);
+                      url.searchParams.set('id', cleanNewId);
+                      url.searchParams.set('step', 'phyto-certificate');
+                      window.history.replaceState(null, '', url.toString());
+                    }
                   }
                 }
                 return res;
@@ -8217,8 +8797,13 @@ export function DocumentDraftWorkspace({
               onSubmitPhytoCertificate={async (formData, id, passedNextStep) => {
                 const cleanPassed = sanitizeDocId(id);
                 const phytoStep = getPhytoCertificateStep(steps, selectedStep);
+                const parentIds = new Set(
+                  [canonicalPackingListId, canonicalCommercialInvoiceId, canonicalCustomInvoiceId, canonicalBillOfLadingId, canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId, effectiveConfirmationId, rootWorkflowId]
+                    .map((x) => sanitizeDocId(x))
+                    .filter(Boolean)
+                );
                 const activeDocId =
-                  cleanPassed ||
+                  (cleanPassed && !parentIds.has(cleanPassed) ? cleanPassed : '') ||
                   canonicalPhytoCertificateId ||
                   sanitizeDocId(
                     phytoCertificateData?.phyto_certificate_id ||
@@ -8228,24 +8813,21 @@ export function DocumentDraftWorkspace({
                   extractStepRedirectId(phytoStep) ||
                   phytoStep?.redirect_id ||
                   (phytoStep as any)?.redirectId ||
-                  extractLinkedPhytoCertificateId(phytoCertificateData) ||
-                  canonicalPackingListId ||
-                  canonicalCommercialInvoiceId ||
-                  canonicalCustomInvoiceId ||
-                  canonicalShipmentInstructionId ||
-                  canonicalProformaId ||
-                  canonicalContractId ||
-                  effectiveConfirmationId ||
-                  rootWorkflowId ||
-                  draftId;
+                  extractLinkedPhytoCertificateId(phytoCertificateData);
 
                 const validEffectiveId =
                   activeDocId &&
+                  !parentIds.has(activeDocId) &&
                   !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
                     ? activeDocId
                     : undefined;
 
-                const res = await submitPhytoCertificateAction(formData, lang, validEffectiveId);
+                const submitTargetId =
+                  validEffectiveId ||
+                  (cleanPassed && !parentIds.has(cleanPassed) && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(cleanPassed) ? cleanPassed : '') ||
+                  undefined;
+
+                const res = await submitPhytoCertificateAction(formData, lang, submitTargetId);
                 if (res?.success) {
                   const newId = res.id || res.data?.id || res.data?.phyto_certificate_id || validEffectiveId;
                   if (newId) {
@@ -8287,11 +8869,17 @@ export function DocumentDraftWorkspace({
                     });
                     if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0 && isRealStepperList(stepperRes.data)) {
                       targetList = mergeStepperWithHidden(stepperRes.data, steps);
-                      setSteps(targetList);
                     }
                   } catch (stepErr) {
                     console.error('[DocumentDraftWorkspace] Post-submit phyto certificate stepper error:', stepErr);
                   }
+
+                  targetList = targetList.map((s) =>
+                    isPhytoCertificateStep(s)
+                      ? { ...s, status: 'COMPLETED', is_enabled: true, isEnabled: true }
+                      : s
+                  );
+                  setSteps(targetList);
 
                   const visibleList = targetList.filter(isVisibleWorkflowStep);
                   let nextStepToSelect: StepperDocumentItem | null = null;
@@ -8347,6 +8935,7 @@ export function DocumentDraftWorkspace({
             confirmationNumber={resolvedConfirmationNumber}
             contractNumber={activeStepContractNumber}
             isContractStep={isContract}
+            documentsListDisabled={documentsListDisabled}
           />
         </div>
       </aside>

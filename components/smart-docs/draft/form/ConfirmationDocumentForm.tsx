@@ -2823,9 +2823,7 @@ export function ConfirmationDocumentForm({
         d.confirmation_comment_label ??
         d.comment_title
       );
-      if (cLabel) {
-        setCommentLabel(cLabel);
-      }
+      setCommentLabel(cLabel || '');
 
       const cValue = toCleanText(
         d.comment_value ??
@@ -2837,9 +2835,7 @@ export function ConfirmationDocumentForm({
         d.confirmation_comment_value ??
         d.comment_text
       );
-      if (cValue) {
-        setCommentValue(cValue);
-      }
+      setCommentValue(cValue || '');
 
       // Update document status if present in loaded document
       const statusFromDoc = extractDocumentStatus(d);
@@ -2852,7 +2848,15 @@ export function ConfirmationDocumentForm({
 
   // Synchronize with initialData on initial load, doc change, or stepper navigation version trigger
   useEffect(() => {
+    const isDataVersionTriggered = Boolean(
+      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
+    );
+
     if (!initialData || typeof initialData !== 'object' || Object.keys(initialData).length === 0) {
+      if (isDataVersionTriggered) {
+        setCommentLabel('');
+        setCommentValue('');
+      }
       return;
     }
 
@@ -2863,9 +2867,6 @@ export function ConfirmationDocumentForm({
       initialData.confirmationId
     );
 
-    const isDataVersionTriggered = Boolean(
-      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
-    );
     const hasDocIdChanged = Boolean(incomingDocId && incomingDocId !== lastLoadedDocIdRef.current);
 
     // Once the form was already initialized, NEVER overwrite the user's active in-progress edits
@@ -3222,7 +3223,7 @@ export function ConfirmationDocumentForm({
     }
 
     // Comment fields (comment_label & comment_value)
-    rawPayload.comment_label = commentLabel.trim();
+    rawPayload.comment_label = commentLabel.trim().slice(0, 20);
     rawPayload.comment_value = commentValue.trim();
 
     return cleanConfirmationPayload(rawPayload) as SaveConfirmationPayload;
@@ -3245,28 +3246,62 @@ export function ConfirmationDocumentForm({
     else if (/^cif\b/i.test(normalizedTerm)) normalizedTerm = 'CIF';
     const selectedPay = paymentTermsList.find((t) => t.value === paymentTerm);
 
+    const effectiveMt = isFcl
+      ? (() => {
+          const computedMt =
+            (parseFloat(String(fclQty).replace(/[^\d.]/g, '')) || 0) *
+            (parseFloat(String(fclCapacity).replace(/[^\d.]/g, '')) || 0);
+          return computedMt > 0 ? (computedMt % 1 === 0 ? computedMt.toString() : computedMt.toFixed(2)) : String(mtQty || '');
+        })()
+      : String(mtQty || '');
+
+    const effectiveBag = (() => {
+      const effectiveBagKg = parsePackingBagWeightKg(packing, packingList);
+      if (effectiveBagKg && effectiveBagKg > 0) {
+        const mtNum = parseFloat(String(effectiveMt).replace(/[^\d.]/g, '')) || 0;
+        if (mtNum > 0) {
+          return String(Math.round((mtNum * 1000) / effectiveBagKg));
+        }
+      } else if (effectiveBagKg === 0) {
+        return '0';
+      }
+      return String(bagQty || '');
+    })();
+
+    const numPrice = parseFloat(String(price).replace(/[^\d.]/g, '')) || 0;
+    const numMt = parseFloat(String(effectiveMt).replace(/[^\d.]/g, '')) || 0;
+    const numTotal = parseFloat(String(totalValue).replace(/[^\d.]/g, '')) || (numPrice * numMt);
+
     return {
       id: draftId || undefined,
       letterhead,
-      letterhead_space: letterhead,
+      letterhead_space: Boolean(letterhead),
       watermark,
-      is_watermark_enabled: watermark,
+      is_watermark_enabled: Boolean(watermark),
       title: documentTitle,
       pdf_title: documentTitle,
-      confirmationNumber,
-      confirmationDate,
+      confirmationNumber: confirmationNumber.trim(),
+      confirmation_number: confirmationNumber.trim(),
+      confirmationDate: confirmationDate || '',
+      confirmation_date: confirmationDate || '',
       sellerId,
+      seller_instruction_id: sellerId,
       sellerName: selectedSeller?.label || '',
-      sellerInstruction,
+      sellerInstruction: sellerInstruction.trim(),
+      seller_instruction: sellerInstruction.trim(),
       buyerId,
+      buyer_instruction_id: buyerId,
       buyerName: selectedBuyer?.label || '',
-      buyerInstruction,
+      buyerInstruction: buyerInstruction.trim(),
+      buyer_instruction: buyerInstruction.trim(),
       productId,
+      product_id: productId,
       productName: selectedProduct?.label || '',
+      product_name: selectedProduct?.label || '',
       hsnCode: normalizeHsnString(hsnCode),
       country: normalizeCountryString(productCountry),
-      specification,
-      quality_specification: specification,
+      specification: specification.trim(),
+      quality_specification: specification.trim(),
       shipBy: selectedShipBy?.label || shipBy || '',
       ship_by: normalizeShipByForApi(shipBy),
       loadingPort: selectedLoading?.label || loadingPort || '',
@@ -3278,45 +3313,31 @@ export function ConfirmationDocumentForm({
       shippingTerm: selectedTerm?.value || normalizedTerm || shippingTerm || '',
       shipping_term: selectedTerm?.value || normalizedTerm || shippingTerm || '',
       fclQty: isFcl ? fclQty : '',
+      fcl_quantity: isFcl && fclQty ? Number(fclQty) || 0 : null,
       fclCapacity: isFcl ? fclCapacity : '',
-      mtQty: isFcl
-        ? (() => {
-            const computedMt =
-              (parseFloat(String(fclQty).replace(/[^\d.]/g, '')) || 0) *
-              (parseFloat(String(fclCapacity).replace(/[^\d.]/g, '')) || 0);
-            return computedMt > 0 ? (computedMt % 1 === 0 ? computedMt.toString() : computedMt.toFixed(2)) : mtQty || '';
-          })()
-        : mtQty,
-      bagQty: (() => {
-        const effectiveBagKg = parsePackingBagWeightKg(packing, packingList);
-        if (effectiveBagKg && effectiveBagKg > 0) {
-          const effectiveMt = isFcl
-            ? (parseFloat(String(fclQty).replace(/[^\d.]/g, '')) || 0) *
-              (parseFloat(String(fclCapacity).replace(/[^\d.]/g, '')) || 0)
-            : parseFloat(String(mtQty).replace(/[^\d.]/g, '')) || 0;
-          if (effectiveMt > 0) {
-            return Math.round((effectiveMt * 1000) / effectiveBagKg).toLocaleString();
-          }
-        } else if (effectiveBagKg === 0) {
-          return '0';
-        }
-        return bagQty || '';
-      })(),
+      fcl_capacity: isFcl && fclCapacity ? String(fclCapacity).trim() : null,
+      mtQty: effectiveMt,
+      mt_quantity: numMt > 0 ? numMt : null,
+      bagQty: effectiveBag,
+      bag_quantity: effectiveBag ? Number(effectiveBag.replace(/,/g, '')) || 0 : null,
       currency,
-      currency_id: currencyId,
-      price,
-      totalValue,
-      shipmentStartDate: formatLocalDate(shipmentRange.start),
-      shipmentEndDate: formatLocalDate(shipmentRange.end),
+      currency_id: currencyId || currency,
+      price: numPrice > 0 ? numPrice.toFixed(2) : String(price || ''),
+      totalValue: numTotal > 0 ? numTotal.toFixed(2) : String(totalValue || ''),
+      total_value: numTotal > 0 ? numTotal.toFixed(2) : String(totalValue || ''),
+      shipmentStartDate: formatLocalDate(shipmentRange.start) || '',
+      shipment_start_date: formatLocalDate(shipmentRange.start) || '',
+      shipmentEndDate: formatLocalDate(shipmentRange.end) || '',
+      shipment_end_date: formatLocalDate(shipmentRange.end) || '',
       shipmentPeriod,
       paymentTerm: selectedPay?.label || paymentTerm || '',
       payment_term: selectedPay?.label || paymentTerm || '',
       payment_term_id: selectedPay?.value || paymentTerm || '',
       paymentTermId: selectedPay?.value || paymentTerm || '',
       notes,
-      comment_label: commentLabel.trim(),
+      comment_label: commentLabel.trim().slice(0, 20),
       comment_value: commentValue.trim(),
-      commentLabel: commentLabel.trim(),
+      commentLabel: commentLabel.trim().slice(0, 20),
       commentValue: commentValue.trim(),
     };
   };
@@ -4589,9 +4610,10 @@ export function ConfirmationDocumentForm({
               <DocUnderlineInput
                 id="field-commentLabel"
                 value={commentLabel}
+                maxLength={20}
                 onChange={(val) => {
                   markDirty();
-                  setCommentLabel(val);
+                  setCommentLabel(val.slice(0, 20));
                   setErrors((prev) => ({ ...prev, commentLabel: '', comment_label: '' }));
                 }}
                 error={errors.commentLabel || errors.comment_label}

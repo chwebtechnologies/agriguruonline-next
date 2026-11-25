@@ -19,6 +19,7 @@ import {
   extractStepId,
   getStepSelfId,
   isSameWorkflowStep,
+  isStepEnabled,
 } from '@/lib/api/smart-docs.service';
 import {
   getStepperListAction,
@@ -142,6 +143,7 @@ export interface DocumentStatusStepperProps {
   contractNumber?: string | null;
   activeDocNumber?: string | null;
   isContractStep?: boolean;
+  documentsListDisabled?: boolean;
 }
 
 export function DocumentStatusStepper({
@@ -161,6 +163,7 @@ export function DocumentStatusStepper({
   contractNumber,
   activeDocNumber: propActiveDocNumber,
   isContractStep: propIsContractStep,
+  documentsListDisabled: propDocumentsListDisabled = false,
 }: DocumentStatusStepperProps) {
   const propStepId = stepId;
   const [steps, setSteps] = useState<StepperDocumentItem[]>(initialSteps || []);
@@ -459,7 +462,11 @@ export function DocumentStatusStepper({
 
   const { stepperType: resolvedStepperType, stepperId: resolvedStepperId } = getStepperContext();
 
-  const isDocListDisabled = !resolvedStepperId;
+  const isDocListDisabled = Boolean(
+    propDocumentsListDisabled ||
+    !resolvedStepperId ||
+    resolvedStepperId === 'new-confirmation'
+  );
 
   // On Open (handleOpen):
   // Toggle isOpen = !isOpen.
@@ -531,6 +538,15 @@ export function DocumentStatusStepper({
   };
 
   const handleStepClick = (step: StepperDocumentItem, index: number) => {
+    const isEnabled = isStepEnabled(step, index, visibleSteps, selectedIndex, {
+      isConfirmation: isCurrentConfirmation,
+      isContract: isCurrentContract,
+      isDocumentWorkflow: resolvedStepperType === 'document',
+      confirmationId: propConfirmationId,
+      contractId: contractNumber,
+      shipmentInstructionId: resolvedStepperType === 'document' ? resolvedStepperId : undefined,
+    });
+    if (!isEnabled) return;
     setSelectedIndex(index);
     if (onSelectStep) {
       onSelectStep(step, index);
@@ -1083,7 +1099,15 @@ export function DocumentStatusStepper({
                 const stepNumber = step.step ?? step.step_number ?? step.order ?? index + 1;
                 const pdfUrl = step.pdf_url || step.pdf || step.download_url || step.file_url;
 
-                const isStepLocked = Boolean(step.is_locked || step.locked || normalized === 'locked');
+                const isEnabled = isStepEnabled(step, index, visibleSteps, selectedIndex, {
+                  isConfirmation: isCurrentConfirmation,
+                  isContract: isCurrentContract,
+                  isDocumentWorkflow: resolvedStepperType === 'document',
+                  confirmationId: propConfirmationId,
+                  contractId: contractNumber,
+                  shipmentInstructionId: resolvedStepperType === 'document' ? resolvedStepperId : undefined,
+                });
+                const isStepLocked = !isEnabled;
 
                 return (
                   <div
@@ -1216,10 +1240,16 @@ function StatusBadge({
     );
   }
 
+  const rawClean = typeof rawStatus === 'string' ? rawStatus.trim() : '';
+  const displayStatus =
+    rawClean && !['locked', 'disabled', 'pending'].includes(rawClean.toLowerCase())
+      ? rawClean.charAt(0).toUpperCase() + rawClean.slice(1).toLowerCase().replace(/_/g, ' ')
+      : dict?.smart_docs?.status_pending || 'Pending';
+
   return (
     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 leading-none">
       <i className="fa-regular fa-clock text-[7px]" />
-      <span>{dict?.smart_docs?.status_pending || 'Pending'}</span>
+      <span>{displayStatus}</span>
     </span>
   );
 }

@@ -830,26 +830,30 @@ export function CommercialInvoiceDocumentForm({
 
   // Invoicing Details: Editable Inputs (INVOICE NO & INVOICE DATE only)
   const [invoiceNumber, setInvoiceNumber] = useState<string>(() => {
-    if (!isInitialDataRealCommercial) {
-      return safeString(
-        initialData?.commercial_invoice_number || initialData?.commercial_invoice_no,
-        ''
-      );
-    }
     return safeString(
       initialData?.commercial_invoice_number ||
         initialData?.commercial_invoice_no ||
+        initialData?.commercial_invoice?.invoice_number ||
+        initialData?.commercial_invoice?.invoice_no ||
         initialData?.invoice_number ||
-        initialData?.invoice_no,
+        initialData?.invoice_no ||
+        '',
       ''
     );
   });
 
   const [invoiceDate, setInvoiceDate] = useState<string>(() => {
-    const raw = isInitialDataRealCommercial
-      ? initialData?.commercial_invoice_date || initialData?.invoice_date
-      : initialData?.commercial_invoice_date;
-    if (raw) return safeString(raw).slice(0, 10);
+    const raw =
+      initialData?.commercial_invoice_date ||
+      initialData?.commercial_invoice?.invoice_date ||
+      initialData?.invoice_date ||
+      '';
+    if (raw) {
+      const str = safeString(raw);
+      if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0, 10);
+      const parsed = new Date(str);
+      return !isNaN(parsed.getTime()) ? parsed.toISOString().split('T')[0] : str.slice(0, 10);
+    }
     return '';
   });
 
@@ -1141,30 +1145,38 @@ export function CommercialInvoiceDocumentForm({
   });
   const [isLoadingBankAccounts, setIsLoadingBankAccounts] = useState<boolean>(false);
   const [selectedBankId, setSelectedBankId] = useState<string>(() => {
-    if (!isInitialDataRealCommercial) return '';
     return safeString(
-      initialData?.bank_details_id ??
+      initialData?.commercial_invoice?.bank_details_id ??
+        initialData?.commercial_invoice?.bank_account_id ??
+        initialData?.bank_details_id ??
         initialData?.bankDetailsId ??
         initialData?.bank_account_id ??
         initialData?.bankAccountId ??
         initialData?.bank_id ??
         initialData?.bankId ??
-        initialData?.commercial_invoice?.bank_details_id ??
-        initialData?.commercial_invoice?.bank_account_id ??
+        initialData?.custom_invoice?.bank_details_id ??
+        initialData?.custom_invoice?.bank_account_id ??
+        initialData?.proforma?.bank_details_id ??
+        initialData?.proforma?.bank_account_id ??
         initialData?.data?.bank_details_id ??
-        initialData?.data?.bank_account_id,
+        initialData?.data?.bank_account_id ??
+        '',
       ''
     );
   });
   const [bankAccountDetails, setBankAccountDetails] = useState<string>(() => {
-    if (!isInitialDataRealCommercial) return '';
     return safeString(
-      initialData?.bank_details ??
+      initialData?.commercial_invoice?.bank_details ??
+        initialData?.bank_details ??
         initialData?.bankAccountDetails ??
         initialData?.bank_account_details ??
         initialData?.account_details ??
-        initialData?.commercial_invoice?.bank_details ??
-        initialData?.data?.bank_details,
+        initialData?.custom_invoice?.bank_details ??
+        initialData?.custom_invoice?.bank_account_details ??
+        initialData?.proforma?.bank_details ??
+        initialData?.proforma?.bank_account_details ??
+        initialData?.data?.bank_details ??
+        '',
       ''
     );
   });
@@ -1357,7 +1369,10 @@ export function CommercialInvoiceDocumentForm({
       initialData?.comment_label ||
         initialData?.commentLabel ||
         initialData?.comment_title ||
-        initialData?.commentTitle,
+        initialData?.commentTitle ||
+        initialData?.notes_title ||
+        initialData?.extra_title ||
+        initialData?.notes?.[0]?.title,
       ''
     )
   );
@@ -1366,14 +1381,28 @@ export function CommercialInvoiceDocumentForm({
       initialData?.comment_value ||
         initialData?.commentValue ||
         initialData?.comment_text ||
-        initialData?.commentText,
+        initialData?.commentText ||
+        initialData?.notes_comment ||
+        initialData?.extra_comment ||
+        initialData?.comment ||
+        initialData?.notes?.[0]?.comment,
       ''
     )
   );
 
   // Hydrate form state when initialData arrives or dataVersion bumps
   useEffect(() => {
-    if (!initialData) return;
+    const isDataVersionTriggered = Boolean(
+      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
+    );
+
+    if (!initialData) {
+      if (isDataVersionTriggered) {
+        setCommentLabel('');
+        setCommentValue('');
+      }
+      return;
+    }
 
     const isIncomingRealCommercial = Boolean(
       initialData?.commercial_invoice_id ||
@@ -1401,9 +1430,6 @@ export function CommercialInvoiceDocumentForm({
     );
 
     const needsUpgrade = isIncomingRealCommercial && !hasLoadedRealCommercialRef.current;
-    const isDataVersionTriggered = Boolean(
-      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
-    );
 
     if (needsUpgrade || hasDocChanged || isDataVersionTriggered) {
       isUserDirtyRef.current = false;
@@ -1462,27 +1488,38 @@ export function CommercialInvoiceDocumentForm({
       setWatermark(Boolean(initialData.watermark));
     }
 
-    // Invoice No & Date (only hydrate from commercial invoice data so we don't leak Proforma invoice numbers)
+    // Invoice No & Date (only hydrate from commercial invoice data so we don't leak another form's invoice numbers)
     if (isIncomingRealCommercial) {
-      if (
+      const resolvedInvoiceNo = safeString(
         initialData.commercial_invoice_number ||
-        initialData.commercial_invoice_no ||
-        initialData.invoice_number ||
-        initialData.invoice_no
-      ) {
-        setInvoiceNumber(
-          safeString(
-            initialData.commercial_invoice_number ||
-              initialData.commercial_invoice_no ||
-              initialData.invoice_number ||
-              initialData.invoice_no
-          )
-        );
+          initialData.commercial_invoice_no ||
+          initialData.commercial_invoice?.invoice_number ||
+          initialData.commercial_invoice?.invoice_no ||
+          initialData.invoice_number ||
+          initialData.invoice_no ||
+          '',
+        ''
+      );
+      if (resolvedInvoiceNo) {
+        setInvoiceNumber(resolvedInvoiceNo);
+      } else if (hasDocChanged) {
+        setInvoiceNumber('');
       }
-      if (initialData.commercial_invoice_date || initialData.invoice_date) {
-        setInvoiceDate(
-          safeString(initialData.commercial_invoice_date || initialData.invoice_date).slice(0, 10)
-        );
+
+      const rawInvoiceDate = safeString(
+        initialData.commercial_invoice_date ||
+          initialData.commercial_invoice?.invoice_date ||
+          initialData.invoice_date ||
+          '',
+        ''
+      );
+      if (rawInvoiceDate) {
+        if (/^\d{4}-\d{2}-\d{2}/.test(rawInvoiceDate)) {
+          setInvoiceDate(rawInvoiceDate.slice(0, 10));
+        } else {
+          const parsedDate = new Date(rawInvoiceDate);
+          setInvoiceDate(!isNaN(parsedDate.getTime()) ? parsedDate.toISOString().split('T')[0] : rawInvoiceDate.slice(0, 10));
+        }
       } else if (hasDocChanged) {
         setInvoiceDate('');
       }
@@ -1743,35 +1780,43 @@ export function CommercialInvoiceDocumentForm({
     const gDesc = extractCommercialGoodsDescription(initialData);
     if (gDesc) setGoodsDescription(gDesc);
 
-    if (isIncomingRealCommercial) {
-      const incomingBankId = safeString(
+    const incomingBankId = safeString(
+      initialData?.commercial_invoice?.bank_details_id ??
+        initialData?.commercial_invoice?.bank_account_id ??
         initialData?.bank_details_id ??
-          initialData?.bankDetailsId ??
-          initialData?.commercial_invoice?.bank_details_id ??
-          initialData?.data?.bank_details_id ??
-          initialData?.bank_account_id ??
-          initialData?.bankAccountId ??
-          initialData?.bank_id ??
-          initialData?.bankId
-      );
-      if (incomingBankId) {
-        setSelectedBankId(incomingBankId);
-      } else if (hasDocChanged || isDataVersionTriggered) {
-        setSelectedBankId('');
-      }
-      const incomingBankDetails = safeString(
+        initialData?.bankDetailsId ??
+        initialData?.bank_account_id ??
+        initialData?.bankAccountId ??
+        initialData?.bank_id ??
+        initialData?.bankId ??
+        initialData?.custom_invoice?.bank_details_id ??
+        initialData?.custom_invoice?.bank_account_id ??
+        initialData?.proforma?.bank_details_id ??
+        initialData?.proforma?.bank_account_id ??
+        initialData?.data?.bank_details_id ??
+        initialData?.data?.bank_account_id
+    );
+    if (incomingBankId) {
+      setSelectedBankId(incomingBankId);
+    } else if (hasDocChanged || isDataVersionTriggered) {
+      setSelectedBankId('');
+    }
+    const incomingBankDetails = safeString(
+      initialData?.commercial_invoice?.bank_details ??
         initialData?.bank_details ??
-          initialData?.bankAccountDetails ??
-          initialData?.bank_account_details ??
-          initialData?.account_details ??
-          initialData?.commercial_invoice?.bank_details ??
-          initialData?.data?.bank_details
-      );
-      if (incomingBankDetails) {
-        setBankAccountDetails(incomingBankDetails);
-      } else if (!incomingBankId && (hasDocChanged || isDataVersionTriggered)) {
-        setBankAccountDetails('');
-      }
+        initialData?.bankAccountDetails ??
+        initialData?.bank_account_details ??
+        initialData?.account_details ??
+        initialData?.custom_invoice?.bank_details ??
+        initialData?.custom_invoice?.bank_account_details ??
+        initialData?.proforma?.bank_details ??
+        initialData?.proforma?.bank_account_details ??
+        initialData?.data?.bank_details
+    );
+    if (incomingBankDetails) {
+      setBankAccountDetails(incomingBankDetails);
+    } else if (!incomingBankId && (hasDocChanged || isDataVersionTriggered)) {
+      setBankAccountDetails('');
     }
 
     const resolvedSig = resolveSignatureValue(initialData, sellers, sellerId);
@@ -1794,14 +1839,30 @@ export function CommercialInvoiceDocumentForm({
       }
     }
 
-    if (initialData.comment_label || initialData.comment_title) {
-      const cLabel = safeString(initialData.comment_label || initialData.comment_title);
-      if (cLabel) setCommentLabel(cLabel);
-    }
-    if (initialData.comment_value || initialData.comment_text) {
-      const cVal = safeString(initialData.comment_value || initialData.comment_text);
-      if (cVal) setCommentValue(cVal);
-    }
+    const cLabel = safeString(
+      initialData.comment_label ||
+      initialData.comment_title ||
+      initialData.notes_title ||
+      initialData.extra_title ||
+      initialData.commentLabel ||
+      initialData.commentTitle ||
+      initialData.notes?.[0]?.title,
+      ''
+    );
+    setCommentLabel(cLabel);
+
+    const cVal = safeString(
+      initialData.comment_value ||
+      initialData.comment_text ||
+      initialData.notes_comment ||
+      initialData.extra_comment ||
+      initialData.comment ||
+      initialData.commentValue ||
+      initialData.commentText ||
+      initialData.notes?.[0]?.comment,
+      ''
+    );
+    setCommentValue(cVal);
 
     if (isIncomingRealCommercial) {
       const titleFromInit = safeString(
@@ -1887,18 +1948,6 @@ export function CommercialInvoiceDocumentForm({
       if (isValidOwnId(dataId)) return dataId;
     }
 
-    // Fallback workflow anchor IDs for initial save/submit if backend resolves by parent ID
-    for (const fallbackId of [
-      customInvoiceId,
-      shipmentInstructionId,
-      proformaId,
-      contractId,
-      confirmationId,
-    ]) {
-      const clean = sanitizeDocId(fallbackId);
-      if (clean && !PLACEHOLDER_ID_REGEX.test(clean)) return clean;
-    }
-
     return '';
   }, [
     draftId,
@@ -1916,11 +1965,10 @@ export function CommercialInvoiceDocumentForm({
   const getCommercialInvoiceFormData = useCallback((): FormData => {
     const formData = new FormData();
 
-    // Header title & toggles (editable Commercial Invoice fields only)
+    // Header title & toggles (matches agriguru-website CommercialForm payload)
     const titleVal = safeString(documentTitle).trim() || 'COMMERCIAL INVOICE';
     formData.append('pdf_title', titleVal);
 
-    formData.append('letterhead_space', String(Boolean(letterhead)));
     formData.append('header_enabled', String(Boolean(letterhead)));
     formData.append('is_watermark_enabled', String(Boolean(watermark)));
 
@@ -1934,13 +1982,12 @@ export function CommercialInvoiceDocumentForm({
       formData.append('invoice_date', cleanInvoiceDate);
     }
 
-    // Advance Payment, Balance Payment & Total Value: backend validates up to 17 digits before decimal and 2 digits after (e.g. "0.00")
+    // Advance Payment & Balance Payment
     formData.append(
       'advance_payment',
       hasAnyAdvance ? formatDecimal2ForPayload(advancePayment, false) : '0.00'
     );
     formData.append('balance_payment', formatDecimal2ForPayload(effectiveBalancePayment, true));
-    formData.append('total_value', formatDecimal2ForPayload(computedTotal, true));
 
     // Bank Account (editable)
     if (
@@ -1952,21 +1999,19 @@ export function CommercialInvoiceDocumentForm({
     }
 
     // Additional Comments (editable)
-    const cleanCommentLabel = safeString(commentLabel).trim();
+    const cleanCommentLabel = safeString(commentLabel).trim().slice(0, 20);
     const cleanCommentValue = safeString(commentValue).trim();
-    if (cleanCommentLabel) {
-      formData.append('comment_label', cleanCommentLabel);
-    }
-    if (cleanCommentValue) {
-      formData.append('comment_value', cleanCommentValue);
-    }
+    formData.append('comment_label', cleanCommentLabel);
+    formData.append('comment_title', cleanCommentLabel);
+    formData.append('notes_title', cleanCommentLabel);
+    formData.append('comment_value', cleanCommentValue);
+    formData.append('comment_text', cleanCommentValue);
+    formData.append('notes_comment', cleanCommentValue);
+    formData.append('comment', cleanCommentValue);
 
-    // Seller Logo (editable)
+    // Seller Logo (only when explicitly uploaded)
     if (logoFile) {
       formData.append('seller_logo', logoFile);
-      formData.append('remove_seller_logo', 'false');
-    } else if (hasUserClearedLogoRef.current) {
-      formData.append('remove_seller_logo', 'true');
     }
 
     // Seller Signature & Label (editable)
@@ -1982,13 +2027,9 @@ export function CommercialInvoiceDocumentForm({
       } else {
         const relUrl = normalizeSignaturePayload(stampImageUrl) || stampImageUrl;
         if (relUrl) {
-          formData.append('seller_signature_url', relUrl);
           formData.append('seller_signature', relUrl);
         }
       }
-      formData.append('remove_seller_signature', 'false');
-    } else if (hasUserClearedSignatureRef.current) {
-      formData.append('remove_seller_signature', 'true');
     }
 
     return formData;
@@ -2001,7 +2042,6 @@ export function CommercialInvoiceDocumentForm({
     hasAnyAdvance,
     advancePayment,
     effectiveBalancePayment,
-    computedTotal,
     selectedBankId,
     commentLabel,
     commentValue,
@@ -2060,6 +2100,7 @@ export function CommercialInvoiceDocumentForm({
           scrollToAndFocusProformaField(fieldErrors);
         }
         const firstFieldErr = Object.values(fieldErrors)[0];
+        const hasAnyFieldErr = Object.keys(fieldErrors).length > 0;
         const isCleanToastMsg = (m?: any) =>
           Boolean(
             m &&
@@ -2073,7 +2114,9 @@ export function CommercialInvoiceDocumentForm({
           firstFieldErr ||
           (isCleanToastMsg(res?.message) ? res.message : null) ||
           (isCleanToastMsg(res?.error) ? res.error : null) ||
-          'Failed to save draft. Please check highlighted fields.';
+          (hasAnyFieldErr
+            ? 'Failed to save draft. Please check highlighted fields.'
+            : res?.message || res?.error || 'Failed to save commercial invoice draft. Please try again.');
         toast.error(toastMsg);
         return;
       }
@@ -2089,6 +2132,12 @@ export function CommercialInvoiceDocumentForm({
       if (savedId) {
         lastLoadedDocIdRef.current = savedId;
         setDraftId(savedId);
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.set('id', savedId);
+          url.searchParams.set('step', 'commercial-invoice');
+          window.history.replaceState(null, '', url.toString());
+        }
       }
       isFormInitializedRef.current = true;
       isUserDirtyRef.current = false;
@@ -2105,7 +2154,16 @@ export function CommercialInvoiceDocumentForm({
         const extracted =
           extractCommercialInvoiceData(res?.data) ||
           (typeof res?.data === 'object' && res?.data !== null ? res.data : {});
+        const cleanCLabel = safeString(commentLabel).trim().slice(0, 20);
+        const cleanCVal = safeString(commentValue).trim();
         onSaveSuccess(savedId, {
+          comment_label: cleanCLabel,
+          comment_title: cleanCLabel,
+          notes_title: cleanCLabel,
+          comment_value: cleanCVal,
+          comment_text: cleanCVal,
+          notes_comment: cleanCVal,
+          comment: cleanCVal,
           ...extracted,
           id: savedId,
           commercial_invoice_id: savedId,
@@ -2144,19 +2202,47 @@ export function CommercialInvoiceDocumentForm({
     setIsSubmitting(true);
     setErrors({});
     try {
+      let activeId = getEffectiveCommercialInvoiceId();
+      if (!activeId || isDirty || hasDraftChanges || !isDraftSavedToBackendRef.current) {
+        try {
+          const payloadToSave = getCommercialInvoiceFormData();
+          let saveRes: any;
+          if (onSaveDraft) {
+            saveRes = await onSaveDraft(payloadToSave);
+          } else {
+            saveRes = await saveCommercialInvoiceDraftAction(payloadToSave, lang, activeId || undefined);
+          }
+          if (saveRes?.success) {
+            const newId = saveRes.id || saveRes.data?.id || saveRes.data?.commercial_invoice_id || saveRes.data?.invoice_id;
+            if (newId) {
+              const cleanNewId = String(newId);
+              setDraftId(cleanNewId);
+              activeId = cleanNewId;
+              isDraftSavedToBackendRef.current = true;
+              setIsDirty(false);
+              setHasDraftChanges(false);
+              setHasSubmitChanges(true);
+              if (onSaveSuccess) onSaveSuccess(cleanNewId, saveRes.data);
+            }
+          }
+        } catch (saveErr) {
+          console.warn('[CommercialInvoiceDocumentForm] Auto-save before submit warning:', saveErr);
+        }
+      }
+
       const formDataPayload = getCommercialInvoiceFormData();
       let res: any;
       if (onSubmitCommercialInvoice) {
         res = await onSubmitCommercialInvoice(
           formDataPayload,
-          getEffectiveCommercialInvoiceId() || undefined,
+          activeId || getEffectiveCommercialInvoiceId() || undefined,
           targetNextStep
         );
       } else {
         res = await submitCommercialInvoiceAction(
           formDataPayload,
           lang,
-          getEffectiveCommercialInvoiceId() || undefined
+          activeId || getEffectiveCommercialInvoiceId() || undefined
         );
       }
 
@@ -2203,6 +2289,12 @@ export function CommercialInvoiceDocumentForm({
       if (savedId) {
         lastLoadedDocIdRef.current = savedId;
         setDraftId(savedId);
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.set('id', savedId);
+          url.searchParams.set('step', 'commercial-invoice');
+          window.history.replaceState(null, '', url.toString());
+        }
       }
       isFormInitializedRef.current = true;
       isUserDirtyRef.current = false;
@@ -2226,7 +2318,16 @@ export function CommercialInvoiceDocumentForm({
         const extracted =
           extractCommercialInvoiceData(res?.data) ||
           (typeof res?.data === 'object' && res?.data !== null ? res.data : {});
+        const cleanCLabel = safeString(commentLabel).trim().slice(0, 20);
+        const cleanCVal = safeString(commentValue).trim();
         onSaveSuccess(savedId, {
+          comment_label: cleanCLabel,
+          comment_title: cleanCLabel,
+          notes_title: cleanCLabel,
+          comment_value: cleanCVal,
+          comment_text: cleanCVal,
+          notes_comment: cleanCVal,
+          comment: cleanCVal,
           ...extracted,
           id: savedId,
           commercial_invoice_id: savedId,
@@ -2278,6 +2379,23 @@ export function CommercialInvoiceDocumentForm({
             setIsDirty(false);
             if (onSaveSuccess) onSaveSuccess(newId, res.data);
           }
+        } else if (res) {
+          const { fieldErrors, generalError } = parseProformaBackendErrors(res);
+          if (Object.keys(fieldErrors).length > 0) {
+            setErrors(fieldErrors);
+            scrollToAndFocusProformaField(fieldErrors);
+          }
+          const firstFieldErr = Object.values(fieldErrors)[0];
+          const hasAnyFieldErr = Object.keys(fieldErrors).length > 0;
+          const errToast =
+            generalError ||
+            firstFieldErr ||
+            (typeof res?.message === 'string' && !/^(form validation error|validation error|bad request)$/i.test(res.message.trim()) ? res.message : null) ||
+            (hasAnyFieldErr
+              ? 'Failed to save draft. Please check highlighted fields.'
+              : res?.message || res?.error || 'Failed to save commercial invoice draft.');
+          toast.error(errToast);
+          return;
         }
       } catch (saveErr) {
         console.error('[CommercialInvoiceDocumentForm] Auto-save before preview failed:', saveErr);
@@ -2329,6 +2447,23 @@ export function CommercialInvoiceDocumentForm({
             setIsDirty(false);
             if (onSaveSuccess) onSaveSuccess(newId, res.data);
           }
+        } else if (res) {
+          const { fieldErrors, generalError } = parseProformaBackendErrors(res);
+          if (Object.keys(fieldErrors).length > 0) {
+            setErrors(fieldErrors);
+            scrollToAndFocusProformaField(fieldErrors);
+          }
+          const firstFieldErr = Object.values(fieldErrors)[0];
+          const hasAnyFieldErr = Object.keys(fieldErrors).length > 0;
+          const errToast =
+            generalError ||
+            firstFieldErr ||
+            (typeof res?.message === 'string' && !/^(form validation error|validation error|bad request)$/i.test(res.message.trim()) ? res.message : null) ||
+            (hasAnyFieldErr
+              ? 'Failed to save draft. Please check highlighted fields.'
+              : res?.message || res?.error || 'Failed to save commercial invoice draft.');
+          toast.error(errToast);
+          return;
         }
       } catch (saveErr) {
         console.error('[CommercialInvoiceDocumentForm] Auto-save before download failed:', saveErr);
@@ -2517,6 +2652,12 @@ export function CommercialInvoiceDocumentForm({
                 </span>
               </div>
             )}
+            {(errors.seller_logo || errors.company_logo) && (
+              <span className="text-[11px] text-brand-red font-semibold ml-2 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
+                <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+                <span className="text-brand-red">{errors.seller_logo || errors.company_logo}</span>
+              </span>
+            )}
           </div>
 
           {/* Center: Seller Name & Editable COMMERCIAL INVOICE Title */}
@@ -2568,9 +2709,31 @@ export function CommercialInvoiceDocumentForm({
               onChange={(val) => {
                 markDirty();
                 setWatermark(val);
+                setErrors((prev) => ({
+                  ...prev,
+                  is_watermark_enabled: '',
+                  watermark_enabled: '',
+                  watermark: '',
+                }));
               }}
               disabled={readOnly}
             />
+            {(errors.is_watermark_enabled || errors.watermark_enabled || errors.watermark) && (
+              <span className="text-[11px] text-brand-red font-semibold mt-0.5 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
+                <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+                <span className="text-brand-red">
+                  {errors.is_watermark_enabled || errors.watermark_enabled || errors.watermark}
+                </span>
+              </span>
+            )}
+            {(errors.header_enabled || errors.letterhead_space || errors.letterhead) && (
+              <span className="text-[11px] text-brand-red font-semibold mt-0.5 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
+                <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+                <span className="text-brand-red">
+                  {errors.header_enabled || errors.letterhead_space || errors.letterhead}
+                </span>
+              </span>
+            )}
           </div>
 
           {/* Mobile Right: Letterhead & Watermark */}
@@ -2590,9 +2753,31 @@ export function CommercialInvoiceDocumentForm({
               onChange={(val) => {
                 markDirty();
                 setWatermark(val);
+                setErrors((prev) => ({
+                  ...prev,
+                  is_watermark_enabled: '',
+                  watermark_enabled: '',
+                  watermark: '',
+                }));
               }}
               disabled={readOnly}
             />
+            {(errors.is_watermark_enabled || errors.watermark_enabled || errors.watermark) && (
+              <span className="text-[11px] text-brand-red font-semibold mt-0.5 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
+                <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+                <span className="text-brand-red">
+                  {errors.is_watermark_enabled || errors.watermark_enabled || errors.watermark}
+                </span>
+              </span>
+            )}
+            {(errors.header_enabled || errors.letterhead_space || errors.letterhead) && (
+              <span className="text-[11px] text-brand-red font-semibold mt-0.5 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
+                <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+                <span className="text-brand-red">
+                  {errors.header_enabled || errors.letterhead_space || errors.letterhead}
+                </span>
+              </span>
+            )}
           </div>
         </div>
 
@@ -2618,7 +2803,7 @@ export function CommercialInvoiceDocumentForm({
                 <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
                   EXPORTER / SELLER:
                 </label>
-                <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
                   {formatPartyDetails(companyName, sellerDetails) || '-'}
                 </div>
               </div>
@@ -2632,7 +2817,7 @@ export function CommercialInvoiceDocumentForm({
                 <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
                   CONSIGNEE / BUYER:
                 </label>
-                <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
                   {consigneeDisplayText || '-'}
                 </div>
               </div>
@@ -2719,7 +2904,7 @@ export function CommercialInvoiceDocumentForm({
                   <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5 leading-tight">
                     REGISTRATION NO:
                   </span>
-                  <div className="text-[13px] sm:text-[14px] font-semibold text-foreground uppercase tracking-wide whitespace-pre-line break-words leading-relaxed px-0.5 select-all">
+                  <div className="text-[13px] sm:text-[14px] font-semibold text-foreground tracking-wide whitespace-pre-line break-words leading-relaxed px-0.5 select-all">
                     {displayGstValue || '-'}
                   </div>
                 </div>
@@ -2735,7 +2920,7 @@ export function CommercialInvoiceDocumentForm({
                   BUYER&apos;S ORDER NO &amp; DATE:
                 </span>
                 <div className="flex-1 min-w-0 flex items-center min-h-[30px] px-1">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {safeString(buyerOrderNoDate, '') || '-'}
                   </span>
                 </div>
@@ -2751,7 +2936,7 @@ export function CommercialInvoiceDocumentForm({
                   PURCHASE ORDER NO:
                 </span>
                 <div className="flex-1 min-w-0 flex items-center min-h-[30px] px-1">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {safeString(purchaseOrderNo, '') || '-'}
                   </span>
                 </div>
@@ -2767,7 +2952,7 @@ export function CommercialInvoiceDocumentForm({
                   CONTRACT DATE:
                 </span>
                 <div className="flex-1 min-w-0 flex items-center min-h-[30px] px-1">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {safeString(contractDate, '') || '-'}
                   </span>
                 </div>
@@ -2783,7 +2968,7 @@ export function CommercialInvoiceDocumentForm({
                   OTHER REFERENCE (S):
                 </span>
                 <div className="flex-1 min-w-0 flex items-center min-h-[30px] px-1">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {safeString(otherReferences, '') || '-'}
                   </span>
                 </div>
@@ -2812,17 +2997,17 @@ export function CommercialInvoiceDocumentForm({
             {/* Notify Parties 1 - 3 Values */}
             <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-card">
               <div className="p-2.5 sm:p-3 min-h-[72px] flex flex-col justify-start text-left">
-                <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed select-all">
                   {notifyParty1 || '-'}
                 </div>
               </div>
               <div className="p-2.5 sm:p-3 min-h-[72px] flex flex-col justify-start text-left">
-                <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed select-all">
                   {notifyParty2 || '-'}
                 </div>
               </div>
               <div className="p-2.5 sm:p-3 min-h-[72px] flex flex-col justify-start text-left">
-                <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed select-all">
                   {notifyParty3 || '-'}
                 </div>
               </div>
@@ -2845,17 +3030,17 @@ export function CommercialInvoiceDocumentForm({
 
                 <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-card">
                   <div className="p-2.5 sm:p-3 min-h-[56px] flex flex-col justify-start text-left">
-                    <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                    <div className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed select-all">
                       {notifyParty4 || '-'}
                     </div>
                   </div>
                   <div className="p-2.5 sm:p-3 min-h-[56px] flex flex-col justify-start text-left">
-                    <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                    <div className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed select-all">
                       {notifyParty5 || '-'}
                     </div>
                   </div>
                   <div className="p-2.5 sm:p-3 min-h-[56px] flex flex-col justify-start text-left">
-                    <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                    <div className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed select-all">
                       {notifyParty6 || '-'}
                     </div>
                   </div>
@@ -2892,12 +3077,12 @@ export function CommercialInvoiceDocumentForm({
             <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border">
               <div className="w-full md:w-[37%] shrink-0 grid grid-cols-2 divide-x divide-border">
                 <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     BY SEA
                   </span>
                 </div>
                 <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {safeString(placeOfReceipt || countryOfOrigin, '') || '-'}
                   </span>
                 </div>
@@ -2905,12 +3090,12 @@ export function CommercialInvoiceDocumentForm({
 
               <div className="w-full md:w-[63%] min-w-0 flex-1 grid grid-cols-2 divide-x divide-border">
                 <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {safeString(countryOfOrigin || placeOfReceipt, '') || '-'}
                   </span>
                 </div>
                 <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {safeString(countryOfDestination, '') || '-'}
                   </span>
                 </div>
@@ -2939,19 +3124,19 @@ export function CommercialInvoiceDocumentForm({
 
             <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border">
               <div className="w-full md:w-[37%] shrink-0 p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                   {safeString(vesselVoyageNo, '') || 'AS PER BL'}
                 </span>
               </div>
 
               <div className="w-full md:w-[63%] min-w-0 flex-1 grid grid-cols-2 divide-x divide-border">
                 <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {safeString(portOfLoading, '') || '-'}
                   </span>
                 </div>
                 <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {deliveryTermsDisplay || '-'}
                   </span>
                 </div>
@@ -2974,12 +3159,12 @@ export function CommercialInvoiceDocumentForm({
 
             <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
               <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase whitespace-pre-line leading-relaxed">
+                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all whitespace-pre-line leading-relaxed">
                   {safeString(portOfDestination, '') || '-'}
                 </span>
               </div>
               <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase whitespace-pre-line leading-relaxed">
+                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all whitespace-pre-line leading-relaxed">
                   {safeString(finalDestination, '') || '-'}
                 </span>
               </div>
@@ -3023,7 +3208,7 @@ export function CommercialInvoiceDocumentForm({
                 <tr className="divide-x divide-border">
                   {/* COUNT / VESSEL */}
                   <td rowSpan={2} className="py-3 px-3 align-top text-left">
-                    <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                    <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                       {safeString(countVessel, '') || '-'}
                     </span>
                   </td>
@@ -3034,7 +3219,7 @@ export function CommercialInvoiceDocumentForm({
                     id="field-goodsDescription"
                     data-field="goodsDescription"
                   >
-                    <div className="font-semibold text-[14px] text-foreground uppercase leading-relaxed whitespace-pre-line select-all pb-2">
+                    <div className="font-semibold text-[14px] text-foreground leading-relaxed whitespace-pre-line select-all pb-2">
                       {safeString(goodsDescription, '') || '-'}
                     </div>
                   </td>
@@ -3060,17 +3245,23 @@ export function CommercialInvoiceDocumentForm({
                   </td>
 
                   {/* AMOUNT (balance_payment) */}
-                  <td className="py-3 px-3 align-top text-right">
+                  <td className="py-3 px-3 align-top text-right" id="field-balancePayment" data-field="balancePayment">
                     <span className="font-bold text-[14px] text-foreground tracking-wide select-all tabular-nums">
                       {currencySymbol} {formatAmountWithoutExtraZeros(effectiveBalancePayment) || '0.00'}
                     </span>
+                    {(errors.balancePayment || errors.balance_payment) && (
+                      <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center justify-end gap-1.5">
+                        <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+                        <span className="text-brand-red">{errors.balancePayment || errors.balance_payment}</span>
+                      </span>
+                    )}
                   </td>
                 </tr>
 
                 {/* Advance Payment Row (Editable input only when any_advance is true) */}
                 <tr className="divide-x divide-border bg-card">
                   <td className="py-2.5 px-3 align-middle text-left">
-                    <span className="font-semibold text-[13px] sm:text-[14px] text-foreground tracking-wide select-all uppercase">
+                    <span className="font-semibold text-[13px] sm:text-[14px] text-foreground tracking-wide select-all">
                       [5% MORE OR LESS AT CONTRACT QUANTITY]
                     </span>
                   </td>
@@ -3131,7 +3322,7 @@ export function CommercialInvoiceDocumentForm({
                       <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 leading-normal">
                         AMOUNT IN WORDS:
                       </span>
-                      <span className="font-bold text-[14px] text-foreground uppercase tracking-wide select-all leading-normal">
+                      <span className="font-bold text-[14px] text-foreground tracking-wide select-all leading-normal">
                         {effectiveAmountInWords || '-'}
                       </span>
                     </div>
@@ -3142,10 +3333,16 @@ export function CommercialInvoiceDocumentForm({
                   >
                     TOTAL
                   </td>
-                  <td className="py-2.5 px-3 align-top text-right">
+                  <td className="py-2.5 px-3 align-top text-right" id="field-totalValue" data-field="totalValue">
                     <span className="font-bold text-[14px] text-foreground tracking-wide select-all tabular-nums">
                       {currencySymbol} {formatAmountWithoutExtraZeros(computedTotal) || '0.00'}
                     </span>
+                    {(errors.totalValue || errors.total_value) && (
+                      <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center justify-end gap-1.5">
+                        <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+                        <span className="text-brand-red">{errors.totalValue || errors.total_value}</span>
+                      </span>
+                    )}
                   </td>
                 </tr>
               </tbody>
@@ -3308,7 +3505,7 @@ export function CommercialInvoiceDocumentForm({
                 {/* Formatted Bank Account Details (Display Only) */}
                 <div className="flex-1 flex flex-col mt-1.5 min-h-[90px] justify-start px-0.5">
                   {bankAccountDetails ? (
-                    <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                    <div className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed select-all">
                       {bankAccountDetails}
                     </div>
                   ) : (
@@ -3403,7 +3600,7 @@ export function CommercialInvoiceDocumentForm({
             <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
               NOTE / BANK CHARGES:
             </span>
-            <p className="text-[13px] sm:text-[14px] font-semibold text-amber-600 dark:text-amber-400 leading-relaxed uppercase px-0.5 select-all">
+            <p className="text-[13px] sm:text-[14px] font-semibold text-amber-600 dark:text-amber-400 leading-relaxed px-0.5 select-all">
               {bankChargesNote || DEFAULT_BANK_CHARGES_NOTE}
             </p>
           </div>
@@ -3423,9 +3620,10 @@ export function CommercialInvoiceDocumentForm({
               <DocUnderlineInput
                 id="commercial-commentLabel-input"
                 value={commentLabel}
+                maxLength={20}
                 onChange={(val) => {
                   markDirty();
-                  setCommentLabel(val);
+                  setCommentLabel(val.slice(0, 20));
                   setErrors((prev) => ({
                     ...prev,
                     commentLabel: '',

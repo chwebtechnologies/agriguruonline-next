@@ -736,23 +736,41 @@ export function PackingListDocumentForm({
 
   // Invoice / Packing List Details: Editable Inputs (INVOICE NO & INVOICE DATE - strictly from Packing List API)
   const [invoiceNumber, setInvoiceNumber] = useState<string>(() => {
+    const isRealPacking = Boolean(
+      initialData?.packing_list_id ||
+        initialData?.packing_list_number ||
+        initialData?.packing_list_no ||
+        (initialData?.packing_list && typeof initialData.packing_list === 'object') ||
+        initialData?._is_packing_list_loaded ||
+        initialData?.document_type === 'packing_list' ||
+        initialData?.doc_type === 'packing_list'
+    );
     return safeString(
       initialData?.packing_list_number ||
         initialData?.packing_list_no ||
         initialData?.packing_number ||
         initialData?.packing_no ||
-        initialData?.document_number ||
-        initialData?.doc_number ||
-        (isInitialDataRealPacking ? initialData?.invoice_number || initialData?.invoice_no : ''),
+        (isRealPacking ? initialData?.invoice_number || initialData?.invoice_no : '') ||
+        '',
       ''
     );
   });
 
   const [invoiceDate, setInvoiceDate] = useState<string>(() => {
+    const isRealPacking = Boolean(
+      initialData?.packing_list_id ||
+        initialData?.packing_list_number ||
+        initialData?.packing_list_no ||
+        (initialData?.packing_list && typeof initialData.packing_list === 'object') ||
+        initialData?._is_packing_list_loaded ||
+        initialData?.document_type === 'packing_list' ||
+        initialData?.doc_type === 'packing_list'
+    );
     const raw =
       initialData?.packing_list_date ||
       initialData?.packing_date ||
-      (isInitialDataRealPacking ? initialData?.invoice_date : '');
+      (isRealPacking ? initialData?.invoice_date || initialData?.date : '') ||
+      '';
     if (raw) return safeString(raw).slice(0, 10);
     return '';
   });
@@ -1102,7 +1120,17 @@ export function PackingListDocumentForm({
 
   // Hydrate form state when initialData arrives or dataVersion bumps
   useEffect(() => {
-    if (!initialData) return;
+    const isDataVersionTriggered = Boolean(
+      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
+    );
+
+    if (!initialData) {
+      if (isDataVersionTriggered) {
+        setCommentLabel('');
+        setCommentValue('');
+      }
+      return;
+    }
 
     const isIncomingRealPacking = Boolean(
       initialData?.packing_list_id ||
@@ -1130,13 +1158,12 @@ export function PackingListDocumentForm({
     );
 
     const needsUpgrade = isIncomingRealPacking && !hasLoadedRealPackingRef.current;
-    const isDataVersionTriggered = Boolean(
-      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
-    );
 
     if (needsUpgrade || hasDocChanged || isDataVersionTriggered) {
       isUserDirtyRef.current = false;
-      isSavingOrSubmittingRef.current = false;
+      if (hasDocChanged || isDataVersionTriggered) {
+        isSavingOrSubmittingRef.current = false;
+      }
       if (isIncomingRealPacking) hasLoadedRealPackingRef.current = true;
       if (dataVersion !== undefined) lastDataVersionRef.current = dataVersion;
     }
@@ -1210,13 +1237,51 @@ export function PackingListDocumentForm({
       }
     }
 
+    // Document Title
+    if (isIncomingRealPacking || isDataVersionTriggered) {
+      const titleFromInit = safeString(
+        initialData?.packing_list?.pdf_title ||
+          initialData?.packing_list?.document_title ||
+          initialData?.pdf_title ||
+          initialData?.pdfTitle ||
+          initialData?.document_title ||
+          initialData?.documentTitle ||
+          (isIncomingRealPacking ? initialData?.title : ''),
+        ''
+      );
+      if (titleFromInit && !/^(proforma|custom|commercial|sales contract|trade confirmation)/i.test(titleFromInit)) {
+        setDocumentTitle(titleFromInit);
+      }
+    }
+
     // Comments
-    if (initialData.comment_label || initialData.comment_title) {
-      setCommentLabel(safeString(initialData.comment_label || initialData.comment_title));
-    }
-    if (initialData.comment_value || initialData.comment_text) {
-      setCommentValue(safeString(initialData.comment_value || initialData.comment_text));
-    }
+    const cLabel = safeString(
+      initialData?.packing_list?.comment_label ??
+        initialData?.packing_list?.comment_title ??
+        initialData?.comment_label ??
+        initialData?.comment_title ??
+        initialData?.commentLabel ??
+        initialData?.commentTitle ??
+        initialData?.notes_title ??
+        (Array.isArray(initialData?.notes) ? initialData.notes[0]?.title : undefined) ??
+        '',
+      ''
+    );
+    setCommentLabel(cLabel);
+
+    const cVal = safeString(
+      initialData?.packing_list?.comment_value ??
+        initialData?.packing_list?.comment_text ??
+        initialData?.comment_value ??
+        initialData?.comment_text ??
+        initialData?.commentValue ??
+        initialData?.commentText ??
+        initialData?.notes_comment ??
+        (Array.isArray(initialData?.notes) ? initialData.notes[0]?.comment : undefined) ??
+        '',
+      ''
+    );
+    setCommentValue(cVal);
   }, [initialData, dataVersion, sellers, sellerId]);
 
   // Handle Logo Upload & Removal
@@ -1306,29 +1371,9 @@ export function PackingListDocumentForm({
   const getEffectivePackingListId = useCallback(() => {
     const ownId = getOwnPackingListId();
     if (ownId) return ownId;
-
-    // Fallback workflow anchor IDs for preview/download/save if backend resolves by parent/deal ID
-    for (const fallbackId of [
-      commercialInvoiceId,
-      customInvoiceId,
-      shipmentInstructionId,
-      proformaId,
-      contractId,
-      confirmationId,
-    ]) {
-      const clean = sanitizeDocId(fallbackId);
-      if (clean && !PLACEHOLDER_ID_REGEX.test(clean)) return clean;
-    }
-
     return '';
   }, [
     getOwnPackingListId,
-    commercialInvoiceId,
-    customInvoiceId,
-    shipmentInstructionId,
-    proformaId,
-    contractId,
-    confirmationId,
   ]);
 
   // Build FormData Payload
@@ -1425,9 +1470,13 @@ export function PackingListDocumentForm({
       fd.append('seller_signature_url', '');
     }
 
-    if (commentLabel.trim() || commentValue.trim()) {
-      fd.append('comment_label', commentLabel.trim());
-      fd.append('comment_value', commentValue.trim());
+    const cleanCommentLabel = safeString(commentLabel).trim();
+    const cleanCommentValue = safeString(commentValue).trim();
+    if (cleanCommentLabel) {
+      fd.append('comment_label', cleanCommentLabel.slice(0, 20));
+    }
+    if (cleanCommentValue) {
+      fd.append('comment_value', cleanCommentValue);
     }
 
     return fd;
@@ -1461,6 +1510,7 @@ export function PackingListDocumentForm({
   // Handle Save Draft
   const handleSaveDraft = async () => {
     if (isSavingDraft || isSubmitting || readOnly) return;
+    isSavingOrSubmittingRef.current = true;
     setIsSavingDraft(true);
     setErrors({});
 
@@ -1482,6 +1532,12 @@ export function PackingListDocumentForm({
         if (savedId) {
           lastLoadedDocIdRef.current = savedId;
           setDraftId(savedId);
+          if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            url.searchParams.set('id', savedId);
+            url.searchParams.set('step', 'packing-list');
+            window.history.replaceState(null, '', url.toString());
+          }
         }
         isFormInitializedRef.current = true;
         isUserDirtyRef.current = false;
@@ -1510,7 +1566,15 @@ export function PackingListDocumentForm({
           const extracted =
             extractPackingListData(res?.data) ||
             (typeof res?.data === 'object' && res?.data !== null ? res.data : {});
+          const cleanCLabel = safeString(commentLabel).trim().slice(0, 20);
+          const cleanCVal = safeString(commentValue).trim();
           onSaveSuccess(savedId, {
+            ...(documentTitle.trim() ? { pdf_title: documentTitle.trim(), document_title: documentTitle.trim() } : {}),
+            header_enabled: letterhead,
+            is_watermark_enabled: watermark,
+            ...(safeString(authoritySignatureTitle).trim() ? { seller_signature_label: safeString(authoritySignatureTitle).trim() } : {}),
+            comment_label: cleanCLabel,
+            comment_value: cleanCVal,
             ...extracted,
             id: savedId,
             packing_list_id: savedId,
@@ -1534,6 +1598,7 @@ export function PackingListDocumentForm({
       }
       toast.error(generalError || err?.message || 'Error occurred while saving draft.');
     } finally {
+      isSavingOrSubmittingRef.current = false;
       setIsSavingDraft(false);
     }
   };
@@ -1557,8 +1622,49 @@ export function PackingListDocumentForm({
     setErrors({});
 
     try {
+      let currentId = getOwnPackingListId() || getEffectivePackingListId();
+      if (!currentId || hasDraftChanges || isUserDirtyRef.current || !isDraftSavedToBackendRef.current) {
+        try {
+          const payloadToSave = getPackingListFormData();
+          let saveRes: any;
+          if (onSaveDraft) {
+            saveRes = await onSaveDraft(payloadToSave);
+          } else {
+            saveRes = await savePackingListDraftAction(payloadToSave, lang, currentId || undefined);
+          }
+          if (saveRes?.success) {
+            const newId = saveRes.id || saveRes.data?.id || saveRes.data?.packing_list_id;
+            if (newId) {
+              const cleanNewId = String(newId);
+              setDraftId(cleanNewId);
+              currentId = cleanNewId;
+              isDraftSavedToBackendRef.current = true;
+              setIsDirty(false);
+              setHasDraftChanges(false);
+              setHasSubmitChanges(true);
+              if (onSaveSuccess) {
+                const cleanCLabel = safeString(commentLabel).trim().slice(0, 20);
+                const cleanCVal = safeString(commentValue).trim();
+                onSaveSuccess(cleanNewId, {
+                  ...(documentTitle.trim() ? { pdf_title: documentTitle.trim(), document_title: documentTitle.trim() } : {}),
+                  header_enabled: letterhead,
+                  is_watermark_enabled: watermark,
+                  ...(safeString(authoritySignatureTitle).trim() ? { seller_signature_label: safeString(authoritySignatureTitle).trim() } : {}),
+                  comment_label: cleanCLabel,
+                  comment_value: cleanCVal,
+                  ...(typeof saveRes.data === 'object' && saveRes.data !== null ? saveRes.data : {}),
+                  id: cleanNewId,
+                  packing_list_id: cleanNewId,
+                });
+              }
+            }
+          }
+        } catch (saveErr) {
+          console.warn('[PackingListDocumentForm] Auto-save before submit warning:', saveErr);
+        }
+      }
+
       const payload = getPackingListFormData();
-      const currentId = getOwnPackingListId() || getEffectivePackingListId();
 
       let res: any;
       if (onSubmitPackingList) {
@@ -1574,6 +1680,12 @@ export function PackingListDocumentForm({
         if (savedId) {
           lastLoadedDocIdRef.current = savedId;
           setDraftId(savedId);
+          if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            url.searchParams.set('id', savedId);
+            url.searchParams.set('step', 'packing-list');
+            window.history.replaceState(null, '', url.toString());
+          }
         }
         isFormInitializedRef.current = true;
         isUserDirtyRef.current = false;
@@ -1610,7 +1722,15 @@ export function PackingListDocumentForm({
           const extracted =
             extractPackingListData(res?.data) ||
             (typeof res?.data === 'object' && res?.data !== null ? res.data : {});
+          const cleanCLabel = safeString(commentLabel).trim().slice(0, 20);
+          const cleanCVal = safeString(commentValue).trim();
           onSaveSuccess(savedId, {
+            ...(documentTitle.trim() ? { pdf_title: documentTitle.trim(), document_title: documentTitle.trim() } : {}),
+            header_enabled: letterhead,
+            is_watermark_enabled: watermark,
+            ...(safeString(authoritySignatureTitle).trim() ? { seller_signature_label: safeString(authoritySignatureTitle).trim() } : {}),
+            comment_label: cleanCLabel,
+            comment_value: cleanCVal,
             ...extracted,
             id: savedId,
             packing_list_id: savedId,
@@ -1998,7 +2118,7 @@ export function PackingListDocumentForm({
                 <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
                   EXPORTER / SELLER:
                 </label>
-                <div className="text-[14px] font-semibold text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[14px] font-semibold text-foreground tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
                   {formatPartyDetails(companyName, sellerDetails) || '-'}
                 </div>
               </div>
@@ -2012,7 +2132,7 @@ export function PackingListDocumentForm({
                 <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
                   CONSIGNEE / BUYER:
                 </label>
-                <div className="text-[14px] font-semibold text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[14px] font-semibold text-foreground tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
                   {consigneeDisplayText || '-'}
                 </div>
               </div>
@@ -2034,7 +2154,7 @@ export function PackingListDocumentForm({
                       INVOICE NO:
                     </span>
                     <div className="flex-1 min-w-0 flex items-center min-h-[30px] px-1">
-                      <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                      <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                         {safeString(invoiceNumber, '') || '-'}
                       </span>
                     </div>
@@ -2050,7 +2170,7 @@ export function PackingListDocumentForm({
                       INVOICE DATE:
                     </span>
                     <div className="flex-1 min-w-0 flex items-center min-h-[30px] px-1">
-                      <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                      <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                         {formatDisplayDate(invoiceDate)}
                       </span>
                     </div>
@@ -2066,7 +2186,7 @@ export function PackingListDocumentForm({
                   <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5 leading-tight">
                     GST NUMBER:
                   </span>
-                  <div className="text-[14px] font-semibold text-foreground uppercase tracking-wide whitespace-pre-line break-words leading-relaxed px-0.5 select-all">
+                  <div className="text-[14px] font-semibold text-foreground tracking-wide whitespace-pre-line break-words leading-relaxed px-0.5 select-all">
                     {displayGstValue || '-'}
                   </div>
                 </div>
@@ -2082,7 +2202,7 @@ export function PackingListDocumentForm({
                   BUYER&apos;S ORDER NO &amp; DATE:
                 </span>
                 <div className="flex-1 min-w-0 flex items-center min-h-[30px] px-1">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {safeString(buyerOrderNoDate, '') || '-'}
                   </span>
                 </div>
@@ -2098,7 +2218,7 @@ export function PackingListDocumentForm({
                   PURCHASE ORDER NO:
                 </span>
                 <div className="flex-1 min-w-0 flex items-center min-h-[30px] px-1">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {safeString(purchaseOrderNo, '') || '-'}
                   </span>
                 </div>
@@ -2114,7 +2234,7 @@ export function PackingListDocumentForm({
                   CONTRACT DATE:
                 </span>
                 <div className="flex-1 min-w-0 flex items-center min-h-[30px] px-1">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {formatDisplayDate(contractDate)}
                   </span>
                 </div>
@@ -2130,7 +2250,7 @@ export function PackingListDocumentForm({
                   OTHER REFERENCE (S):
                 </span>
                 <div className="flex-1 min-w-0 flex items-center min-h-[30px] px-1">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {safeString(otherReferences, '') || '-'}
                   </span>
                 </div>
@@ -2158,17 +2278,17 @@ export function PackingListDocumentForm({
             {/* Notify Parties 1 - 3 Values */}
             <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-card">
               <div className="p-2.5 sm:p-3 min-h-[72px] flex flex-col justify-start text-left">
-                <div className="text-[14px] font-semibold text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[14px] font-semibold text-foreground tracking-wide whitespace-pre-line leading-relaxed select-all">
                   {notifyParty1 || '-'}
                 </div>
               </div>
               <div className="p-2.5 sm:p-3 min-h-[72px] flex flex-col justify-start text-left">
-                <div className="text-[14px] font-semibold text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[14px] font-semibold text-foreground tracking-wide whitespace-pre-line leading-relaxed select-all">
                   {notifyParty2 || '-'}
                 </div>
               </div>
               <div className="p-2.5 sm:p-3 min-h-[72px] flex flex-col justify-start text-left">
-                <div className="text-[14px] font-semibold text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[14px] font-semibold text-foreground tracking-wide whitespace-pre-line leading-relaxed select-all">
                   {notifyParty3 || '-'}
                 </div>
               </div>
@@ -2191,17 +2311,17 @@ export function PackingListDocumentForm({
 
                 <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-card">
                   <div className="p-2.5 sm:p-3 min-h-[56px] flex flex-col justify-start text-left">
-                    <div className="text-[14px] font-semibold text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                    <div className="text-[14px] font-semibold text-foreground tracking-wide whitespace-pre-line leading-relaxed select-all">
                       {notifyParty4 || '-'}
                     </div>
                   </div>
                   <div className="p-2.5 sm:p-3 min-h-[56px] flex flex-col justify-start text-left">
-                    <div className="text-[14px] font-semibold text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                    <div className="text-[14px] font-semibold text-foreground tracking-wide whitespace-pre-line leading-relaxed select-all">
                       {notifyParty5 || '-'}
                     </div>
                   </div>
                   <div className="p-2.5 sm:p-3 min-h-[56px] flex flex-col justify-start text-left">
-                    <div className="text-[14px] font-semibold text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                    <div className="text-[14px] font-semibold text-foreground tracking-wide whitespace-pre-line leading-relaxed select-all">
                       {notifyParty6 || '-'}
                     </div>
                   </div>
@@ -2238,12 +2358,12 @@ export function PackingListDocumentForm({
             <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border">
               <div className="w-full md:w-[37%] shrink-0 grid grid-cols-2 divide-x divide-border">
                 <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {preCarriageBy}
                   </span>
                 </div>
                 <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {safeString(placeOfReceipt || countryOfOrigin, '') || '-'}
                   </span>
                 </div>
@@ -2251,12 +2371,12 @@ export function PackingListDocumentForm({
 
               <div className="w-full md:w-[63%] min-w-0 flex-1 grid grid-cols-2 divide-x divide-border">
                 <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {safeString(countryOfOrigin || placeOfReceipt, '') || '-'}
                   </span>
                 </div>
                 <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {safeString(countryOfDestination, '') || '-'}
                   </span>
                 </div>
@@ -2285,19 +2405,19 @@ export function PackingListDocumentForm({
 
             <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border">
               <div className="w-full md:w-[37%] shrink-0 p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                   {safeString(vesselVoyageNo, '') || 'AS PER BL'}
                 </span>
               </div>
 
               <div className="w-full md:w-[63%] min-w-0 flex-1 grid grid-cols-2 divide-x divide-border">
                 <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {safeString(portOfLoading, '') || '-'}
                   </span>
                 </div>
                 <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {deliveryTermsDisplay || '-'}
                   </span>
                 </div>
@@ -2320,12 +2440,12 @@ export function PackingListDocumentForm({
 
             <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
               <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase whitespace-pre-line leading-relaxed">
+                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all whitespace-pre-line leading-relaxed">
                   {safeString(portOfDestination, '') || '-'}
                 </span>
               </div>
               <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase whitespace-pre-line leading-relaxed">
+                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all whitespace-pre-line leading-relaxed">
                   {safeString(finalDestination, '') || '-'}
                 </span>
               </div>
@@ -2369,19 +2489,19 @@ export function PackingListDocumentForm({
                 <tr className="divide-x divide-border">
                   {/* COUNT / VESSEL */}
                   <td className="py-3 px-3 align-top text-center">
-                    <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                    <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                       {countVessel}
                     </span>
                   </td>
 
                   {/* DESCRIPTIONS OF GOODS AND/SERVICES */}
                   <td className="py-3 px-3 align-top text-left pb-4">
-                    <div className="font-semibold text-[14px] text-foreground uppercase leading-relaxed whitespace-pre-line select-all pb-3">
+                    <div className="font-semibold text-[14px] text-foreground leading-relaxed whitespace-pre-line select-all pb-3">
                       {formattedGoodsDescription}
                     </div>
                     {/* Contract clause border badge (Image 2) */}
                     <div className="pt-2">
-                      <div className="inline-block border border-border px-2.5 py-0.5 rounded-xs font-semibold text-[13px] sm:text-[14px] text-foreground/90 tracking-wide select-all uppercase">
+                      <div className="inline-block border border-border px-2.5 py-0.5 rounded-xs font-semibold text-[13px] sm:text-[14px] text-foreground/90 tracking-wide select-all">
                         [5% MORE OR LESS AT CONTRACT QUANTITY]
                       </div>
                     </div>
@@ -2435,12 +2555,12 @@ export function PackingListDocumentForm({
                         </td>
 
                         {/* CONTAINER NO */}
-                        <td className="py-2.5 px-2 text-center font-semibold text-[14px] text-foreground uppercase tracking-wide select-all border-b border-border">
+                        <td className="py-2.5 px-2 text-center font-semibold text-[14px] text-foreground tracking-wide select-all border-b border-border">
                           {safeString(c.container_no) || '-'}
                         </td>
 
                         {/* SEAL NO */}
-                        <td className="py-2.5 px-2 text-center font-semibold text-[14px] text-foreground uppercase tracking-wide select-all border-b border-border">
+                        <td className="py-2.5 px-2 text-center font-semibold text-[14px] text-foreground tracking-wide select-all border-b border-border">
                           {safeString(c.seal_no) || '-'}
                         </td>
 
@@ -2561,9 +2681,10 @@ export function PackingListDocumentForm({
               <DocUnderlineInput
                 id="packing-commentLabel-input"
                 value={commentLabel}
+                maxLength={20}
                 onChange={(val) => {
                   markDirty();
-                  setCommentLabel(val);
+                  setCommentLabel(val.slice(0, 20));
                   setErrors((prev) => ({
                     ...prev,
                     commentLabel: '',

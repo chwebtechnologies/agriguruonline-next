@@ -4,7 +4,7 @@ import React, { useState, useRef, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import type { MembershipPlan, InitiateUpgradeResponse } from '@/lib/api/user.service';
-import { getNormalizedUserType } from '@/lib/api-utils';
+import { isRegularAccount, isMembershipExpired } from '@/lib/membership-status';
 import { saveStoredPlanSelection } from '@/lib/membership-storage';
 import { initiateUpgradeAction } from '@/app/actions/membership';
 import PlanCard from './PlanCard';
@@ -29,14 +29,9 @@ export default function MembershipPlansClient({
   const notice = searchParams?.get('notice');
   const [isPending, startTransition] = useTransition();
 
-  const isRegular =
-    !userProfile?.user_type ||
-    getNormalizedUserType(userProfile?.user_type) === 'regular' ||
-    (typeof userProfile?.user_type === 'object' &&
-      userProfile?.user_type?.name?.toLowerCase() === 'regular') ||
-    userProfile?.role?.name?.toLowerCase() === 'regular' ||
-    userProfile?.membership?.plan_name?.toLowerCase() === 'guest' ||
-    userProfile?.membership?.plan_name?.toLowerCase() === 'regular';
+  const isRegular = isRegularAccount(userProfile);
+  const isExpired = isMembershipExpired(userProfile);
+  const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null);
 
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('yearly');
   const currency = 'USD';
@@ -109,6 +104,7 @@ export default function MembershipPlansClient({
   const showTrialBanner = isUserTrialEligible && silverTrialDays > 0;
 
   const handleSelectPlan = (plan: MembershipPlan) => {
+    if (loadingPlanId) return;
     const duration = billingInterval.toUpperCase() as 'MONTHLY' | 'YEARLY';
 
     // Case 1: Guest User (not logged in) -> Persist and redirect to login
@@ -134,7 +130,8 @@ export default function MembershipPlansClient({
       return;
     }
 
-    // Case 3: Already an active Buyer/Seller -> Direct Upgrade flow
+    // Case 3: Already an onboarded Buyer/Seller (active or expired) -> Direct Upgrade / Renewal flow
+    setLoadingPlanId(plan.id);
     startTransition(async () => {
       try {
         const res = await initiateUpgradeAction(
@@ -148,18 +145,31 @@ export default function MembershipPlansClient({
         );
 
         if (res.success && res.data) {
+          const rawDetails = (res.data as any)?.data || res.data;
           const safeOrderDetails: InitiateUpgradeResponse = {
-            ...res.data,
-            type: res.data.type || 'MEMBERSHIP_UPGRADE',
-            membership_duration: (String(res.data.membership_duration || duration).toUpperCase() as 'MONTHLY' | 'YEARLY'),
-            inr_amount: Number(res.data.inr_amount ?? 0),
-            usd_amount: Number(res.data.usd_amount ?? 0),
+            ...rawDetails,
+            new_membership_plan: {
+              id:
+                rawDetails?.new_membership_plan?.id ||
+                (rawDetails as any)?.membership_id ||
+                (rawDetails as any)?.id ||
+                plan.id,
+              plan_name:
+                rawDetails?.new_membership_plan?.plan_name ||
+                (rawDetails as any)?.plan_name ||
+                plan.plan_name ||
+                'Selected Plan',
+            },
+            type: rawDetails.type || 'MEMBERSHIP_UPGRADE',
+            membership_duration: (String(rawDetails.membership_duration || duration).toUpperCase() as 'MONTHLY' | 'YEARLY'),
+            inr_amount: Number(rawDetails.inr_amount ?? 0),
+            usd_amount: Number(rawDetails.usd_amount ?? 0),
           };
           setConfirmationOrder(safeOrderDetails);
           setIsConfirmationOpen(true);
         } else {
           const errMsg = res.error || '';
-          if (/already\s*(active|subscribed|have)|same\s*plan|current\s*plan/i.test(errMsg)) {
+          if (!isExpired && /already\s*(active|subscribed|have)|same\s*plan|current\s*plan/i.test(errMsg)) {
             toast.success('Your account is already active with this membership plan!');
             router.push(`/${lang}/profile`);
             router.refresh();
@@ -169,6 +179,8 @@ export default function MembershipPlansClient({
         }
       } catch (err: any) {
         toast.error(err?.message || 'Error initiating upgrade.');
+      } finally {
+        setLoadingPlanId(null);
       }
     });
   };
@@ -225,12 +237,13 @@ export default function MembershipPlansClient({
         >
           {sortedPlans.map((plan, index) => {
             const isCurrentPlan =
+              !isExpired &&
               !!userCurrentPlanName &&
               !!plan.plan_name &&
               userCurrentPlanName.includes(plan.plan_name.toLowerCase());
 
             const userHasOtherMembership =
-              Boolean(userProfile && !isRegular && !!userCurrentPlanName && !isCurrentPlan);
+              Boolean(userProfile && !isRegular && !isExpired && !!userCurrentPlanName && !isCurrentPlan);
 
             const planTrialDays =
               billingInterval === 'yearly' ? plan.yearly_trial_days : plan.monthly_trial_days;
@@ -256,6 +269,7 @@ export default function MembershipPlansClient({
                   isCurrentPlan={isCurrentPlan}
                   userHasOtherMembership={userHasOtherMembership}
                   isTrialEligible={isTrialEligible}
+                  isLoading={loadingPlanId === plan.id}
                   onSelect={handleSelectPlan}
                   dict={dict}
                 />
@@ -284,12 +298,13 @@ export default function MembershipPlansClient({
       <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6 items-stretch max-w-6xl mx-auto">
         {sortedPlans.map((plan) => {
           const isCurrentPlan =
+            !isExpired &&
             !!userCurrentPlanName &&
             !!plan.plan_name &&
             userCurrentPlanName.includes(plan.plan_name.toLowerCase());
 
           const userHasOtherMembership =
-            Boolean(userProfile && !isRegular && !!userCurrentPlanName && !isCurrentPlan);
+            Boolean(userProfile && !isRegular && !isExpired && !!userCurrentPlanName && !isCurrentPlan);
 
           const planTrialDays =
             billingInterval === 'yearly' ? plan.yearly_trial_days : plan.monthly_trial_days;
@@ -304,6 +319,7 @@ export default function MembershipPlansClient({
                 isCurrentPlan={isCurrentPlan}
                 userHasOtherMembership={userHasOtherMembership}
                 isTrialEligible={isTrialEligible}
+                isLoading={loadingPlanId === plan.id}
                 onSelect={handleSelectPlan}
                 dict={dict}
               />

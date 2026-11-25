@@ -1110,13 +1110,40 @@ export function formatShippingTermHeader(term: string): string {
  * Extracts vessel & voyage number without hardcoding "AS PER BL".
  */
 export function extractVesselVoyageNo(data: any): string {
+  if (!data || typeof data !== 'object') return '';
+  const vName = safeString(
+    data?.vessel_name ??
+      data?.vesselName ??
+      data?.vessel ??
+      data?.proforma?.vessel_name ??
+      data?.proforma_invoice?.vessel_name ??
+      data?.shipment_instruction?.vessel_name ??
+      data?.contract?.vessel_name,
+    ''
+  );
+  const vVoy = safeString(
+    data?.voyage_number ??
+      data?.voyageNumber ??
+      data?.voyage_no ??
+      data?.voyageNo ??
+      data?.proforma?.voyage_number ??
+      data?.proforma?.voyage_no ??
+      data?.proforma_invoice?.voyage_number ??
+      data?.proforma_invoice?.voyage_no ??
+      data?.shipment_instruction?.voyage_number ??
+      data?.shipment_instruction?.voyage_no,
+    ''
+  );
+  if (vName && vVoy) return `${vName}, ${vVoy}`;
+  if (vName) return vName;
+  if (vVoy) return vVoy;
   return safeString(
     data?.vessel_voyage_no ||
       data?.vesselVoyageNo ||
-      data?.vessel_name ||
-      data?.vessel ||
+      data?.vessel_flight_no ||
       data?.shipping_line ||
       data?.contract?.vessel_voyage_no ||
+      data?.contract?.shipping_line ||
       '',
     ''
   );
@@ -1842,7 +1869,24 @@ export function parseProformaBackendErrors(
         return 'commentLabel';
       case 'commentvalue':
       case 'commenttext':
+      case 'comment':
         return 'commentValue';
+      case 'balancepayment':
+      case 'balanceamount':
+        return 'balancePayment';
+      case 'totalvalue':
+        return 'totalValue';
+      case 'iswatermarkenabled':
+      case 'watermarkenabled':
+      case 'watermark':
+        return 'is_watermark_enabled';
+      case 'headerenabled':
+      case 'letterheadspace':
+      case 'letterhead':
+        return 'header_enabled';
+      case 'sellerlogo':
+      case 'companylogo':
+        return 'seller_logo';
       case 'documenttitle':
       case 'pdftitle':
       case 'title':
@@ -2029,8 +2073,29 @@ export function parseProformaBackendErrors(
         if (['status', 'statuscode', 'status_code', 'success', 'code', 'stack', 'raw', 'path', 'timestamp', 'method', 'errorcode', 'error_code', 'ok'].includes(lowerKey)) {
           continue;
         }
-        if (['message', 'error', 'id', '_id', 'proforma_id', 'proformaid', 'proforma_invoice_id', 'contract_id', 'confirmation_id'].includes(lowerKey)) {
-          ingestErrorItem(undefined, v);
+        if (
+          [
+            'message',
+            'error',
+            'id',
+            '_id',
+            'proforma_id',
+            'proformaid',
+            'proforma_invoice_id',
+            'contract_id',
+            'confirmation_id',
+            'commercial_invoice_id',
+            'commercialinvoiceid',
+            'custom_invoice_id',
+            'packing_list_id',
+            'bill_of_lading_id',
+            'shipment_instruction_id',
+            'phyto_certificate_id',
+          ].includes(lowerKey)
+        ) {
+          if (lowerKey === 'message' || lowerKey === 'error') {
+            ingestErrorItem(undefined, v);
+          }
           continue;
         }
         ingestErrorItem(k, v);
@@ -2839,7 +2904,17 @@ export function ProformaDocumentForm({
 
   // Synchronize state when initialData loads asynchronously or updates on refresh
   useEffect(() => {
-    if (!initialData) return;
+    const isDataVersionTriggered = Boolean(
+      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
+    );
+
+    if (!initialData) {
+      if (isDataVersionTriggered) {
+        setCommentLabel('');
+        setCommentValue('');
+      }
+      return;
+    }
 
     const cleanParentContractId = sanitizeDocId(contractId || initialData?.contract_id || initialData?.contractId);
     const cleanParentConfId = sanitizeDocId(confirmationId || initialData?.confirmation_id || initialData?.confirmationId);
@@ -2874,10 +2949,6 @@ export function ProformaDocumentForm({
     );
 
     const needsProformaUpgrade = isIncomingRealProforma && !hasLoadedRealProformaRef.current;
-
-    const isDataVersionTriggered = Boolean(
-      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
-    );
 
     // When genuine proforma data arrives (e.g. upgrading from ancestor contract fallback), when stepper navigation triggers, or when document ID changes,
     // we MUST reset dirty flags so that the actual proforma data populates all form states cleanly!
@@ -3211,14 +3282,23 @@ export function ProformaDocumentForm({
         setCompanyLogoUrl(formatSignatureUrl(resolvedInitLogo) || resolvedInitLogo);
       }
     }
-    if (initialData.comment_label || initialData.comment_title) {
-      const cLabel = safeString(initialData.comment_label || initialData.comment_title);
-      if (cLabel) setCommentLabel(cLabel);
-    }
-    if (initialData.comment_value || initialData.comment_text) {
-      const cVal = safeString(initialData.comment_value || initialData.comment_text);
-      if (cVal) setCommentValue(cVal);
-    }
+    const cLabel = safeString(
+      initialData.comment_label ||
+      initialData.comment_title ||
+      initialData.commentLabel ||
+      initialData.commentTitle,
+      ''
+    );
+    setCommentLabel(cLabel);
+
+    const cVal = safeString(
+      initialData.comment_value ||
+      initialData.comment_text ||
+      initialData.commentValue ||
+      initialData.commentText,
+      ''
+    );
+    setCommentValue(cVal);
     const titleFromInit =
       initialData.pdf_title ||
       initialData.pdfTitle ||
@@ -3495,9 +3575,9 @@ export function ProformaDocumentForm({
     formData.append('disclaimer', cleanDisclaimer);
     formData.append('bank_charges_note', cleanDisclaimer);
     formData.append('bank_charges', cleanDisclaimer);
-    formData.append('comment_label', safeString(commentLabel));
+    formData.append('comment_label', safeString(commentLabel).slice(0, 20));
     formData.append('comment_value', safeString(commentValue));
-    formData.append('comment_title', safeString(commentLabel));
+    formData.append('comment_title', safeString(commentLabel).slice(0, 20));
     formData.append('comment_text', safeString(commentValue));
 
     // Seller Logo (seller_logo ONLY - NEVER send company_logo in FormData to prevent multer unexpected field error):
@@ -3698,9 +3778,9 @@ export function ProformaDocumentForm({
       disclaimer: safeString(bankChargesNote),
       bank_charges_note: safeString(bankChargesNote),
       bank_charges: safeString(bankChargesNote),
-      comment_label: safeString(commentLabel),
+      comment_label: safeString(commentLabel).slice(0, 20),
       comment_value: safeString(commentValue),
-      comment_title: safeString(commentLabel),
+      comment_title: safeString(commentLabel).slice(0, 20),
       comment_text: safeString(commentValue),
     };
   }, [
@@ -3828,12 +3908,15 @@ export function ProformaDocumentForm({
             !/^Cannot (PATCH|POST|GET|PUT|DELETE)\b/i.test(m.trim()) &&
             !/<(!DOCTYPE|html)/i.test(m)
           );
+        const hasHighlightedFields = Object.keys(fieldErrors).length > 0;
         const toastMsg =
           (isCleanToastMsg(generalError) ? generalError : null) ||
           firstFieldErr ||
           (isCleanToastMsg(res?.message) ? res.message : null) ||
           (isCleanToastMsg(res?.error) ? res.error : null) ||
-          'Failed to save draft. Please check highlighted fields.';
+          (hasHighlightedFields
+            ? 'Failed to save draft. Please check highlighted fields.'
+            : 'Failed to save draft. Please try again.');
         toast.error(toastMsg);
         return;
       }
@@ -3850,6 +3933,12 @@ export function ProformaDocumentForm({
       if (savedId) {
         lastLoadedDocIdRef.current = savedId;
         setDraftId(savedId);
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.set('id', savedId);
+          url.searchParams.set('step', 'proforma');
+          window.history.replaceState(null, '', url.toString());
+        }
       }
       isFormInitializedRef.current = true;
       isUserDirtyRef.current = false;
@@ -4017,12 +4106,15 @@ export function ProformaDocumentForm({
             !/^Cannot (PATCH|POST|GET|PUT|DELETE)\b/i.test(m.trim()) &&
             !/<(!DOCTYPE|html)/i.test(m)
           );
+        const hasHighlightedFields = Object.keys(fieldErrors).length > 0;
         const toastMsg =
           (isCleanToastMsg(generalError) ? generalError : null) ||
           firstFieldErr ||
           (isCleanToastMsg(res?.message) ? res.message : null) ||
           (isCleanToastMsg(res?.error) ? res.error : null) ||
-          'Failed to submit Proforma Invoice. Please check highlighted fields.';
+          (hasHighlightedFields
+            ? 'Failed to submit Proforma Invoice. Please check highlighted fields.'
+            : 'Failed to submit Proforma Invoice. Please try again.');
         toast.error(toastMsg);
         return;
       }
@@ -4039,6 +4131,12 @@ export function ProformaDocumentForm({
       if (savedId) {
         lastLoadedDocIdRef.current = savedId;
         setDraftId(savedId);
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.set('id', savedId);
+          url.searchParams.set('step', 'proforma');
+          window.history.replaceState(null, '', url.toString());
+        }
       }
       isFormInitializedRef.current = true;
       isUserDirtyRef.current = false;
@@ -4527,7 +4625,7 @@ export function ProformaDocumentForm({
                   EXPORTER / SELLER:
                 </label>
 
-                <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
                   {formatPartyDetails(companyName, sellerDetails) || '-'}
                 </div>
                 {(errors.sellerId || errors.seller_id) && (
@@ -4544,7 +4642,7 @@ export function ProformaDocumentForm({
                   CONSIGNEE / BUYER:
                 </label>                
 
-                <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
                   {formatPartyDetails(buyerName, buyerDetails) || '-'}
                 </div>
                 {(errors.buyerId || errors.buyer_id) && (
@@ -4780,12 +4878,12 @@ export function ProformaDocumentForm({
               {/* Left 37% Values */}
               <div className="w-full md:w-[37%] shrink-0 grid grid-cols-2 divide-x divide-border">
                 <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {formatPreCarriageBy(preCarriageBy, '') || '-'}
                   </span>
                 </div>
                 <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {safeString(placeOfReceipt || countryOfOrigin, '') || '-'}
                   </span>
                 </div>
@@ -4794,12 +4892,12 @@ export function ProformaDocumentForm({
               {/* Right 63% Values */}
               <div className="w-full md:w-[63%] min-w-0 flex-1 grid grid-cols-2 divide-x divide-border">
                 <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {safeString(countryOfOrigin || placeOfReceipt, '') || '-'}
                   </span>
                 </div>
                 <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {safeString(countryOfDestination, '') || '-'}
                   </span>
                 </div>
@@ -4835,7 +4933,7 @@ export function ProformaDocumentForm({
             <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border">
               {/* Left 37% Value: Vessel / Flight No */}
               <div className="w-full md:w-[37%] shrink-0 p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                   {safeString(vesselVoyageNo, '') || 'AS PER BL'}
                 </span>
               </div>
@@ -4843,12 +4941,12 @@ export function ProformaDocumentForm({
               {/* Right 63% Values */}
               <div className="w-full md:w-[63%] min-w-0 flex-1 grid grid-cols-2 divide-x divide-border">
                 <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {safeString(portOfLoading, '') || '-'}
                   </span>
                 </div>
                 <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
-                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                     {deliveryTermsDisplay || '-'}
                   </span>
                 </div>
@@ -4873,12 +4971,12 @@ export function ProformaDocumentForm({
 
             <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
               <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase whitespace-pre-line leading-relaxed">
+                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all whitespace-pre-line leading-relaxed">
                   {safeString(portOfDestination, '') || '-'}
                 </span>
               </div>
               <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase whitespace-pre-line leading-relaxed">
+                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all whitespace-pre-line leading-relaxed">
                   {safeString(finalDestination, '') || '-'}
                 </span>
               </div>
@@ -4926,14 +5024,14 @@ export function ProformaDocumentForm({
                 <tr className="divide-x divide-border">
                   {/* COUNT / VESSEL (NON-INPUT Text) - Vertically merged across row 1 & row 2 */}
                   <td rowSpan={2} className="py-3 px-3 align-top text-left">
-                    <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                    <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
                       {safeString(countVessel, '') || '-'}
                     </span>
                   </td>
 
                   {/* DESCRIPTIONS OF GOODS AND SERVICES (NON-INPUT Text) */}
                   <td className="py-3 px-3 align-top text-left pb-6" id="field-goodsDescription" data-field="goodsDescription">
-                    <div className="font-semibold text-[14px] text-foreground uppercase leading-relaxed whitespace-pre-line select-all pb-2">
+                    <div className="font-semibold text-[14px] text-foreground leading-relaxed whitespace-pre-line select-all pb-2">
                       {safeString(goodsDescription, '') || '-'}
                     </div>
                     {(errors.goodsDescription || errors.goods_description) && (
@@ -4983,7 +5081,7 @@ export function ProformaDocumentForm({
                 {/* Advance Payment Row: Count/Vessel vertically merged from above; Description contains [5% MORE OR LESS AT CONTRACT QUANTITY] aligned with ADVANCE PAYMENT */}
                 <tr className="divide-x divide-border bg-card">
                   <td className="py-2.5 px-3 align-middle text-left">
-                    <span className="font-semibold text-[13px] sm:text-[14px] text-foreground tracking-wide select-all uppercase">
+                    <span className="font-semibold text-[13px] sm:text-[14px] text-foreground tracking-wide select-all">
                       [5% MORE OR LESS AT CONTRACT QUANTITY]
                     </span>
                   </td>
@@ -5009,7 +5107,7 @@ export function ProformaDocumentForm({
                       <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 leading-normal">
                         AMOUNT IN WORDS:
                       </span>
-                      <span className="font-bold text-[14px] text-foreground uppercase tracking-wide select-all leading-normal">
+                      <span className="font-bold text-[14px] text-foreground tracking-wide select-all leading-normal">
                         {effectiveAmountInWords || '-'}
                       </span>
                     </div>
@@ -5178,7 +5276,7 @@ export function ProformaDocumentForm({
                 {/* Formatted Bank Account Details: NON-INPUT normal text display only */}
                 <div className="flex-1 flex flex-col mt-1.5 min-h-[90px] justify-start px-0.5">
                   {bankAccountDetails ? (
-                    <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                    <div className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed select-all">
                       {bankAccountDetails}
                     </div>
                   ) : (
@@ -5305,9 +5403,10 @@ export function ProformaDocumentForm({
               <DocUnderlineInput
                 id="field-commentLabel-input"
                 value={commentLabel}
+                maxLength={20}
                 onChange={(val) => {
                   markDirty();
-                  setCommentLabel(val);
+                  setCommentLabel(val.slice(0, 20));
                   setErrors((prev) => ({ ...prev, commentLabel: '', comment_label: '', comment_title: '' }));
                 }}
                 error={errors.commentLabel || errors.comment_label || errors.comment_title}

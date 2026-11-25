@@ -70,6 +70,7 @@ export interface ShipmentInstructionDocumentFormProps {
   products?: FormOptionItem[];
   currencies?: FormOptionItem[];
   shippingTerms?: FormOptionItem[];
+  countries?: any[];
   onSaveDraft?: (payload: any) => Promise<any>;
   onSaveSuccess?: (savedId: string, savedData?: any) => void;
   onSubmitInstruction?: (payload: any, id?: string, nextStep?: StepperDocumentItem | null) => Promise<any>;
@@ -293,19 +294,6 @@ export function resolveInitialSpecialInstruction(data: any): string {
   );
   if (direct && direct.trim() !== '') {
     return direct;
-  }
-
-  // If this is an existing saved shipment instruction and disclaimer is explicitly provided as empty
-  if (
-    (data?.id || data?._id || data?.shipment_instruction_id || data?.shipment_instruction_number) &&
-    (data?.disclaimer !== undefined || d?.disclaimer !== undefined || data?.special_instruction !== undefined)
-  ) {
-    return direct;
-  }
-
-  const rawVesselVoyage = extractVesselVoyageRawValue(data);
-  if (rawVesselVoyage && rawVesselVoyage.trim().toUpperCase() !== 'AS PER BL') {
-    return rawVesselVoyage;
   }
 
   return '';
@@ -597,6 +585,7 @@ export function parseShipmentInstructionBackendErrors(
       case 'remarkstitle':
       case 'commenttitle':
       case 'commentlabel':
+      case 'notestitle':
         return 'remarksTitle';
       case 'remarkscomment':
       case 'commentvalue':
@@ -860,6 +849,7 @@ export function ShipmentInstructionDocumentForm({
   buyers = [],
   products = [],
   currencies = [],
+  countries = [],
   onSaveDraft,
   onSaveSuccess,
   onSubmitInstruction,
@@ -1786,8 +1776,32 @@ export function ShipmentInstructionDocumentForm({
     );
   }, [initialData, products]);
 
-  // VESSEL / VOYAGE NO.: User requirement: Static value is always "AS PER BL"
-  const vesselVoyageNo = 'AS PER BL';
+  // VESSEL / VOYAGE NO.: Displays vessel name and voyage number from backend, falling back to "AS PER BL" if not yet assigned
+  const vesselVoyageNo = useMemo(() => {
+    const vName = safeString(
+      initialData?.vessel_name ??
+      initialData?.vesselName ??
+      initialData?.vessel ??
+      initialData?.shipment_instruction?.vessel_name
+    );
+    const vVoy = safeString(
+      initialData?.voyage_number ??
+      initialData?.voyageNumber ??
+      initialData?.voyage_no ??
+      initialData?.voyageNo ??
+      initialData?.shipment_instruction?.voyage_number
+    );
+    if (vName && vVoy) return `${vName}, ${vVoy}`;
+    if (vName) return vName;
+    if (vVoy) return vVoy;
+    const directVoyageNo = safeString(
+      initialData?.vessel_voyage_no ??
+      initialData?.vessel_voyage ??
+      initialData?.shipment_instruction?.vessel_voyage_no
+    );
+    if (directVoyageNo) return directVoyageNo;
+    return 'AS PER BL';
+  }, [initialData]);
 
   const portOfLoading = useMemo(() => {
     return extractPortDisplayName(
@@ -2126,29 +2140,78 @@ export function ShipmentInstructionDocumentForm({
     const raw =
       initialData?.transit_clause ??
       initialData?.transit_clause_allowed ??
+      initialData?.is_transit_clause ??
       initialData?.contract?.transit_clause ??
       initialData?.contract?.transit_clause_allowed ??
       initialData?.confirmation?.transit_clause ??
       initialData?.confirmation?.transit_clause_allowed;
-    return parseNullableBoolean(raw) === true;
+    const parsed = parseNullableBoolean(raw);
+    if (parsed !== null) return parsed;
+    if (typeof raw === 'string') {
+      const s = raw.trim().toLowerCase();
+      if (s.includes('not')) return false;
+      if (s.includes('allow') || s.includes('yes') || s.includes('true') || s.includes('transit')) return true;
+    }
+    if (
+      Boolean(initialData?.transit_clause_value) ||
+      Boolean(initialData?.transitClauseValue) ||
+      Boolean(initialData?.transit_clause_country_id) ||
+      Boolean(initialData?.transit_clause_country) ||
+      Boolean(initialData?.contract?.transit_clause_value)
+    ) {
+      return true;
+    }
+    return false;
   }, [initialData]);
 
   const [transitClauseValue, setTransitClauseValue] = useState<string>(() => {
-    return safeString(initialData?.transit_clause_value, '');
+    return safeString(
+      initialData?.transit_clause_value ??
+      initialData?.transitClauseValue ??
+      initialData?.shipment_instruction?.transit_clause_value ??
+      initialData?.contract?.transit_clause_value ??
+      initialData?.confirmation?.transit_clause_value,
+      ''
+    );
   });
 
   const [transitClauseCountry, setTransitClauseCountry] = useState<string>(() => {
     return safeString(
       initialData?.transit_clause_country?.id ??
       initialData?.transit_clause_country_id ??
-      initialData?.transit_clause_country,
+      initialData?.transit_clause_country ??
+      initialData?.transitClauseCountry ??
+      initialData?.shipment_instruction?.transit_clause_country_id ??
+      initialData?.contract?.transit_clause_country_id ??
+      initialData?.contract?.transit_clause_country?.id,
       ''
     );
   });
 
-  const [countriesList, setCountriesList] = useState<any[]>([]);
+  const [countriesList, setCountriesList] = useState<any[]>(() => {
+    if (countries && countries.length > 0) return countries;
+    const initialCountryObj = initialData?.transit_clause_country;
+    if (initialCountryObj && typeof initialCountryObj === 'object' && initialCountryObj.id && initialCountryObj.name) {
+      return [{ id: initialCountryObj.id, name: initialCountryObj.name, label: initialCountryObj.name, value: initialCountryObj.id }];
+    }
+    return [];
+  });
 
   useEffect(() => {
+    if (countries && countries.length > 0) {
+      setCountriesList(countries);
+    }
+  }, [countries]);
+
+  const countryOptions = useMemo<DocSelectOption[]>(() => {
+    return (countriesList || []).map((c: any) => ({
+      value: String(c.id ?? c.value ?? ''),
+      label: String(c.name ?? c.label ?? '')
+    }));
+  }, [countriesList]);
+
+  useEffect(() => {
+    if (countries && countries.length > 0) return;
     let isMounted = true;
     getSmartDocsCountriesAction({ lang, source: 'web' })
       .then((res) => {
@@ -2163,7 +2226,7 @@ export function ShipmentInstructionDocumentForm({
     return () => {
       isMounted = false;
     };
-  }, [lang]);
+  }, [lang, countries]);
 
   // COLUMN 3: Gross Weight (STATIC TEXT DISPLAY):
   const grossWeight = useMemo(() => {
@@ -2231,7 +2294,17 @@ export function ShipmentInstructionDocumentForm({
 
   // Comprehensive hydration effect: synchronizes state when initialData arrives or updates asynchronously
   useEffect(() => {
-    if (!initialData) return;
+    const isDataVersionTriggered = Boolean(
+      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
+    );
+
+    if (!initialData) {
+      if (isDataVersionTriggered) {
+        setRemarksTitle('');
+        setRemarksComment('');
+      }
+      return;
+    }
 
     const rawCandidate =
       instructionId ||
@@ -2253,10 +2326,6 @@ export function ShipmentInstructionDocumentForm({
         : '');
     const cleanId = sanitizeDocId(rawCandidate);
     const hasDocIdChanged = Boolean(cleanId && cleanId !== lastLoadedDocIdRef.current);
-
-    const isDataVersionTriggered = Boolean(
-      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
-    );
 
     // If form has already initialized, NEVER overwrite user edits unless stepper version changed or doc ID changed!
     if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged && (isDirty || hasDraftChanges)) {
@@ -2414,22 +2483,29 @@ export function ShipmentInstructionDocumentForm({
     const rawTcVal = safeString(
       initialData.transit_clause_value ??
       initialData.transitClauseValue ??
+      initialData.shipment_instruction?.transit_clause_value ??
       initialData.contract?.transit_clause_value,
       ''
     );
-    if (isDataVersionTriggered || !isDirty) {
-      if (rawTcVal) setTransitClauseValue(rawTcVal);
+    if (isDataVersionTriggered || hasDocIdChanged) {
+      setTransitClauseValue(rawTcVal);
+    } else if (rawTcVal && (!transitClauseValue || !isDirty)) {
+      setTransitClauseValue(rawTcVal);
     }
+
     const rawTcCountry = safeString(
       initialData.transit_clause_country?.id ??
       initialData.transit_clause_country_id ??
       initialData.transit_clause_country ??
       initialData.transitClauseCountry ??
+      initialData.shipment_instruction?.transit_clause_country_id ??
       initialData.contract?.transit_clause_country_id,
       ''
     );
-    if (isDataVersionTriggered || !isDirty) {
-      if (rawTcCountry) setTransitClauseCountry(rawTcCountry);
+    if (isDataVersionTriggered || hasDocIdChanged) {
+      setTransitClauseCountry(rawTcCountry);
+    } else if (rawTcCountry && (!transitClauseCountry || !isDirty)) {
+      setTransitClauseCountry(rawTcCountry);
     }
 
     // Remarks
@@ -2440,7 +2516,7 @@ export function ShipmentInstructionDocumentForm({
         initialData.commentTitle,
       ''
     );
-    if (rt && (isDataVersionTriggered || !remarksTitle || !isDirty)) setRemarksTitle(rt);
+    if (isDataVersionTriggered || hasDocIdChanged || !isDirty) setRemarksTitle(rt);
 
     const rc = safeString(
       initialData.remarks_comment ||
@@ -2449,7 +2525,7 @@ export function ShipmentInstructionDocumentForm({
         initialData.commentValue,
       ''
     );
-    if (rc && (isDataVersionTriggered || !remarksComment || !isDirty)) setRemarksComment(rc);
+    if (isDataVersionTriggered || hasDocIdChanged || !isDirty) setRemarksComment(rc);
 
     // Document Title & Watermark
     const titleVal = safeString(initialData.pdf_title || initialData.document_title || initialData.title, '');
@@ -2720,7 +2796,7 @@ export function ShipmentInstructionDocumentForm({
     if (hsCode && hsCode.trim() && hsCode !== '-') fd.append('hs_code', hsCode.trim());
     if (netWeight && netWeight.trim() && netWeight !== '-') fd.append('net_weight', netWeight.trim());
     if (grossWeightCol2 && grossWeightCol2.trim() && grossWeightCol2 !== '-') fd.append('gross_weight_text', grossWeightCol2.trim());
-    if (freight && freight.trim()) fd.append('freight', freight.trim().toUpperCase());
+    if (freight && freight.trim()) fd.append('freight', freight.trim());
 
     // ECTN field & number
     if (isEctnField) {
@@ -2744,16 +2820,25 @@ export function ShipmentInstructionDocumentForm({
     }
 
     // Transit Clause value & country
-    if (isTransitClause) {
+    const shouldIncludeTransit =
+      isTransitClause ||
+      Boolean(transitClauseValue?.trim()) ||
+      Boolean(transitClauseCountry?.trim());
+
+    if (shouldIncludeTransit) {
       fd.append('transit_clause', 'true');
-      if (transitClauseValue && transitClauseValue.trim()) {
+      fd.append('transit_clause_allowed', 'true');
+      if (transitClauseValue !== undefined && transitClauseValue !== null) {
         fd.append('transit_clause_value', transitClauseValue.trim());
       }
       if (transitClauseCountry && transitClauseCountry.trim()) {
         fd.append('transit_clause_country_id', transitClauseCountry.trim());
+        fd.append('transit_clause_country', transitClauseCountry.trim());
       }
     } else if (initialData?.transit_clause !== undefined || initialData?.transit_clause_allowed !== undefined) {
-      fd.append('transit_clause', String(Boolean(initialData.transit_clause ?? initialData.transit_clause_allowed)));
+      const initBool = Boolean(initialData.transit_clause ?? initialData.transit_clause_allowed);
+      fd.append('transit_clause', String(initBool));
+      fd.append('transit_clause_allowed', String(initBool));
     }
 
     if (freeDays && freeDays.trim()) fd.append('free_days', freeDays.trim());
@@ -2768,9 +2853,10 @@ export function ShipmentInstructionDocumentForm({
     if (totalPackages && totalPackages.trim()) fd.append('total_packages', totalPackages.trim());
     if (totalWeight && totalWeight.trim()) fd.append('total_weight', totalWeight.trim());
     if (remarksTitle && remarksTitle.trim()) {
-      fd.append('remarks_title', remarksTitle.trim());
-      fd.append('comment_title', remarksTitle.trim());
-      fd.append('comment_label', remarksTitle.trim());
+      const safeTitle = remarksTitle.trim().slice(0, 20);
+      fd.append('remarks_title', safeTitle);
+      fd.append('comment_title', safeTitle);
+      fd.append('comment_label', safeTitle);
     }
     if (remarksComment && remarksComment.trim()) {
       fd.append('remarks_comment', remarksComment.trim());
@@ -2826,6 +2912,10 @@ export function ShipmentInstructionDocumentForm({
     ectnNumber,
     isCocField,
     cocFieldsValue,
+    isTransitClause,
+    transitClauseValue,
+    transitClauseCountry,
+    initialData,
     freeDays,
     emptyBags,
     specialInstruction,
@@ -2865,35 +2955,54 @@ export function ShipmentInstructionDocumentForm({
         return;
       }
 
-      if (res?.success === false || res?.success === 0) {
-        const errorMsg =
-          res?.message && !/^(form validation error|validation error|bad request)$/i.test(res.message)
-            ? res.message
-            : res?.error && !/^(form validation error|validation error|bad request)$/i.test(res.error)
-            ? res.error
-            : 'Failed to save draft. Please retry.';
-        toast.error(errorMsg);
+      const hasFieldErrors = Boolean(
+        (Array.isArray(res?.error_fields) && res.error_fields.length > 0) ||
+        (Array.isArray(res?.errors) && res.errors.length > 0) ||
+        (res?.errors && typeof res.errors === 'object' && Object.keys(res.errors).length > 0) ||
+        (res?.error_fields && typeof res.error_fields === 'object' && Object.keys(res.error_fields).length > 0)
+      );
+
+      const isFailed = res?.success === false || res?.success === 0 || hasFieldErrors;
+
+      if (isFailed) {
+        const { fieldErrors, generalError } = parseShipmentInstructionBackendErrors(res);
+        if (Object.keys(fieldErrors).length > 0) {
+          setErrors(fieldErrors);
+          scrollToAndFocusShipmentField(fieldErrors);
+          const firstFieldErr = Object.values(fieldErrors)[0];
+          toast.error(firstFieldErr || 'Please check highlighted fields.');
+        } else if (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError)) {
+          toast.error(generalError);
+        } else {
+          const fallbackMsg =
+            res?.message && !/^(form validation error|validation error|bad request)$/i.test(res.message)
+              ? res.message
+              : res?.error && !/^(form validation error|validation error|bad request)$/i.test(res.error)
+              ? res.error
+              : 'Failed to save shipment instruction draft. Please check highlighted fields.';
+          toast.error(fallbackMsg);
+        }
         return;
       }
 
       toast.success(res?.message || 'Shipment Instruction draft saved successfully!');
       const newId = String(res?.id || res?.data?.id || res?.data?.shipment_instruction_id || draftId);
 
-      // Re-fetch fresh shipment instruction to get the newly generated bag_photo_url from server
-      let freshSavedData = res.data;
+      // Immediately fetch fresh shipment instruction to load updated calculations and server fields
+      let freshData = res?.data;
       if (newId) {
         try {
           const freshRes = await getShipmentInstructionAction(newId, lang);
           if (freshRes?.success && freshRes.data) {
-            freshSavedData = freshRes.data;
+            freshData = freshRes.data;
           }
         } catch (fetchErr) {
-          console.warn('[ShipmentInstruction] Post-save re-fetch warning:', fetchErr);
+          console.warn('[ShipmentInstructionDocumentForm] Post-save re-fetch warning:', fetchErr);
         }
       }
 
-      // Display updated bag_photo_url from server response
-      const serverBagPhoto = extractBagPhotoUrl(freshSavedData || res?.data || res);
+      // Display updated bag_photo_url from server response if returned
+      const serverBagPhoto = extractBagPhotoUrl(freshData || res?.data || res);
       if (serverBagPhoto && !serverBagPhoto.startsWith('blob:')) {
         setMarksImageUrl(serverBagPhoto);
         lastInitialBagPhotoRef.current = serverBagPhoto;
@@ -2902,19 +3011,44 @@ export function ShipmentInstructionDocumentForm({
       }
 
       if (newId) {
-        setDraftId(newId);
+        const cleanId = String(newId).trim();
+        setDraftId(cleanId);
+        lastLoadedDocIdRef.current = cleanId;
+        isFormInitializedRef.current = true;
         isDraftSavedToBackendRef.current = true;
         setHasDraftChanges(false);
         setIsDirty(false);
-        if (onSaveSuccess) onSaveSuccess(newId, freshSavedData);
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.set('id', cleanId);
+          url.searchParams.set('step', 'shipment');
+          window.history.replaceState(null, '', url.toString());
+        }
+        if (onSaveSuccess) {
+          onSaveSuccess(cleanId, {
+            ...(freshData || res?.data || {}),
+            transit_clause_value: transitClauseValue,
+            transit_clause_country_id: transitClauseCountry,
+          });
+        }
       }
     } catch (err: any) {
       console.error('[ShipmentInstructionDocumentForm] Save draft error:', err);
-      const errorMsg =
-        err?.message && !/^(form validation error|validation error|bad request)$/i.test(err.message)
-          ? err.message
-          : 'An error occurred while saving draft.';
-      toast.error(errorMsg);
+      const { fieldErrors, generalError } = parseShipmentInstructionBackendErrors(err);
+      if (Object.keys(fieldErrors).length > 0) {
+        setErrors(fieldErrors);
+        scrollToAndFocusShipmentField(fieldErrors);
+        const firstFieldErr = Object.values(fieldErrors)[0];
+        toast.error(firstFieldErr || 'Please check highlighted fields.');
+      } else if (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError)) {
+        toast.error(generalError);
+      } else {
+        const errorMsg =
+          err?.message && !/^(form validation error|validation error|bad request)$/i.test(err.message)
+            ? err.message
+            : 'An error occurred while saving draft.';
+        toast.error(errorMsg);
+      }
     } finally {
       setIsSavingDraft(false);
     }
@@ -3253,7 +3387,7 @@ export function ShipmentInstructionDocumentForm({
               </label>
 
               <div className="flex flex-col gap-1 px-0.5">                
-                <div className="text-[13px] font-medium text-foreground uppercase whitespace-pre-line leading-relaxed">
+                <div className="text-[13px] font-medium text-foreground whitespace-pre-line leading-relaxed">
                   {formatPartyDetailsWithCompany(shipperName, shipperDetails)}
                 </div>
               </div>
@@ -3266,7 +3400,7 @@ export function ShipmentInstructionDocumentForm({
                 <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5">
                   TYPE OF B/L :
                 </span>
-                <span className="font-semibold text-foreground uppercase text-[14px]">
+                <span className="font-semibold text-foreground text-[14px]">
                   {blType}
                 </span>
               </div>
@@ -3276,7 +3410,7 @@ export function ShipmentInstructionDocumentForm({
                 <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5">
                   SCAN CODE:
                 </span>
-                <span className="font-semibold text-foreground uppercase text-[14px]">
+                <span className="font-semibold text-foreground text-[14px]">
                   {scanCode || ''}
                 </span>
               </div>
@@ -3636,17 +3770,17 @@ export function ShipmentInstructionDocumentForm({
             {/* Sub-row A Values (bg-card) */}
             <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-card">
               <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
-                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase select-all">
+                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide select-all">
                   {preCarriageBy || '-'}
                 </span>
               </div>
               <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
-                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase select-all">
+                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide select-all">
                   {placeOfReceipt || '-'}
                 </span>
               </div>
               <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
-                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase select-all">
+                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide select-all">
                   {vesselVoyageNo || '-'}
                 </span>
               </div>
@@ -3668,12 +3802,12 @@ export function ShipmentInstructionDocumentForm({
             {/* Sub-row B Values (bg-card) */}
             <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-card">
               <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
-                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase select-all">
+                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide select-all">
                   {portOfLoading || '-'}
                 </span>
               </div>
               <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
-                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase select-all">
+                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide select-all">
                   {portOfDischarge || '-'}
                 </span>
               </div>
@@ -3693,7 +3827,7 @@ export function ShipmentInstructionDocumentForm({
                     placeholder="Enter place of delivery"
                     icon="fa-solid fa-pen"
                     align="center"
-                    inputClassName="text-[14px] font-semibold text-foreground text-center uppercase tracking-wide"
+                    inputClassName="text-[14px] font-semibold text-foreground text-center tracking-wide"
                     className="w-full"
                   />
                 </div>
@@ -3876,22 +4010,22 @@ export function ShipmentInstructionDocumentForm({
               {/* Product & Packing Top Information (ALL STATIC TEXT DISPLAY) */}
               <div className="p-2.5 sm:p-3 flex flex-col gap-1">
                 {/* Line 1: TOTAL BAGS: 32400 BAGS (STATIC) */}
-                <div className="text-[14px] font-semibold uppercase text-foreground tracking-wide">
+                <div className="text-[14px] font-semibold text-foreground tracking-wide">
                   TOTAL BAGS: {cleanBagQuantity} BAGS
                 </div>
 
                 {/* Line 2: Product Title (STATIC) */}
-                <div className="text-[14px] font-semibold uppercase text-foreground tracking-wide">
+                <div className="text-[14px] font-semibold text-foreground tracking-wide">
                   PRODUCT NAME: {productName}
                 </div>
 
                 {/* Line 3: Packing Description (STATIC) */}
-                <div className="text-[14px] font-semibold uppercase text-foreground tracking-wide">
+                <div className="text-[14px] font-semibold text-foreground tracking-wide">
                   PACKING TYPE: {packingDescription}
                 </div>
 
                 {/* Line 4: FCL TYPE: 20 FT FCL (STATIC) */}
-                <div className="text-[14px] font-semibold uppercase text-foreground tracking-wide mt-2">
+                <div className="text-[14px] font-semibold text-foreground tracking-wide mt-2">
                   FCL TYPE: {fclType}
                 </div>
               </div>
@@ -3925,22 +4059,22 @@ export function ShipmentInstructionDocumentForm({
               {/* Bottom Specifications & Notes */}
               <div className="p-2.5 sm:p-3 flex flex-col gap-1.5">
                 {/* S/BILL NO. - (STATIC DISPLAY) */}
-                <div className="text-[14px] font-semibold uppercase text-foreground">
+                <div className="text-[14px] font-semibold text-foreground">
                   S/BILL NO. {sbillNo}
                 </div>
 
                 {/* HS CODE: 456789 (STATIC DISPLAY) */}
-                <div className="text-[14px] font-semibold uppercase text-foreground">
+                <div className="text-[14px] font-semibold text-foreground">
                   HS CODE: {hsCode}
                 </div>
 
                 {/* NET WEIGHT: - (STATIC DISPLAY) */}
-                <div className="text-[14px] font-semibold uppercase text-foreground">
+                <div className="text-[14px] font-semibold text-foreground">
                   NET WEIGHT: {netWeight}
                 </div>
 
                 {/* GROSS WEIGHT: - (STATIC DISPLAY) */}
-                <div className="text-[14px] font-semibold uppercase text-foreground">
+                <div className="text-[14px] font-semibold text-foreground">
                   GROSS WEIGHT: {grossWeightCol2}
                 </div>
 
@@ -3960,7 +4094,7 @@ export function ShipmentInstructionDocumentForm({
                     disabled={readOnly}
                     placeholder="Enter freight"
                     icon="fa-solid fa-pen"
-                    inputClassName="text-[14px] font-semibold text-foreground uppercase"
+                    inputClassName="text-[14px] font-semibold text-foreground"
                     className="w-full"
                   />
                 </div>
@@ -3968,7 +4102,7 @@ export function ShipmentInstructionDocumentForm({
                 {/* ECTN NUMBER (STATIC DISPLAY - when ectn_field is true) */}
                 {isEctnField ? (
                   <div
-                    className="text-[14px] font-semibold uppercase text-foreground mt-1"
+                    className="text-[14px] font-semibold text-foreground mt-1"
                     id="field-ectnNumber"
                     data-field="ectnNumber"
                   >
@@ -3995,7 +4129,7 @@ export function ShipmentInstructionDocumentForm({
                       disabled={readOnly}
                       placeholder={"IDF:\nUCR:\nPIP:"}
                       icon="fa-solid fa-pen"
-                      inputClassName="text-[14px] font-semibold uppercase text-foreground resize-none leading-relaxed"
+                      inputClassName="text-[14px] font-semibold text-foreground resize-none leading-relaxed"
                       className="w-full"
                     />
                   </div>
@@ -4016,48 +4150,41 @@ export function ShipmentInstructionDocumentForm({
                       }}
                       error={errors.transitClauseValue || errors.transit_clause_value}
                       disabled={readOnly}
-                      placeholder="Enter transit clause"
+                      placeholder="ENTER TRANSIT CLAUSE"
+                      uppercase
                       icon="fa-solid fa-pen"
-                      inputClassName="text-[14px] font-semibold uppercase text-foreground"
+                      inputClassName="text-[14px] font-semibold text-foreground uppercase"
                       className="w-full"
                     />
                     <div className="w-full">
-                      <select
+                      <DocUnderlineSelect
                         value={transitClauseCountry}
-                        onChange={(e) => {
+                        onChange={(val) => {
                           markDirty();
-                          setTransitClauseCountry(e.target.value);
+                          setTransitClauseCountry(val);
                           if (errors.transitClauseCountry || errors.transit_clause_country_id) {
                             setErrors((prev) => ({ ...prev, transitClauseCountry: '', transit_clause_country_id: '' }));
                           }
                         }}
+                        options={countryOptions}
+                        placeholder="SELECT TRANSIT CLAUSE COUNTRY"
+                        searchable={true}
                         disabled={readOnly}
-                        className="w-full text-[13px] font-semibold uppercase bg-transparent border-b border-border text-foreground py-1 focus:outline-none focus:border-primary transition-colors cursor-pointer"
-                      >
-                        <option value="" className="bg-background text-foreground">Select transit clause country</option>
-                        {countriesList.map((c) => (
-                          <option key={c.id || c.value} value={c.id || c.value} className="bg-background text-foreground">
-                            {c.name || c.label}
-                          </option>
-                        ))}
-                      </select>
-                      {(errors.transitClauseCountry || errors.transit_clause_country_id) && (
-                        <p className="text-xs text-destructive mt-0.5">
-                          {errors.transitClauseCountry || errors.transit_clause_country_id}
-                        </p>
-                      )}
+                        error={errors.transitClauseCountry || errors.transit_clause_country_id}
+                        className="w-full"
+                      />
                     </div>
                   </div>
                 ) : null}
 
-                {/* FREE DAYS: 14 DAYS FREE AT POD (STATIC DISPLAY) */}
-                <div className="text-[14px] font-semibold uppercase text-foreground mt-1">
-                  FREE DAYS: {freeDays}
+                {/* FREE DAYS (DISPLAY) */}
+                <div className="text-[14px] font-semibold text-foreground mt-1">
+                  Free days: {freeDays || '-'}
                 </div>
 
-                {/* EMPTY BAGS: 2% EMPTY BAGS (STATIC DISPLAY) */}
-                <div className="text-[14px] font-semibold uppercase text-foreground">
-                  EMPTY BAGS: {emptyBags}
+                {/* EMPTY BAGS (DISPLAY) */}
+                <div className="text-[14px] font-semibold text-foreground">
+                  Empty bags: {emptyBags || '-'}
                 </div>
 
                 {/* SPECIAL WARNING NOTE (EDITABLE INPUT IN AMBER with pencil & dotted line!) */}
@@ -4088,8 +4215,8 @@ export function ShipmentInstructionDocumentForm({
                     icon="fa-solid fa-pen"
                     inputClassName={
                       errors.specialInstruction || errors.special_instruction || errors.special_note || errors.disclaimer
-                        ? "text-[13px] font-semibold uppercase text-brand-red resize-none leading-relaxed"
-                        : "text-[13px] font-semibold uppercase !text-amber-600 dark:!text-amber-400 resize-none leading-relaxed"
+                        ? "text-[13px] font-semibold text-brand-red resize-none leading-relaxed"
+                        : "text-[13px] font-semibold !text-amber-600 dark:!text-amber-400 resize-none leading-relaxed"
                     }
                     underlineClassName={
                       errors.specialInstruction || errors.special_instruction || errors.special_note || errors.disclaimer
@@ -4138,18 +4265,18 @@ export function ShipmentInstructionDocumentForm({
             {/* Values row (ALL STATIC DISPLAY - bg-card) */}
             <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border text-center bg-card">
               <div className="p-2.5 sm:p-3 flex items-center justify-center min-h-[40px]">
-                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
+                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide">
                   {cleanTotalPackages || '-'}
                 </span>
               </div>
               <div className="p-2.5 sm:p-3 flex items-center justify-center min-h-[40px]">
-                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
+                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide">
                   {totalWeight || '-'}
                 </span>
               </div>
               <div className="p-2.5 sm:p-3 flex items-center justify-center min-h-[40px]">
-                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
-                  {freight ? freight.toUpperCase() : '-'}
+                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide">
+                  {freight || '-'}
                 </span>
               </div>
             </div>
@@ -4171,9 +4298,10 @@ export function ShipmentInstructionDocumentForm({
               <DocUnderlineInput
                 id="field-remarksTitle-input"
                 value={remarksTitle}
+                maxLength={20}
                 onChange={(v) => {
                   markDirty();
-                  setRemarksTitle(v);
+                  setRemarksTitle(v.slice(0, 20));
                   if (errors.remarksTitle || errors.remarks_title || errors.comment_title || errors.comment_label) {
                     setErrors((prev) => ({
                       ...prev,

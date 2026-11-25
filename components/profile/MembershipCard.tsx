@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import ProfilePictureUpload from "./ProfilePictureUpload";
+import { isMembershipExpired } from "@/lib/membership-status";
 
 type PlanTier = "SILVER" | "GOLD" | "PLATINUM";
 type PlanDuration = "MONTHLY" | "YEARLY";
@@ -74,6 +75,7 @@ export default function MembershipCard({ profileData = null, dict = {} }: Member
   const accountId = profileData?.customer_id || dict?.common?.not_available || "N/A";
   
   // Expiry date key in api is membership_expiry_date (either inside membership object or root)
+  const isExpired = isMembershipExpired(profileData);
   let validThru = dict?.common?.not_available || "N/A";
   const expiry = profileData?.membership?.membership_expiry_date || profileData?.membership_expiry_date;
   
@@ -110,6 +112,11 @@ export default function MembershipCard({ profileData = null, dict = {} }: Member
           <div className="flex flex-col gap-1">
             <h3 className="text-2xl sm:text-3xl font-black drop-shadow-lg flex items-center gap-2 tracking-wide text-white">
               {plan.tier} <i className={`fa-solid ${plan.icon} text-xl sm:text-2xl ${plan.iconColor} drop-shadow-md`}></i>
+              {isExpired && (
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/90 text-white border border-rose-300/50 shadow-sm">
+                  Expired
+                </span>
+              )}
             </h3>
             <p className="text-white text-xs uppercase tracking-[0.2em] font-extrabold drop-shadow-md flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]"></span> {dict?.profile?.[plan.duration.toLowerCase()] || plan.duration} {dict?.profile?.membership || "MEMBERSHIP"}

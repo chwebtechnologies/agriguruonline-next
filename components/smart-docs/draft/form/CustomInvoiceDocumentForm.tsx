@@ -510,13 +510,7 @@ export function parseCustomInvoiceBackendErrors(
     return (
       !s ||
       /^(form validation error|validation error|bad request|invalid input|invalid payload|error occurred)$/i.test(s) ||
-      /^Cannot (PATCH|POST|GET|PUT|DELETE)\b/i.test(s) ||
-      /<(!DOCTYPE|html)/i.test(s) ||
-      /^(404|500|502|503|504)\s+(not found|internal server error|bad gateway|service unavailable)/i.test(s) ||
-      /^(not found|bad gateway|service unavailable)$/i.test(s) ||
-      /^[a-z0-9_.-]+$/i.test(s) ||
-      s.toLowerCase().includes('should not be empty') ||
-      s.toLowerCase().includes('must be')
+      /<(!DOCTYPE|html)/i.test(s)
     );
   };
 
@@ -820,18 +814,34 @@ export function CustomInvoiceDocumentForm({
     []
   );
 
-  const hasCustomMarkers = Boolean(
+  const isInitialDataRealCustom = Boolean(
+    initialData?.custom_invoice_id ||
     initialData?.custom_invoice_number ||
     initialData?.custom_invoice_no ||
-    initialData?.custom_invoice_id ||
-    initialData?._is_custom_invoice_loaded
+    initialData?._is_custom_invoice_loaded ||
+    initialData?.document_type === 'custom_invoice' ||
+    initialData?.doc_type === 'custom_invoice' ||
+    (initialData?.custom_invoice && typeof initialData.custom_invoice === 'object' && (initialData.custom_invoice.id || initialData.custom_invoice.custom_invoice_number))
   );
+
+  const hasCustomMarkers = isInitialDataRealCustom;
 
   // Effective Document ID resolved from prop, stepper redirect_id, initialData, or linked workflow steps
   const effectiveCustomInvoiceId = useMemo(() => {
+    const parentIds = new Set(
+      [shipmentInstructionId, proformaId, contractId, confirmationId]
+        .map((id) => sanitizeDocId(id))
+        .filter(Boolean)
+    );
+
+    const isValidOwnId = (val?: string | null) => {
+      const clean = sanitizeDocId(val);
+      return Boolean(clean && !parentIds.has(clean) && isCandidateValid(clean));
+    };
+
     // 1. Direct from prop
     const cleanProp = sanitizeDocId(propCustomInvoiceId);
-    if (isCandidateValid(cleanProp)) return cleanProp;
+    if (isValidOwnId(cleanProp)) return cleanProp;
 
     // 2. From Stepper step redirect_id / redirectId / stepSelfId
     const stepperStep = getCustomInvoiceStep(steps, selectedStep);
@@ -847,7 +857,7 @@ export function CustomInvoiceDocumentForm({
     ];
     for (const sc of stepperCandidates) {
       const clean = sanitizeDocId(sc);
-      if (isCandidateValid(clean)) return clean;
+      if (isValidOwnId(clean)) return clean;
     }
 
     // 3. Direct custom invoice fields in initialData
@@ -867,27 +877,7 @@ export function CustomInvoiceDocumentForm({
     ];
     for (const dc of directCandidates) {
       const clean = sanitizeDocId(dc);
-      if (isCandidateValid(clean)) return clean;
-    }
-
-    // 4. Fallback candidates from parent workflow documents (Shipment Instruction, Proforma, Contract, Confirmation)
-    const fallbackCandidates = [
-      shipmentInstructionId,
-      proformaId,
-      contractId,
-      confirmationId,
-      steps && steps.length > 3 ? getStepSelfId(steps[3]) : '',
-      steps && steps.length > 3 ? steps[3]?.redirect_id : '',
-      steps && steps.length > 2 ? getStepSelfId(steps[2]) : '',
-      steps && steps.length > 2 ? steps[2]?.redirect_id : '',
-      steps && steps.length > 1 ? getStepSelfId(steps[1]) : '',
-      steps && steps.length > 1 ? steps[1]?.redirect_id : '',
-      steps && steps.length > 0 ? getStepSelfId(steps[0]) : '',
-      steps && steps.length > 0 ? steps[0]?.redirect_id : '',
-    ];
-    for (const fc of fallbackCandidates) {
-      const clean = sanitizeDocId(fc);
-      if (isCandidateValid(clean)) return clean;
+      if (isValidOwnId(clean)) return clean;
     }
 
     return '';
@@ -1016,14 +1006,26 @@ export function CustomInvoiceDocumentForm({
   });
 
   // EDITABLE INPUTS:
-  // 1. Invoice Number (INVOICE NO:)
+  // 1. Invoice Number (INVOICE NO:) — strictly from Custom Invoice data, never fall back to contract/proforma numbers
   const [invoiceNumber, setInvoiceNumber] = useState<string>(() =>
-    safeString(initialData?.invoice_number || initialData?.invoice_no, '')
+    safeString(
+      initialData?.custom_invoice_number ||
+        initialData?.custom_invoice_no ||
+        initialData?.custom_invoice?.invoice_number ||
+        initialData?.custom_invoice?.invoice_no ||
+        (isInitialDataRealCustom ? initialData?.invoice_number || initialData?.invoice_no : '') ||
+        '',
+      ''
+    )
   );
 
-  // 2. Invoice Date (INVOICE DATE:)
+  // 2. Invoice Date (INVOICE DATE:) — strictly from Custom Invoice data, never fall back to contract/proforma dates
   const [invoiceDate, setInvoiceDate] = useState<string>(() => {
-    const raw = initialData?.invoice_date || initialData?.date || '';
+    const raw =
+      initialData?.custom_invoice_date ||
+      initialData?.custom_invoice?.invoice_date ||
+      (isInitialDataRealCustom ? initialData?.invoice_date || initialData?.date : '') ||
+      '';
     if (!raw) return '';
     try {
       const d = new Date(raw);
@@ -1137,17 +1139,47 @@ export function CustomInvoiceDocumentForm({
 
   // 8. Bank Account Selection State
   const [selectedBankId, setSelectedBankId] = useState<string>(() =>
-    safeString(initialData?.bank_details_id || initialData?.bank_account_id, '')
+    safeString(
+      initialData?.custom_invoice?.bank_details_id ||
+        initialData?.custom_invoice?.bank_account_id ||
+        initialData?.bank_details_id ||
+        initialData?.bank_account_id ||
+        initialData?.bank_id ||
+        initialData?.proforma?.bank_details_id ||
+        initialData?.proforma?.bank_account_id ||
+        initialData?.proforma?.bank_id ||
+        '',
+      ''
+    )
   );
   const [bankAccountDetails, setBankAccountDetails] = useState<string>(() =>
-    safeString(initialData?.bank_details || initialData?.bank_account_details, '')
+    safeString(
+      initialData?.custom_invoice?.bank_details ||
+        initialData?.custom_invoice?.bank_account_details ||
+        initialData?.bank_details ||
+        initialData?.bank_account_details ||
+        initialData?.proforma?.bank_details ||
+        initialData?.proforma?.bank_account_details ||
+        '',
+      ''
+    )
   );
   const [sellerBankAccounts, setSellerBankAccounts] = useState<any[]>([]);
   const [isLoadingBankAccounts, setIsLoadingBankAccounts] = useState(false);
 
   // Hydrate form states when fresh initialData arrives from API or when stepper navigation triggers
   useEffect(() => {
-    if (!initialData || typeof initialData !== 'object') return;
+    const isDataVersionTriggered = Boolean(
+      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
+    );
+
+    if (!initialData || typeof initialData !== 'object') {
+      if (isDataVersionTriggered) {
+        setNotesTitle('');
+        setNotesComment('');
+      }
+      return;
+    }
 
     const invoiceIdCandidate = safeString(
       initialData?.custom_invoice_id ||
@@ -1157,10 +1189,6 @@ export function CustomInvoiceDocumentForm({
       ''
     );
     const hasDocIdChanged = Boolean(invoiceIdCandidate && invoiceIdCandidate !== lastLoadedDocIdRef.current);
-
-    const isDataVersionTriggered = Boolean(
-      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
-    );
 
     // If form has already initialized, NEVER overwrite user edits unless stepper version changed or doc ID changed!
     if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged && (isDirty || hasDraftChanges)) {
@@ -1201,26 +1229,58 @@ export function CustomInvoiceDocumentForm({
     else if (initialData.watermark !== undefined) setWatermarkEnabled(Boolean(initialData.watermark));
     else if (initialData.watermark_enabled !== undefined) setWatermarkEnabled(Boolean(initialData.watermark_enabled));
 
-    const inv = safeString(initialData.invoice_number || initialData.invoice_no, '');
-    if (inv) {
-      setInvoiceNumber(inv);
-    }
+    const isRealCustom = Boolean(
+      initialData?.custom_invoice_id ||
+      initialData?.custom_invoice_number ||
+      initialData?.custom_invoice_no ||
+      initialData?._is_custom_invoice_loaded ||
+      initialData?.document_type === 'custom_invoice' ||
+      initialData?.doc_type === 'custom_invoice' ||
+      (initialData?.custom_invoice && typeof initialData.custom_invoice === 'object' && (initialData.custom_invoice.id || initialData.custom_invoice.custom_invoice_number))
+    );
 
-    if (initialData.invoice_date !== undefined || initialData.date !== undefined) {
-      const raw = initialData.invoice_date || initialData.date;
-      if (!raw) {
-        setInvoiceDate('');
-      } else {
-        try {
-          const d = new Date(raw);
-          if (!isNaN(d.getTime())) {
-            setInvoiceDate(d.toISOString().split('T')[0]);
-          } else {
-            setInvoiceDate(String(raw).split('T')[0]);
+    if (isRealCustom) {
+      const inv = safeString(
+        initialData.custom_invoice_number ||
+          initialData.custom_invoice_no ||
+          initialData.custom_invoice?.invoice_number ||
+          initialData.custom_invoice?.invoice_no ||
+          initialData.invoice_number ||
+          initialData.invoice_no ||
+          '',
+        ''
+      );
+      if (inv) {
+        setInvoiceNumber(inv);
+      } else if (hasDocIdChanged) {
+        setInvoiceNumber('');
+      }
+
+      const rawDate =
+        initialData.custom_invoice_date ||
+        initialData.custom_invoice?.invoice_date ||
+        initialData.invoice_date ||
+        initialData.date;
+      if (rawDate !== undefined) {
+        if (!rawDate) {
+          setInvoiceDate('');
+        } else {
+          try {
+            const d = new Date(rawDate);
+            if (!isNaN(d.getTime())) {
+              setInvoiceDate(d.toISOString().split('T')[0]);
+            } else {
+              setInvoiceDate(String(rawDate).split('T')[0]);
+            }
+          } catch {
+            setInvoiceDate(String(rawDate).split('T')[0]);
           }
-        } catch {
-          setInvoiceDate(String(raw).split('T')[0]);
         }
+      }
+    } else if (hasDocIdChanged || isDataVersionTriggered) {
+      if (hasDocIdChanged) {
+        setInvoiceNumber('');
+        setInvoiceDate('');
       }
     }
 
@@ -1307,13 +1367,13 @@ export function CustomInvoiceDocumentForm({
     }
 
     const nTitle = safeString(initialData.notes_title || initialData.extra_title || initialData.comment_title || initialData.comment_label, '');
-    if (isDataVersionTriggered || (!notesTitle && !isDirty)) {
+    if (isDataVersionTriggered || hasDocIdChanged || !isDirty) {
       setNotesTitle(nTitle);
     }
 
     const rawComment = safeString(initialData.notes_comment || initialData.extra_comment || initialData.comment || initialData.comment_value, '');
     const nComment = /PLEASE DO NOT MENTION INVOICE NUMBER/i.test(rawComment) ? '' : rawComment;
-    if (isDataVersionTriggered || (!notesComment && !isDirty)) {
+    if (isDataVersionTriggered || hasDocIdChanged || !isDirty) {
       setNotesComment(nComment);
     }
 
@@ -1327,13 +1387,44 @@ export function CustomInvoiceDocumentForm({
       setStampImageUrl(rawStamp ? formatSignatureUrl(rawStamp) : '');
     }
 
-    const rawBankId = safeString(initialData.bank_details_id || initialData.bank_account_id, '');
-    if (rawBankId) {
-      setSelectedBankId(rawBankId);
-    }
-    const rawBankDetails = safeString(initialData.bank_details || initialData.bank_account_details, '');
-    if (rawBankDetails) {
-      setBankAccountDetails(rawBankDetails);
+    if (isRealCustom) {
+      const rawBankId = safeString(initialData.bank_details_id || initialData.bank_account_id, '');
+      if (rawBankId) {
+        setSelectedBankId(rawBankId);
+      }
+      const rawBankDetails = safeString(initialData.bank_details || initialData.bank_account_details, '');
+      if (rawBankDetails) {
+        setBankAccountDetails(rawBankDetails);
+      }
+    } else if (hasDocIdChanged || isDataVersionTriggered) {
+      const fallbackBankId = safeString(
+        initialData?.custom_invoice?.bank_details_id ||
+          initialData?.custom_invoice?.bank_account_id ||
+          initialData?.bank_details_id ||
+          initialData?.bank_account_id ||
+          initialData?.bank_id ||
+          initialData?.proforma?.bank_details_id ||
+          initialData?.proforma?.bank_account_id ||
+          initialData?.proforma?.bank_id ||
+          '',
+        ''
+      );
+      if (fallbackBankId) {
+        setSelectedBankId(fallbackBankId);
+      }
+      const fallbackBankDetails = safeString(
+        initialData?.custom_invoice?.bank_details ||
+          initialData?.custom_invoice?.bank_account_details ||
+          initialData?.bank_details ||
+          initialData?.bank_account_details ||
+          initialData?.proforma?.bank_details ||
+          initialData?.proforma?.bank_account_details ||
+          '',
+        ''
+      );
+      if (fallbackBankDetails) {
+        setBankAccountDetails(fallbackBankDetails);
+      }
     }
   }, [initialData, dataVersion, steps, selectedStep, contractId, confirmationId, proformaId, shipmentInstructionId]);
 
@@ -1775,21 +1866,40 @@ export function CustomInvoiceDocumentForm({
   // Voyage & Ports (Display-only)
   // User requirement: "VESSEL / VOYAGE NO me voyage_number hai to dikhana hai varna 'AS PER BL'."
   const vesselVoyageNo = useMemo(() => {
-    const raw = safeString(
-      initialData?.voyage_number ||
-      initialData?.voyage_no ||
-      initialData?.shipment_instruction?.voyage_number ||
-      initialData?.shipment_instruction?.voyage_no ||
-      initialData?.vessel_voyage_no ||
-      initialData?.vessel_voyage ||
-      initialData?.vessel_name ||
-      initialData?.vessel_flight_no ||
-      initialData?.vessel ||
-      initialData?.shipment_instruction?.vessel_name ||
-      initialData?.contract?.vessel_name,
+    const vName = safeString(
+      initialData?.vessel_name ??
+        initialData?.vesselName ??
+        initialData?.vessel ??
+        initialData?.custom_invoice?.vessel_name ??
+        initialData?.shipment_instruction?.vessel_name ??
+        initialData?.contract?.vessel_name,
       ''
     );
-    return raw || 'AS PER BL';
+    const vVoy = safeString(
+      initialData?.voyage_number ??
+        initialData?.voyageNumber ??
+        initialData?.voyage_no ??
+        initialData?.voyageNo ??
+        initialData?.custom_invoice?.voyage_number ??
+        initialData?.custom_invoice?.voyage_no ??
+        initialData?.shipment_instruction?.voyage_number ??
+        initialData?.shipment_instruction?.voyage_no,
+      ''
+    );
+    if (vName && vVoy) return `${vName}, ${vVoy}`;
+    if (vName) return vName;
+    if (vVoy) return vVoy;
+    const directVoyageNo = safeString(
+      initialData?.vessel_voyage_no ??
+        initialData?.vesselVoyageNo ??
+        initialData?.vessel_voyage ??
+        initialData?.vessel_flight_no ??
+        initialData?.custom_invoice?.vessel_voyage_no ??
+        initialData?.shipment_instruction?.vessel_voyage_no,
+      ''
+    );
+    if (directVoyageNo) return directVoyageNo;
+    return 'AS PER BL';
   }, [initialData]);
 
   const portOfLoading = safeString(
@@ -2054,14 +2164,17 @@ export function CustomInvoiceDocumentForm({
 
   const incoterm = useMemo(() => {
     return safeString(
+      initialData?.custom_invoice?.shipping_term ||
+      initialData?.custom_invoice?.incoterm ||
+      initialData?.custom_invoice?.delivery_terms ||
       initialData?.incoterm ||
       initialData?.shipping_term ||
       initialData?.shipping_terms ||
       initialData?.delivery_terms ||
       initialData?.delivery_term ||
       initialData?.terms_of_delivery ||
-      initialData?.contract?.incoterm ||
       initialData?.contract?.shipping_term ||
+      initialData?.contract?.incoterm ||
       initialData?.confirmation?.shipping_term ||
       initialData?.proforma?.shipping_term,
       'CNF'
@@ -2521,7 +2634,7 @@ export function CustomInvoiceDocumentForm({
       formData.append('disclaimer', disclaimer);
     }
 
-    const effectiveNotesTitle = (notesTitle || '').trim() || ((notesComment || '').trim() ? 'Comments' : '');
+    const effectiveNotesTitle = ((notesTitle || '').trim() || ((notesComment || '').trim() ? 'Comments' : '')).slice(0, 20);
     const effectiveNotesComment = (notesComment || '').trim();
     formData.append('comment_label', effectiveNotesTitle);
     formData.append('comment_title', effectiveNotesTitle);
@@ -2632,11 +2745,11 @@ export function CustomInvoiceDocumentForm({
       seller_signature_url: stampImageUrl ? (normalizeSignaturePayload(stampImageUrl) || stampImageUrl) : undefined,
       authority_signature_title: authoritySignatureTitle,
       disclaimer: disclaimer || undefined,
-      title: (notesTitle || '').trim() || ((notesComment || '').trim() ? 'Comments' : ''),
-      extra_title: (notesTitle || '').trim() || ((notesComment || '').trim() ? 'Comments' : ''),
-      notes_title: (notesTitle || '').trim() || ((notesComment || '').trim() ? 'Comments' : ''),
-      comment_title: (notesTitle || '').trim() || ((notesComment || '').trim() ? 'Comments' : ''),
-      comment_label: (notesTitle || '').trim() || ((notesComment || '').trim() ? 'Comments' : ''),
+      title: ((notesTitle || '').trim() || ((notesComment || '').trim() ? 'Comments' : '')).slice(0, 20),
+      extra_title: ((notesTitle || '').trim() || ((notesComment || '').trim() ? 'Comments' : '')).slice(0, 20),
+      notes_title: ((notesTitle || '').trim() || ((notesComment || '').trim() ? 'Comments' : '')).slice(0, 20),
+      comment_title: ((notesTitle || '').trim() || ((notesComment || '').trim() ? 'Comments' : '')).slice(0, 20),
+      comment_label: ((notesTitle || '').trim() || ((notesComment || '').trim() ? 'Comments' : '')).slice(0, 20),
       comment: (notesComment || '').trim(),
       extra_comment: (notesComment || '').trim(),
       notes_comment: (notesComment || '').trim(),
@@ -2710,10 +2823,18 @@ export function CustomInvoiceDocumentForm({
         if (savedId && isCandidateValid(String(savedId))) {
           const cleanSavedId = String(savedId);
           setDraftId(cleanSavedId);
+          lastLoadedDocIdRef.current = cleanSavedId;
+          isFormInitializedRef.current = true;
           isDraftSavedToBackendRef.current = true;
           setHasDraftChanges(false);
           setHasSubmitChanges(true);
           setIsDirty(false);
+          if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            url.searchParams.set('id', cleanSavedId);
+            url.searchParams.set('step', 'custom-invoice');
+            window.history.replaceState(null, '', url.toString());
+          }
           if (onSaveSuccess) onSaveSuccess(cleanSavedId, res?.data);
           if (onUpdateSteps && steps && steps.length > 0) {
             onUpdateSteps(
@@ -2755,13 +2876,7 @@ export function CustomInvoiceDocumentForm({
           return (
             !s ||
             /^(form validation error|validation error|bad request|invalid input|invalid payload|error occurred)$/i.test(s) ||
-            /^Cannot (PATCH|POST|GET|PUT|DELETE)\b/i.test(s) ||
-            /<(!DOCTYPE|html)/i.test(s) ||
-            /^(404|500|502|503|504)\s+(not found|internal server error|bad gateway|service unavailable)/i.test(s) ||
-            /^(not found|bad gateway|service unavailable)$/i.test(s) ||
-            /^[a-z0-9_.-]+$/i.test(s) ||
-            s.toLowerCase().includes('should not be empty') ||
-            s.toLowerCase().includes('must be')
+            /<(!DOCTYPE|html)/i.test(s)
           );
         };
         const errorToast =
@@ -2821,8 +2936,35 @@ export function CustomInvoiceDocumentForm({
     setErrors({});
 
     try {
+      let activeId = cleanSelfId || (isCandidateValid(draftId) ? draftId : '') || effectiveCustomInvoiceId;
+      if (!activeId || isDirty || hasDraftChanges || !isDraftSavedToBackendRef.current) {
+        try {
+          const payloadToSave = getCustomInvoiceFormData();
+          let saveRes: any;
+          if (onSaveDraft) {
+            saveRes = await onSaveDraft(payloadToSave);
+          } else {
+            saveRes = await saveCustomInvoiceDraftAction(payloadToSave, lang, activeId || undefined);
+          }
+          if (saveRes?.success) {
+            const newId = saveRes.id || saveRes.data?.id || saveRes.data?.custom_invoice_id || saveRes.data?.invoice_id;
+            if (newId && isCandidateValid(String(newId))) {
+              const cleanNewId = String(newId);
+              setDraftId(cleanNewId);
+              activeId = cleanNewId;
+              isDraftSavedToBackendRef.current = true;
+              setIsDirty(false);
+              setHasDraftChanges(false);
+              setHasSubmitChanges(true);
+              if (onSaveSuccess) onSaveSuccess(cleanNewId, saveRes.data);
+            }
+          }
+        } catch (saveErr) {
+          console.warn('[CustomInvoiceDocumentForm] Auto-save before submit warning:', saveErr);
+        }
+      }
+
       const formDataPayload = getCustomInvoiceFormData();
-      const activeId = cleanSelfId || (isCandidateValid(draftId) ? draftId : '') || effectiveCustomInvoiceId;
       let res: any;
 
       if (onSubmitInvoice) {
@@ -2882,13 +3024,7 @@ export function CustomInvoiceDocumentForm({
           return (
             !s ||
             /^(form validation error|validation error|bad request|invalid input|invalid payload|error occurred)$/i.test(s) ||
-            /^Cannot (PATCH|POST|GET|PUT|DELETE)\b/i.test(s) ||
-            /<(!DOCTYPE|html)/i.test(s) ||
-            /^(404|500|502|503|504)\s+(not found|internal server error|bad gateway|service unavailable)/i.test(s) ||
-            /^(not found|bad gateway|service unavailable)$/i.test(s) ||
-            /^[a-z0-9_.-]+$/i.test(s) ||
-            s.toLowerCase().includes('should not be empty') ||
-            s.toLowerCase().includes('must be')
+            /<(!DOCTYPE|html)/i.test(s)
           );
         };
         const errorToast =
@@ -3200,7 +3336,7 @@ export function CustomInvoiceDocumentForm({
               <div className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
                 EXPORTER / SELLER:
               </div>
-              <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed">
+              <div className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide px-0.5 whitespace-pre-line leading-relaxed">
                 {sellerInstructionText || '-'}
               </div>
             </div>
@@ -3210,7 +3346,7 @@ export function CustomInvoiceDocumentForm({
               <div className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
                 CONSIGNEE / BUYER:
               </div>
-              <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed">
+              <div className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide px-0.5 whitespace-pre-line leading-relaxed">
                 {consigneeDetailsValue || '-'}
               </div>
             </div>
@@ -3241,7 +3377,7 @@ export function CustomInvoiceDocumentForm({
                       icon="fa-solid fa-pencil"
                       disabled={readOnly}
                       error={errors.invoice_number || errors.invoice_no}
-                      inputClassName="text-[14px] font-semibold text-foreground uppercase tracking-wide"
+                      inputClassName="text-[14px] font-semibold text-foreground tracking-wide"
                     />
                   </div>
                 </div>
@@ -3276,7 +3412,7 @@ export function CustomInvoiceDocumentForm({
                 <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider leading-tight px-0.5">
                   REGISTRATION NUMBER:
                 </span>
-                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase break-words break-all leading-relaxed px-0.5">
+                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide break-words break-all leading-relaxed px-0.5">
                   {registrationNumber || '-'}
                 </span>
               </div>
@@ -3287,7 +3423,7 @@ export function CustomInvoiceDocumentForm({
               <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5">
                 BUYER&apos;S ORDER NO &amp; DATE:
               </span>
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase truncate px-0.5">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide truncate px-0.5">
                 {buyerOrderNoAndDate}
               </span>
             </div>
@@ -3297,7 +3433,7 @@ export function CustomInvoiceDocumentForm({
               <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5">
                 PURCHASE ORDER NO:
               </span>
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase px-0.5">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide px-0.5">
                 {purchaseOrderNo}
               </span>
             </div>
@@ -3307,7 +3443,7 @@ export function CustomInvoiceDocumentForm({
               <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5">
                 CONTRACT DATE:
               </span>
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase px-0.5">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide px-0.5">
                 {contractDate}
               </span>
             </div>
@@ -3317,7 +3453,7 @@ export function CustomInvoiceDocumentForm({
               <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5">
                 OTHER REFERENCE (S):
               </span>
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase px-0.5">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide px-0.5">
                 {otherReferences}
               </span>
             </div>
@@ -3345,17 +3481,17 @@ export function CustomInvoiceDocumentForm({
 
           <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-card">
             <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase whitespace-pre-line leading-relaxed">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed">
                 {notifyParty1 || '-'}
               </span>
             </div>
             <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase whitespace-pre-line leading-relaxed">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed">
                 {notifyParty2 || '-'}
               </span>
             </div>
             <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase whitespace-pre-line leading-relaxed">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed">
                 {notifyParty3 || '-'}
               </span>
             </div>
@@ -3378,17 +3514,17 @@ export function CustomInvoiceDocumentForm({
 
               <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-card">
                 <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-                  <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase whitespace-pre-line leading-relaxed">
+                  <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed">
                     {notifyParty4 || '-'}
                   </span>
                 </div>
                 <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-                  <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase whitespace-pre-line leading-relaxed">
+                  <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed">
                     {notifyParty5 || '-'}
                   </span>
                 </div>
                 <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
-                  <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase whitespace-pre-line leading-relaxed">
+                  <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed">
                     {notifyParty6 || '-'}
                   </span>
                 </div>
@@ -3418,22 +3554,22 @@ export function CustomInvoiceDocumentForm({
 
           <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-border bg-card">
             <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide">
                 {preCarriageBy}
               </span>
             </div>
             <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide">
                 {placeOfReceipt}
               </span>
             </div>
             <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide">
                 {countryOfOrigin}
               </span>
             </div>
             <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide">
                 {countryOfDestination}
               </span>
             </div>
@@ -3458,17 +3594,17 @@ export function CustomInvoiceDocumentForm({
 
           <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-card">
             <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide">
                 {vesselVoyageNo}
               </span>
             </div>
             <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide">
                 {portOfLoading}
               </span>
             </div>
             <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide">
                 {termsOfDeliveryPayment}
               </span>
             </div>
@@ -3490,12 +3626,12 @@ export function CustomInvoiceDocumentForm({
 
           <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border bg-card">
             <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase whitespace-pre-line leading-relaxed">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed">
                 {portOfDestination}
               </span>
             </div>
             <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase whitespace-pre-line leading-relaxed">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed">
                 {finalDestination}
               </span>
             </div>
@@ -3554,7 +3690,7 @@ export function CustomInvoiceDocumentForm({
               <tr className="divide-x divide-border bg-card">
                 {/* COUNT / VESSEL */}
                 <td className="py-3 px-3 align-top text-left">
-                  <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
+                  <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide">
                     {countVessel}
                   </span>
                 </td>
@@ -3564,23 +3700,23 @@ export function CustomInvoiceDocumentForm({
                   <div className="flex flex-col gap-1 text-[13px] sm:text-[14px] text-foreground">
                     <div>
                       <span className="font-bold text-muted-foreground/85 uppercase text-[13px] sm:text-[14px] tracking-wider">PRODUCT NAME: </span>
-                      <span className="font-medium text-foreground uppercase">{productName}</span>
+                      <span className="font-medium text-foreground">{productName}</span>
                     </div>
                     <div>
                       <span className="font-bold text-muted-foreground/85 uppercase text-[13px] sm:text-[14px] tracking-wider">HSN CODE: </span>
-                      <span className="font-medium text-foreground uppercase">{hsnCode}</span>
+                      <span className="font-medium text-foreground">{hsnCode}</span>
                     </div>
                     <div>
                       <span className="font-bold text-muted-foreground/85 uppercase text-[13px] sm:text-[14px] tracking-wider">PACKING TYPE: </span>
-                      <span className="font-medium text-foreground uppercase">{packingType}</span>
+                      <span className="font-medium text-foreground">{packingType}</span>
                     </div>
                     <div>
                       <span className="font-bold text-muted-foreground/85 uppercase text-[13px] sm:text-[14px] tracking-wider">TOTAL BAGS: </span>
-                      <span className="font-medium text-foreground uppercase">{totalBags}</span>
+                      <span className="font-medium text-foreground">{totalBags}</span>
                     </div>
                     <div>
                       <span className="font-bold text-muted-foreground/85 uppercase text-[13px] sm:text-[14px] tracking-wider">MARKING BRAND: </span>
-                      <span className="font-medium text-foreground uppercase">{markingBrand}</span>
+                      <span className="font-medium text-foreground">{markingBrand}</span>
                     </div>
 
                     {/* GROSS WEIGHT (EDITABLE INPUT WITH PENCIL) */}
@@ -3608,13 +3744,13 @@ export function CustomInvoiceDocumentForm({
 
                     <div>
                       <span className="font-bold text-muted-foreground/85 uppercase text-[13px] sm:text-[14px] tracking-wider">NET WEIGHT: </span>
-                      <span className="font-medium text-foreground uppercase">{netWeight}</span>
+                      <span className="font-medium text-foreground">{netWeight}</span>
                     </div>
                     <div>
                       <span className="font-bold text-muted-foreground/85 uppercase text-[13px] sm:text-[14px] tracking-wider">EMPTY BAGS: </span>
-                      <span className="font-medium text-foreground uppercase">{emptyBags}</span>
+                      <span className="font-medium text-foreground">{emptyBags}</span>
                     </div>
-                    <div className="pt-2 font-bold text-muted-foreground/90 uppercase text-[13px] sm:text-[14px] tracking-wide">
+                    <div className="pt-2 font-bold text-muted-foreground/90 text-[13px] sm:text-[14px] tracking-wide">
                       {toleranceClause}
                     </div>
                   </div>
@@ -3649,7 +3785,7 @@ export function CustomInvoiceDocumentForm({
                     <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0">
                       AMOUNT IN WORDS:
                     </span>
-                    <span className="font-medium text-[13px] sm:text-[14px] text-foreground uppercase tracking-wide">
+                    <span className="font-medium text-[13px] sm:text-[14px] text-foreground tracking-wide">
                       {amountInWords}
                     </span>
                   </div>
@@ -3709,7 +3845,7 @@ export function CustomInvoiceDocumentForm({
 
                       {/* Formatted Bank Account Details Display (NON-INPUT) */}
                       {bankAccountDetails && (
-                        <div className="text-[12px] sm:text-[13px] font-medium text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed pt-1 select-all">
+                        <div className="text-[12px] sm:text-[13px] font-medium text-foreground tracking-wide whitespace-pre-line leading-relaxed pt-1 select-all">
                           {bankAccountDetails}
                         </div>
                       )}
@@ -4051,9 +4187,10 @@ export function CustomInvoiceDocumentForm({
               id="field-notes_title-input"
               name="comment_label"
               value={notesTitle}
+              maxLength={20}
               onChange={(val) => {
                 markDirty();
-                setNotesTitle(val);
+                setNotesTitle(val.slice(0, 20));
                 setErrors((prev) => ({
                   ...prev,
                   title: '',

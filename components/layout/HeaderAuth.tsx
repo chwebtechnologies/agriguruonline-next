@@ -9,6 +9,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { HeaderGuest, AgriGuruLogo } from './HeaderGuest'
 import { AppMenu } from '@/components/layout/AppMenu'
 import { getAssetsUrl, getNormalizedUserType, getUserApiUrl, getTradingApiUrl } from '@/lib/api-utils';
+import { isRegularAccount, isMembershipExpired } from '@/lib/membership-status';
 import { authService, customFetch } from '@/lib/api';
 import { extractPredicts } from '@/lib/api/user.service';
 import { HeaderSearch } from '@/components/search/HeaderSearch'
@@ -96,15 +97,12 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [activeNotificationTab, setActiveNotificationTab] = useState<'notifications' | 'alerts' | 'ai_predicts'>('notifications')
 
-  const isRegular = getNormalizedUserType(profile?.user_type) === 'regular' || 
-                    (typeof profile?.user_type === 'object' && profile?.user_type?.name?.toLowerCase() === 'regular') ||
-                    profile?.role?.name?.toLowerCase() === 'regular' ||
-                    profile?.membership?.plan_name?.toLowerCase() === 'guest' ||
-                    profile?.membership?.plan_name?.toLowerCase() === 'regular';
+  const isRegular = isRegularAccount(profile);
 
   const planName = String(profile?.membership?.plan_name || profile?.membership?.name || '').toLowerCase();
   const hasActivePlan = Boolean(
     profile?.membership &&
+    !isMembershipExpired(profile) &&
     planName &&
     planName !== 'guest' &&
     planName !== 'regular' &&

@@ -8,6 +8,7 @@ import { logoutUser } from '@/app/actions/auth';
 import { useScrollLock } from '@/lib/scroll-lock';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import BecomeMemberModal from '@/components/membership/BecomeMemberModal';
+import { isRegularAccount, isMembershipExpired } from '@/lib/membership-status';
 
 interface MenuItem {
   label: string;
@@ -133,17 +134,14 @@ export function AppMenu({
     return String(typeData).toLowerCase();
   };
 
-  const isRegular = getNormalizedType(profile?.user_type) === 'regular' || 
-                    (typeof profile?.user_type === 'object' && profile?.user_type?.name?.toLowerCase() === 'regular') ||
-                    profile?.role?.name?.toLowerCase() === 'regular' ||
-                    profile?.membership?.plan_name?.toLowerCase() === 'guest' ||
-                    profile?.membership?.plan_name?.toLowerCase() === 'regular';
+  const isRegular = isRegularAccount(profile);
 
   // Determine dynamic label for My Inquiries / My Offers
   const isSeller = getNormalizedType(profile?.user_type) === 'seller' || getNormalizedType(profile?.role) === 'seller';
   const planName = String(profile?.membership?.plan_name || profile?.membership?.name || '').toLowerCase();
   const hasActivePlan = Boolean(
     profile?.membership &&
+    !isMembershipExpired(profile) &&
     planName &&
     planName !== 'guest' &&
     planName !== 'regular' &&

@@ -299,33 +299,11 @@ export function PhytoCertificateDocumentForm({
       return stepId;
     }
 
-    for (const fallbackId of [
-      packingListId,
-      commercialInvoiceId,
-      customInvoiceId,
-      shipmentInstructionId,
-      proformaId,
-      contractId,
-      confirmationId,
-    ]) {
-      const clean = sanitizeDocId(fallbackId);
-      if (clean && !/^(phyto|phyto-certificate|phyto_certificate|phytosanitary|null|undefined|nan)$/i.test(clean)) {
-        return clean;
-      }
-    }
-
     return '';
   }, [
     getOwnPhytoId,
     steps,
     selectedStep,
-    packingListId,
-    commercialInvoiceId,
-    customInvoiceId,
-    shipmentInstructionId,
-    proformaId,
-    contractId,
-    confirmationId,
   ]);
 
   // Document status
@@ -455,6 +433,8 @@ export function PhytoCertificateDocumentForm({
         initialData?.commentLabel ||
         initialData?.comment_title ||
         initialData?.commentTitle ||
+        initialData?.notes_title ||
+        initialData?.extra_title ||
         initialData?.notes?.[0]?.title,
       ''
     )
@@ -465,6 +445,9 @@ export function PhytoCertificateDocumentForm({
         initialData?.commentValue ||
         initialData?.comment_text ||
         initialData?.commentText ||
+        initialData?.notes_comment ||
+        initialData?.extra_comment ||
+        initialData?.comment ||
         initialData?.notes?.[0]?.comment,
       ''
     )
@@ -496,7 +479,13 @@ export function PhytoCertificateDocumentForm({
 
   // Initialize or re-synchronize form from initialData
   useEffect(() => {
-    if (!initialData || typeof initialData !== 'object') return;
+    if (!initialData || typeof initialData !== 'object') {
+      if (dataVersion !== undefined && dataVersion !== 0) {
+        setCommentLabel('');
+        setCommentValue('');
+      }
+      return;
+    }
 
     const currentDocId = String(
       initialData.id ||
@@ -701,8 +690,37 @@ export function PhytoCertificateDocumentForm({
     // Markings & Invoices
     setMarkingBrand(resolveString(initialData.marking_brand || initialData.brand || initialData.marks_and_numbers));
     setPreCarriageBy(resolveString(initialData.pre_carriage_by || initialData.pre_carriage));
-    setInvoiceNumber(resolveString(initialData.invoice_number || initialData.commercial_invoice_number || initialData.packing_list_number));
-    setInvoiceDate(resolveString(initialData.invoice_date || initialData.commercial_invoice_date || initialData.packing_list_date));
+    const ownPhyto = Boolean(
+      initialData?.phyto_certificate_id ||
+      initialData?.phyto_certificate_number ||
+      initialData?.phyto_number ||
+      initialData?._is_phyto_certificate_loaded
+    );
+    const resolvedInvNum = ownPhyto
+      ? resolveString(initialData.invoice_number || initialData.phyto_certificate_number || initialData.commercial_invoice_number)
+      : resolveString(
+          initialData.commercial_invoice_number ||
+          initialData.commercial_invoice?.invoice_number ||
+          initialData.commercial_invoice?.commercial_invoice_number ||
+          initialData.invoice_number ||
+          initialData.invoice_no ||
+          initialData.custom_invoice?.invoice_number ||
+          initialData.proforma_invoice_number ||
+          initialData.proforma?.invoice_number
+        );
+    setInvoiceNumber(resolvedInvNum);
+
+    const resolvedInvDate = ownPhyto
+      ? resolveString(initialData.invoice_date || initialData.phyto_certificate_date || initialData.commercial_invoice_date)
+      : resolveString(
+          initialData.commercial_invoice_date ||
+          initialData.commercial_invoice?.invoice_date ||
+          initialData.invoice_date ||
+          initialData.custom_invoice?.invoice_date ||
+          initialData.proforma?.invoice_date ||
+          initialData.date
+        );
+    setInvoiceDate(resolvedInvDate);
     setBlNumber(resolveString(initialData.bl_number || initialData.bill_of_lading_number));
     setShippingBillNo(resolveString(initialData.shipping_bill_no || initialData.shipping_bill_number));
     setNetWeight(resolveString(initialData.net_weight));
@@ -716,12 +734,30 @@ export function PhytoCertificateDocumentForm({
     );
 
     // Comments
-    if (initialData.comment_label || initialData.comment_title || initialData.notes?.[0]?.title) {
-      setCommentLabel(resolveString(initialData.comment_label || initialData.comment_title || initialData.notes?.[0]?.title));
-    }
-    if (initialData.comment_value || initialData.comment_text || initialData.notes?.[0]?.comment) {
-      setCommentValue(resolveString(initialData.comment_value || initialData.comment_text || initialData.notes?.[0]?.comment));
-    }
+    const cLabel = resolveString(
+      initialData.comment_label ||
+      initialData.comment_title ||
+      initialData.notes_title ||
+      initialData.extra_title ||
+      initialData.commentLabel ||
+      initialData.commentTitle ||
+      initialData.notes?.[0]?.title,
+      ''
+    );
+    setCommentLabel(cLabel);
+
+    const cVal = resolveString(
+      initialData.comment_value ||
+      initialData.comment_text ||
+      initialData.notes_comment ||
+      initialData.extra_comment ||
+      initialData.comment ||
+      initialData.commentValue ||
+      initialData.commentText ||
+      initialData.notes?.[0]?.comment,
+      ''
+    );
+    setCommentValue(cVal);
 
     isFormInitializedRef.current = true;
     isUserDirtyRef.current = false;
@@ -803,11 +839,16 @@ export function PhytoCertificateDocumentForm({
       transit_clause: transitClause.trim(),
 
       // Comments
-      comment_label: commentLabel.trim(),
+      comment_label: commentLabel.trim().slice(0, 20),
+      comment_title: commentLabel.trim().slice(0, 20),
+      notes_title: commentLabel.trim().slice(0, 20),
       comment_value: commentValue.trim(),
+      comment_text: commentValue.trim(),
+      notes_comment: commentValue.trim(),
+      comment: commentValue.trim(),
       notes:
         commentLabel.trim() || commentValue.trim()
-          ? [{ id: '1', title: commentLabel.trim(), comment: commentValue.trim() }]
+          ? [{ id: '1', title: commentLabel.trim().slice(0, 20), comment: commentValue.trim() }]
           : [],
     };
 
@@ -880,6 +921,12 @@ export function PhytoCertificateDocumentForm({
         if (savedId) {
           lastLoadedDocIdRef.current = savedId;
           setDraftId(savedId);
+          if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            url.searchParams.set('id', savedId);
+            url.searchParams.set('step', 'phyto-certificate');
+            window.history.replaceState(null, '', url.toString());
+          }
         }
         isFormInitializedRef.current = true;
         isUserDirtyRef.current = false;
@@ -894,7 +941,16 @@ export function PhytoCertificateDocumentForm({
           const extracted =
             extractPhytoCertificateData(res?.data) ||
             (typeof res?.data === 'object' && res?.data !== null ? res.data : {});
+          const cleanCLabel = safeString(commentLabel).trim().slice(0, 20);
+          const cleanCVal = safeString(commentValue).trim();
           onSaveSuccess(savedId, {
+            comment_label: cleanCLabel,
+            comment_title: cleanCLabel,
+            notes_title: cleanCLabel,
+            comment_value: cleanCVal,
+            comment_text: cleanCVal,
+            notes_comment: cleanCVal,
+            comment: cleanCVal,
             ...extracted,
             id: savedId,
             phyto_certificate_id: savedId,
@@ -931,8 +987,34 @@ export function PhytoCertificateDocumentForm({
     setErrors({});
 
     try {
+      let currentId = getOwnPhytoId() || getEffectivePhytoId();
+      if (!currentId || isDirty || hasDraftChanges) {
+        try {
+          const payloadToSave = getPhytoPayload();
+          let saveRes: any;
+          if (onSaveDraft) {
+            saveRes = await onSaveDraft(payloadToSave);
+          } else {
+            saveRes = await savePhytoCertificateDraftAction(payloadToSave, lang, currentId || undefined);
+          }
+          if (saveRes?.success) {
+            const newId = saveRes.id || saveRes.data?.id || saveRes.data?.phyto_certificate_id;
+            if (newId) {
+              const cleanNewId = String(newId);
+              setDraftId(cleanNewId);
+              currentId = cleanNewId;
+              setIsDirty(false);
+              setHasDraftChanges(false);
+              setHasSubmitChanges(true);
+              if (onSaveSuccess) onSaveSuccess(cleanNewId, saveRes.data);
+            }
+          }
+        } catch (saveErr) {
+          console.warn('[PhytoCertificateDocumentForm] Auto-save before submit warning:', saveErr);
+        }
+      }
+
       const payload = getPhytoPayload();
-      const currentId = getOwnPhytoId() || getEffectivePhytoId();
 
       let res: any;
       if (onSubmitPhytoCertificate) {
@@ -961,7 +1043,16 @@ export function PhytoCertificateDocumentForm({
           const extracted =
             extractPhytoCertificateData(res?.data) ||
             (typeof res?.data === 'object' && res?.data !== null ? res.data : {});
+          const cleanCLabel = safeString(commentLabel).trim().slice(0, 20);
+          const cleanCVal = safeString(commentValue).trim();
           onSaveSuccess(submittedId, {
+            comment_label: cleanCLabel,
+            comment_title: cleanCLabel,
+            notes_title: cleanCLabel,
+            comment_value: cleanCVal,
+            comment_text: cleanCVal,
+            notes_comment: cleanCVal,
+            comment: cleanCVal,
             ...extracted,
             id: submittedId,
             phyto_certificate_id: submittedId,
@@ -1200,7 +1291,7 @@ export function PhytoCertificateDocumentForm({
                 EXPORTER (SELLER):
               </label>
               <div className="flex-1 min-w-0 flex flex-col gap-1 px-0.5">
-                <div className="text-[14px] font-normal text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[14px] font-normal text-foreground tracking-wide whitespace-pre-line leading-relaxed select-all">
                   {resolveString(sellerDetails || sellerName, '-')}
                 </div>
               </div>
@@ -1216,7 +1307,7 @@ export function PhytoCertificateDocumentForm({
                 CONSIGNEE DETAILS:
               </label>
               <div className="flex-1 min-w-0 flex flex-col gap-1 px-0.5">
-                <div className="text-[14px] font-normal text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[14px] font-normal text-foreground tracking-wide whitespace-pre-line leading-relaxed select-all">
                   {resolveString(consigneeDetails || consigneeName, '-')}
                 </div>
               </div>
@@ -1244,23 +1335,23 @@ export function PhytoCertificateDocumentForm({
             <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border">
               <div className="p-2.5 sm:p-3 flex flex-col gap-1 justify-start">
                 {notifyParty1Name && resolveString(notifyParty1Name) && (
-                  <div className="text-[14px] font-normal text-foreground uppercase tracking-wide select-all">
+                  <div className="text-[14px] font-normal text-foreground tracking-wide select-all">
                     {resolveString(notifyParty1Name)}
                   </div>
                 )}
-                <div className="text-[14px] font-normal text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[14px] font-normal text-foreground tracking-wide whitespace-pre-line leading-relaxed select-all">
                   {resolveString(notifyParty1Details) || (!resolveString(notifyParty1Name) ? '-' : '')}
                 </div>
               </div>
 
               <div className="p-2.5 sm:p-3 flex flex-col justify-start">
-                <div className="text-[14px] font-normal text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[14px] font-normal text-foreground tracking-wide whitespace-pre-line leading-relaxed select-all">
                   {resolveString(notifyParty2, '-')}
                 </div>
               </div>
 
               <div className="p-2.5 sm:p-3 flex flex-col justify-start">
-                <div className="text-[14px] font-normal text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[14px] font-normal text-foreground tracking-wide whitespace-pre-line leading-relaxed select-all">
                   {resolveString(notifyParty3, '-')}
                 </div>
               </div>
@@ -1275,7 +1366,7 @@ export function PhytoCertificateDocumentForm({
               PRODUCT
             </div>
             <div className="flex-1 p-2.5 sm:p-3 flex items-center min-w-0">
-              <span className="font-normal text-[14px] text-foreground tracking-wide uppercase select-all">
+              <span className="font-normal text-[14px] text-foreground tracking-wide select-all">
                 {resolveString(productName, '-')}
               </span>
             </div>
@@ -1289,7 +1380,7 @@ export function PhytoCertificateDocumentForm({
               HSN CODE
             </div>
             <div className="flex-1 p-2.5 sm:p-3 flex items-center min-w-0">
-              <span className="font-normal text-[14px] text-foreground tracking-wide uppercase select-all">
+              <span className="font-normal text-[14px] text-foreground tracking-wide select-all">
                 {resolveString(hsnCode, '-')}
               </span>
             </div>
@@ -1303,7 +1394,7 @@ export function PhytoCertificateDocumentForm({
               ORIGIN
             </div>
             <div className="flex-1 p-2.5 sm:p-3 flex items-center min-w-0">
-              <span className="font-normal text-[14px] text-foreground tracking-wide uppercase select-all">
+              <span className="font-normal text-[14px] text-foreground tracking-wide select-all">
                 {resolveString(originCountry, '-')}
               </span>
             </div>
@@ -1317,7 +1408,7 @@ export function PhytoCertificateDocumentForm({
               FCL TYPE
             </div>
             <div className="flex-1 p-2.5 sm:p-3 flex items-center min-w-0">
-              <span className="font-normal text-[14px] text-foreground tracking-wide uppercase select-all">
+              <span className="font-normal text-[14px] text-foreground tracking-wide select-all">
                 {formatFclType(fclType)}
               </span>
             </div>
@@ -1331,7 +1422,7 @@ export function PhytoCertificateDocumentForm({
               PACKING TYPE
             </div>
             <div className="flex-1 p-2.5 sm:p-3 flex items-center min-w-0">
-              <span className="font-normal text-[14px] text-foreground tracking-wide uppercase select-all">
+              <span className="font-normal text-[14px] text-foreground tracking-wide select-all">
                 {resolveString(packingType, '-')}
               </span>
             </div>
@@ -1345,7 +1436,7 @@ export function PhytoCertificateDocumentForm({
               PORT OF LOADING
             </div>
             <div className="flex-1 p-2.5 sm:p-3 flex items-center min-w-0">
-              <span className="font-normal text-[14px] text-foreground tracking-wide uppercase select-all">
+              <span className="font-normal text-[14px] text-foreground tracking-wide select-all">
                 {resolveString(portOfLoading, '-')}
               </span>
             </div>
@@ -1359,7 +1450,7 @@ export function PhytoCertificateDocumentForm({
               PORT OF DISCHARGE
             </div>
             <div className="flex-1 p-2.5 sm:p-3 flex items-center min-w-0">
-              <span className="font-normal text-[14px] text-foreground tracking-wide uppercase select-all">
+              <span className="font-normal text-[14px] text-foreground tracking-wide select-all">
                 {resolveString(portOfDischarge, '-')}
               </span>
             </div>
@@ -1389,25 +1480,25 @@ export function PhytoCertificateDocumentForm({
             {/* Values Row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border">
               <div className="p-2.5 sm:p-3 flex items-center justify-center min-w-0">
-                <span className="font-normal text-[14px] text-foreground text-center tracking-wide uppercase select-all">
+                <span className="font-normal text-[14px] text-foreground text-center tracking-wide select-all">
                   {resolveString(fclQuantity, '-')}
                 </span>
               </div>
 
               <div className="p-2.5 sm:p-3 flex items-center justify-center min-w-0">
-                <span className="font-normal text-[14px] text-foreground text-center tracking-wide uppercase select-all">
+                <span className="font-normal text-[14px] text-foreground text-center tracking-wide select-all">
                   {resolveString(fclCapacity, '-')}
                 </span>
               </div>
 
               <div className="p-2.5 sm:p-3 flex items-center justify-center min-w-0">
-                <span className="font-normal text-[14px] text-foreground text-center tracking-wide uppercase select-all">
+                <span className="font-normal text-[14px] text-foreground text-center tracking-wide select-all">
                   {resolveString(mtQty, '-')}
                 </span>
               </div>
 
               <div className="p-2.5 sm:p-3 flex items-center justify-center min-w-0">
-                <span className="font-normal text-[14px] text-foreground text-center tracking-wide uppercase select-all">
+                <span className="font-normal text-[14px] text-foreground text-center tracking-wide select-all">
                   {resolveString(bagQty, '-')}
                 </span>
               </div>
@@ -1422,7 +1513,7 @@ export function PhytoCertificateDocumentForm({
               MARKING BRAND
             </div>
             <div className="flex-1 p-2.5 sm:p-3 flex items-center min-w-0">
-              <span className="font-normal text-[14px] text-foreground tracking-wide uppercase select-all">
+              <span className="font-normal text-[14px] text-foreground tracking-wide select-all">
                 {resolveString(markingBrand, '-')}
               </span>
             </div>
@@ -1436,7 +1527,7 @@ export function PhytoCertificateDocumentForm({
               PRE CARRIAGE BY
             </div>
             <div className="flex-1 p-2.5 sm:p-3 flex items-center min-w-0">
-              <span className="font-normal text-[14px] text-foreground tracking-wide uppercase select-all">
+              <span className="font-normal text-[14px] text-foreground tracking-wide select-all">
                 {resolveString(preCarriageBy, '-')}
               </span>
             </div>
@@ -1450,7 +1541,7 @@ export function PhytoCertificateDocumentForm({
               INVOICE NUMBER
             </div>
             <div className="flex-1 p-2.5 sm:p-3 flex items-center min-w-0">
-              <span className="font-normal text-[14px] text-foreground tracking-wide uppercase select-all">
+              <span className="font-normal text-[14px] text-foreground tracking-wide select-all">
                 {resolveString(invoiceNumber, '-')}
               </span>
             </div>
@@ -1464,7 +1555,7 @@ export function PhytoCertificateDocumentForm({
               INVOICE DATE
             </div>
             <div className="flex-1 p-2.5 sm:p-3 flex items-center min-w-0">
-              <span className="font-normal text-[14px] text-foreground tracking-wide uppercase select-all">
+              <span className="font-normal text-[14px] text-foreground tracking-wide select-all">
                 {resolveString(invoiceDate, '-')}
               </span>
             </div>
@@ -1478,7 +1569,7 @@ export function PhytoCertificateDocumentForm({
               BL NUMBER
             </div>
             <div className="flex-1 p-2.5 sm:p-3 flex items-center min-w-0">
-              <span className="font-normal text-[14px] text-foreground tracking-wide uppercase select-all">
+              <span className="font-normal text-[14px] text-foreground tracking-wide select-all">
                 {resolveString(blNumber, '-')}
               </span>
             </div>
@@ -1492,7 +1583,7 @@ export function PhytoCertificateDocumentForm({
               SHIPPING BILL NO
             </div>
             <div className="flex-1 p-2.5 sm:p-3 flex items-center min-w-0">
-              <span className="font-normal text-[14px] text-foreground tracking-wide uppercase select-all">
+              <span className="font-normal text-[14px] text-foreground tracking-wide select-all">
                 {resolveString(shippingBillNo, '-')}
               </span>
             </div>
@@ -1506,7 +1597,7 @@ export function PhytoCertificateDocumentForm({
               NET WEIGHT
             </div>
             <div className="flex-1 p-2.5 sm:p-3 flex items-center min-w-0">
-              <span className="font-normal text-[14px] text-foreground tracking-wide uppercase select-all">
+              <span className="font-normal text-[14px] text-foreground tracking-wide select-all">
                 {resolveString(netWeight, '-')}
               </span>
             </div>
@@ -1520,7 +1611,7 @@ export function PhytoCertificateDocumentForm({
               GROSS WEIGHT
             </div>
             <div className="flex-1 p-2.5 sm:p-3 flex items-center min-w-0">
-              <span className="font-normal text-[14px] text-foreground tracking-wide uppercase select-all">
+              <span className="font-normal text-[14px] text-foreground tracking-wide select-all">
                 {resolveString(grossWeight, '-')}
               </span>
             </div>
@@ -1534,7 +1625,7 @@ export function PhytoCertificateDocumentForm({
               TRANSIT CLAUSE
             </div>
             <div className="flex-1 p-2.5 sm:p-3 flex items-center min-w-0">
-              <span className="font-normal text-[14px] text-foreground tracking-wide uppercase select-all">
+              <span className="font-normal text-[14px] text-foreground tracking-wide select-all">
                 {resolveTransitClause(transitClause)}
               </span>
             </div>
@@ -1555,10 +1646,11 @@ export function PhytoCertificateDocumentForm({
               <DocUnderlineInput
                 id="phyto-commentLabel-input"
                 value={commentLabel}
+                maxLength={20}
                 disabled={readOnly}
                 onChange={(val) => {
                   markDirty();
-                  setCommentLabel(val);
+                  setCommentLabel(val.slice(0, 20));
                   setErrors((prev) => ({
                     ...prev,
                     commentLabel: '',

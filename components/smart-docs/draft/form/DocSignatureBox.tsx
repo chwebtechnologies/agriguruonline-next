@@ -567,18 +567,18 @@ export function DocSignatureBox({
                 ref={titleInputRef}
                 type="text"
                 value={title}
-                onChange={(e) => onTitleChange(e.target.value.toUpperCase())}
+                onChange={(e) => onTitleChange(e.target.value)}
                 disabled={readOnly}
                 aria-label={`${partyType} title`}
                 placeholder={
                   titlePlaceholder ||
                   (partyType === 'exporter'
-                    ? 'SELLER / EXPORTER'
+                    ? 'Seller / Exporter'
                     : partyType === 'broker'
-                    ? 'BROKER'
-                    : 'BUYER / IMPORTER')
+                    ? 'Broker'
+                    : 'Buyer / Importer')
                 }
-                className="font-bold text-center tracking-wider text-[14px] uppercase bg-transparent border-b-2 border-dotted border-primary/60 hover:border-primary focus:border-solid focus:border-primary focus:outline-none text-foreground py-0.5 px-2 w-full max-w-[280px] sm:max-w-[340px] transition-colors placeholder:text-[14px] placeholder:font-normal placeholder:uppercase placeholder:text-muted-foreground/50"
+                className="font-bold text-center tracking-wider text-[14px] bg-transparent border-b-2 border-dotted border-primary/60 hover:border-primary focus:border-solid focus:border-primary focus:outline-none text-foreground py-0.5 px-2 w-full max-w-[280px] sm:max-w-[340px] transition-colors placeholder:text-[14px] placeholder:font-normal placeholder:text-muted-foreground/50"
               />
               {!readOnly && (
                 <button
@@ -764,15 +764,15 @@ export function DocSignatureBox({
               type="text"
               name="seller_signature_label"
               value={authorityTitle}
-              onChange={(e) => onAuthorityTitleChange(e.target.value.toUpperCase())}
+              onChange={(e) => onAuthorityTitleChange(e.target.value)}
               disabled={readOnly}
               aria-label={`${partyType} authority title`}
-              placeholder={authorityPlaceholder || 'AUTHORISED SIGNATURE'}
-              className={`font-bold text-center tracking-wider text-[14px] uppercase bg-transparent border-b-2 ${
+              placeholder={authorityPlaceholder || 'Authorised Signature'}
+              className={`font-bold text-center tracking-wider text-[14px] bg-transparent border-b-2 ${
                 authorityError
                   ? 'border-solid border-brand-red text-brand-red'
                   : 'border-dotted border-primary/60 hover:border-primary focus:border-solid focus:border-primary'
-              } focus:outline-none text-foreground py-0.5 px-2 w-full max-w-[280px] sm:max-w-[340px] transition-colors placeholder:text-[14px] placeholder:font-normal placeholder:uppercase placeholder:text-muted-foreground/50`}
+              } focus:outline-none text-foreground py-0.5 px-2 w-full max-w-[280px] sm:max-w-[340px] transition-colors placeholder:text-[14px] placeholder:font-normal placeholder:text-muted-foreground/50`}
             />
             {!readOnly && (
               <button

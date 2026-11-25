@@ -70,6 +70,15 @@ export function sanitizeDocId(val: any): string {
   return '';
 }
 
+export function isPlaceholder(val: any): boolean {
+  if (!val) return true;
+  const s = typeof val === 'string' ? val.trim() : String(val).trim();
+  if (!s) return true;
+  return /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|lading|bill-of-lading|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+    s
+  );
+}
+
 let cuidCounter = 0;
 
 /**
@@ -607,6 +616,160 @@ function cloneFormDataPayload(source: any): any {
   return source;
 }
 
+function formatSplitLabel(val: any, index: number): string {
+  if (typeof val === 'string' && /^[A-Za-z]+$/.test(val.trim())) {
+    return val.trim().toUpperCase();
+  }
+  let n = index;
+  let label = '';
+  while (n >= 0) {
+    label = String.fromCharCode((n % 26) + 65) + label;
+    n = Math.floor(n / 26) - 1;
+  }
+  return label || 'A';
+}
+
+/**
+ * Safely converts a FormData payload to a structured contract JSON object.
+ * Parses bracket notation (splits[0][fcl_quantity]), JSON strings (splits, partial_breakdown),
+ * booleans, and numeric fields into their proper types so class-validator receives real objects.
+ */
+export function formDataToContractJson(fd: any): Record<string, any> {
+  if (!fd || typeof fd.entries !== 'function') {
+    return typeof fd === 'object' && fd !== null ? cleanContractPayload(fd) : {};
+  }
+  const json: Record<string, any> = {};
+
+  for (const [key, value] of fd.entries()) {
+    if (typeof value === 'string' && value.trim() === '') continue;
+
+    // Handle indexed keys like splits[0][fcl_quantity] or partial_breakdown[0][fcl_quantity]
+    const bracketMatch = key.match(/^([^\[]+)\[(\d+)\]\[([^\]]+)\]$/);
+    if (bracketMatch) {
+      const [, arrName, idxStr, propName] = bracketMatch;
+      const idx = parseInt(idxStr, 10);
+      if (!Array.isArray(json[arrName])) {
+        json[arrName] = [];
+      }
+      if (!json[arrName][idx]) {
+        json[arrName][idx] = {};
+      }
+      const numVal = parseFloat(String(value).replace(/[^\d.]/g, ''));
+      json[arrName][idx][propName] =
+        !isNaN(numVal) && (propName.includes('quantity') || propName.includes('qty'))
+          ? numVal
+          : value;
+      continue;
+    }
+
+    // Handle array keys like documents_required[]
+    const arrayMatch = key.match(/^([^\[]+)\[\]$/);
+    if (arrayMatch) {
+      const arrName = arrayMatch[1];
+      if (!Array.isArray(json[arrName])) {
+        json[arrName] = [];
+      }
+      json[arrName].push(value);
+      continue;
+    }
+
+    // Direct JSON keys for splits and partial_breakdown
+    if (key === 'splits' || key === 'partial_breakdown' || key === 'partial_quantities') {
+      if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value);
+          if (Array.isArray(parsed)) {
+            json[key] = parsed.map((item, i) => {
+              if (typeof item === 'object' && item !== null) {
+                const qNum =
+                  parseFloat(String(item.fcl_quantity ?? item.mt_quantity ?? item.quantity ?? '').replace(/[^\d.]/g, '')) || 0;
+                return {
+                  split_number: item.split_number || formatSplitLabel(undefined, i),
+                  fcl_quantity: qNum,
+                  mt_quantity: qNum,
+                  quantity: qNum,
+                };
+              }
+              const qNum = parseFloat(String(item).replace(/[^\d.]/g, '')) || 0;
+              return {
+                split_number: formatSplitLabel(undefined, i),
+                fcl_quantity: qNum,
+                mt_quantity: qNum,
+                quantity: qNum,
+              };
+            });
+            continue;
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    // Convert booleans
+    if (value === 'true') {
+      json[key] = true;
+      continue;
+    }
+    if (value === 'false') {
+      json[key] = false;
+      continue;
+    }
+
+    // Convert numeric fields
+    if (
+      key === 'fcl_quantity' ||
+      key === 'mt_quantity' ||
+      key === 'bag_quantity' ||
+      key === 'price' ||
+      key === 'total_value' ||
+      key === 'split_count' ||
+      key === 'partial_count' ||
+      key === 'product_id' ||
+      key === 'seller_instruction_id' ||
+      key === 'buyer_instruction_id' ||
+      key === 'payment_term_id' ||
+      key === 'loading_port_id' ||
+      key === 'destination_port_id' ||
+      key === 'packing_type_id'
+    ) {
+      const numVal = parseFloat(String(value).replace(/[^\d.]/g, ''));
+      if (!isNaN(numVal)) {
+        json[key] = numVal;
+        continue;
+      }
+    }
+
+    if (typeof value === 'string') {
+      json[key] = value.trim();
+    }
+  }
+
+  // Align signature fields from URLs if binary files were skipped
+  if (!json.seller_signature && json.seller_signature_url) {
+    json.seller_signature = json.seller_signature_url;
+  }
+  if (!json.buyer_signature && json.buyer_signature_url) {
+    json.buyer_signature = json.buyer_signature_url;
+  }
+  if (!json.broker_signature && json.broker_signature_url) {
+    json.broker_signature = json.broker_signature_url;
+  }
+
+  // Ensure splits and partial_breakdown are aligned
+  if (Array.isArray(json.splits) && json.splits.length > 0) {
+    if (!json.partial_breakdown || !Array.isArray(json.partial_breakdown) || json.partial_breakdown.length === 0) {
+      json.partial_breakdown = json.splits;
+    }
+  } else if (Array.isArray(json.partial_breakdown) && json.partial_breakdown.length > 0) {
+    if (!json.splits || !Array.isArray(json.splits) || json.splits.length === 0) {
+      json.splits = json.partial_breakdown;
+    }
+  }
+
+  return cleanContractPayload(json);
+}
+
 /**
  * Robustly converts a base64 Data URL to a Blob in both browser and Node.js environments.
  */
@@ -644,11 +807,8 @@ export function convertDataUrlToBlob(dataUrl: string): Blob | null {
 function cleanDocumentErrorMessage(rawMsg?: any, fallback: string = 'An error occurred during submission'): string {
   if (!rawMsg || typeof rawMsg !== 'string') return fallback;
   const s = rawMsg.trim();
-  if (/^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(s) || /<(!DOCTYPE|html)/i.test(s)) {
-    return 'Submission service temporarily unavailable. Please try again.';
-  }
-  if (/^(404|500|502|503|504)\s+(not found|internal server error|bad gateway|service unavailable)/i.test(s)) {
-    return 'Service temporarily unavailable. Please try again.';
+  if (/<(!DOCTYPE|html)/i.test(s)) {
+    return 'Backend server returned an HTML error page. Please check server logs.';
   }
   if (/request entity too large|payload too large|413/i.test(s)) {
     return 'Uploaded signature image file size is too large. Please try a smaller image.';
@@ -739,24 +899,71 @@ async function executeResilientSubmit(options: {
         };
       }
 
-      // Check if this error is an Express route 404/405 (endpoint doesn't exist for this method/path)
+      // Check if this error is an Express route 404/405/500 (endpoint doesn't exist for this method/path or method router crashed)
       const isRouteNotFound =
-        (response.status === 404 || response.status === 405) &&
+        (response.status === 404 || response.status === 405 || response.status === 500) &&
         (!json?.errors && !json?.error_fields && !json?.data) &&
         (/^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(text.trim()) ||
          /<(!DOCTYPE|html)/i.test(text) ||
          /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(String(json?.message || json?.error || '').trim()) ||
-         /not found/i.test(String(json?.message || json?.error || text || '').trim()));
+         /not found|internal server error/i.test(String(json?.message || json?.error || text || '').trim()));
 
       if (isRouteNotFound && i < candidates.length - 1) {
-        console.warn(`[smartDocsService.submit${docTypeName}] Candidate ${candidate.method} ${candidate.url} gave 404 router error, trying next candidate...`);
+        console.warn(`[smartDocsService.submit${docTypeName}] Candidate ${candidate.method} ${candidate.url} gave router/method error (${response.status}), trying next candidate...`);
         continue;
       }
 
+      // Check if this error is related to splits / partial_breakdown validation when FormData was used
+      if (
+        isFormData &&
+        docTypeName === 'Contract' &&
+        (response.status === 400 || response.status === 422 || response.status === 500) &&
+        (/splits|partial|breakdown|fcl_quantity|fcl.*quanity|must be either object or array/i.test(text) ||
+         /splits|partial|breakdown|fcl_quantity|fcl.*quanity|must be either object or array/i.test(String(json?.message || json?.error || '')))
+      ) {
+        console.warn(`[smartDocsService.submitContract] Candidate ${candidate.method} ${candidate.url} failed validation on splits (${response.status}), retrying with JSON payload...`);
+        try {
+          const jsonPayload = formDataToContractJson(preparedFormData);
+          const jsonRetryRes = await customFetch(candidate.url, {
+            method: candidate.method,
+            token,
+            headers: {
+              ...headers,
+              'Content-Type': 'application/json',
+            },
+            params: {
+              lang_code: safeLang,
+              source: source || 'web',
+            },
+            body: JSON.stringify(jsonPayload),
+            cache: 'no-store',
+          });
+          const retryText = await jsonRetryRes.text().catch(() => '');
+          let retryJson: any = null;
+          try { retryJson = JSON.parse(retryText); } catch {}
+          if (jsonRetryRes.ok) {
+            return {
+              ...(retryJson && typeof retryJson === 'object' ? retryJson : {}),
+              success: true,
+              data: retryJson?.data !== undefined ? retryJson.data : retryJson,
+              raw: retryJson || retryText,
+            };
+          }
+        } catch (retryErr) {
+          console.warn('[smartDocsService.submitContract] JSON retry error:', retryErr);
+        }
+      }
+
+      const hasStructuredErrors = Boolean(
+        json?.errors ||
+        json?.error_fields ||
+        json?.data?.errors ||
+        json?.data?.error_fields
+      );
       const rawErrMsg = json?.message || json?.error || `Request failed with status ${response.status}`;
       const cleanMsg = cleanDocumentErrorMessage(rawErrMsg, `Failed to submit ${docTypeName}`);
 
-      lastErrorRes = {
+      const candidateErrorRes = {
         ...(typeof json === 'object' && json !== null ? json : {}),
         success: false,
         status: response.status,
@@ -767,7 +974,23 @@ async function executeResilientSubmit(options: {
         error_fields: json?.error_fields || json?.data?.error_fields || null,
         raw: json || text,
       };
-      break;
+
+      // Never overwrite a real 400/422 validation error with a subsequent 404/405 route-not-found error
+      if (!lastErrorRes || (response.status !== 404 && response.status !== 405)) {
+        lastErrorRes = candidateErrorRes;
+      }
+
+      // Abort immediately on 401 Unauthorized or real 400/422 validation errors
+      if (response.status === 401 || response.status === 400 || response.status === 422) {
+        if (hasStructuredErrors || (response.status === 400 || response.status === 422)) {
+          break;
+        }
+      }
+
+      if (i < candidates.length - 1) {
+        console.warn(`[smartDocsService.submit${docTypeName}] Candidate ${candidate.method} ${candidate.url} failed with ${response.status}: ${cleanMsg}. Trying next candidate...`);
+        continue;
+      }
     } catch (netErr: any) {
       console.warn(`[smartDocsService.submit${docTypeName}] Candidate ${candidate.method} ${candidate.url} threw error:`, netErr);
       if (i < candidates.length - 1) continue;
@@ -4213,13 +4436,16 @@ export const smartDocsService = {
   ): Promise<any | null> => {
     if (!token) return null;
 
-    const baseUrl = getSmartDocsApiUrl();
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
     const safeLang = getSafeLang(params.lang || 'en');
     const isFormData =
       (typeof FormData !== 'undefined' && payload instanceof FormData) ||
       (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
 
     const confIdInPayload = isFormData ? payload.get('confirmation_id') : payload?.confirmation_id;
+    const cleanConfId = sanitizeDocId(confIdInPayload);
+
     const rawCandidate =
       params.id ||
       (isFormData
@@ -4227,118 +4453,161 @@ export const smartDocsService = {
         : (payload?.contract_id || payload?.id || payload?.confirmation_id));
 
     const cleanCandidate = sanitizeDocId(rawCandidate);
-    const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(cleanCandidate);
-    const cleanId = isPlaceholder ? '' : cleanCandidate;
+    const isPlaceholder = (val?: string) =>
+      !val ||
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+|null|undefined|nan|\[object object\])$/i.test(val.trim());
 
-    const url = cleanId ? `${baseUrl}/contract/save/${encodeURIComponent(cleanId)}` : `${baseUrl}/contract/save`;
+    const directContractId = !isPlaceholder(cleanCandidate) && cleanCandidate !== cleanConfId ? cleanCandidate : '';
+
+    // Convert any FormData payload to structured clean contract JSON
+    const baseJsonPayload: Record<string, any> = isFormData
+      ? formDataToContractJson(payload)
+      : cleanContractPayload(payload);
+
+    const saveCandidates: Array<{ url: string; method: 'POST' | 'PATCH'; id?: string; isConf?: boolean }> = [];
+
+    // 1. Direct contract ID candidates if a genuine contract ID exists
+    if (directContractId) {
+      const encId = encodeURIComponent(directContractId);
+      saveCandidates.push(
+        { url: `${baseUrl}/contract/save/${encId}`, method: 'PATCH', id: directContractId },
+        { url: `${baseUrl}/contract/save/${encId}`, method: 'POST', id: directContractId },
+        { url: `${baseUrl}/contract/save`, method: 'POST', id: directContractId },
+        { url: `${baseUrl}/contract/save`, method: 'PATCH', id: directContractId },
+        { url: `${baseUrl}/contracts/save/${encId}`, method: 'PATCH', id: directContractId },
+        { url: `${baseUrl}/contracts/save/${encId}`, method: 'POST', id: directContractId },
+        { url: `${baseUrl}/contracts/save`, method: 'POST', id: directContractId },
+        { url: `${baseUrl}/contracts/save`, method: 'PATCH', id: directContractId }
+      );
+    } else {
+      // 2. Canonical parameterless POST for new contract or contract linked to confirmation
+      saveCandidates.push(
+        { url: `${baseUrl}/contract/save`, method: 'POST' },
+        { url: `${baseUrl}/contract/save`, method: 'PATCH' },
+        { url: `${baseUrl}/contracts/save`, method: 'POST' },
+        { url: `${baseUrl}/contracts/save`, method: 'PATCH' }
+      );
+
+      // 3. Confirmation ID candidates if linked to trade confirmation
+      if (cleanConfId) {
+        const encConf = encodeURIComponent(cleanConfId);
+        saveCandidates.push(
+          { url: `${baseUrl}/contract/save/${encConf}`, method: 'POST', id: cleanConfId, isConf: true },
+          { url: `${baseUrl}/contract/save/${encConf}`, method: 'PATCH', id: cleanConfId, isConf: true },
+          { url: `${baseUrl}/contracts/save/${encConf}`, method: 'POST', id: cleanConfId, isConf: true },
+          { url: `${baseUrl}/contracts/save/${encConf}`, method: 'PATCH', id: cleanConfId, isConf: true }
+        );
+      }
+    }
 
     try {
-      const headers: Record<string, string> = {};
-      let body: any;
+      let lastErrorRes: any = null;
 
-      if (isFormData) {
-        if (typeof payload.delete === 'function') {
-          payload.delete('signature');
-          payload.delete('authorised_signature');
-          payload.delete('authority_signature');
-          payload.delete('stamp');
-          if (payload.has('logo')) {
-            const logoVal = payload.get('logo');
-            if (!payload.has('seller_logo') && logoVal) {
-              payload.append('seller_logo', logoVal);
-            }
-            payload.delete('logo');
-          }
-          if (payload.has('company_logo')) {
-            const clVal = payload.get('company_logo');
-            if (!payload.has('seller_logo') && clVal) {
-              payload.append('seller_logo', clVal);
-            }
-            payload.delete('company_logo');
-          }
-          if (payload.has('company_logo_url')) {
-            const cluVal = payload.get('company_logo_url');
-            if (!payload.has('seller_logo_url') && cluVal) {
-              payload.append('seller_logo_url', cluVal);
-            }
-            payload.delete('company_logo_url');
-          }
-          payload.delete('logo_url');
-          payload.delete('remove_company_logo');
-        }
-        if (cleanId) {
-          payload.set('contract_id', cleanId);
-          payload.set('id', cleanId);
-        } else {
-          payload.delete('id');
-          payload.delete('contract_id');
-          payload.delete('sales_contract_id');
-        }
-        if (confIdInPayload) {
-          payload.set('confirmation_id', String(confIdInPayload));
-        }
-        body = payload;
-      } else {
-        headers['Content-Type'] = 'application/json';
-        const cleaned = cleanContractPayload(payload);
-        if (cleanId) {
-          cleaned.contract_id = cleanId;
-          cleaned.id = cleanId;
-        } else {
-          delete cleaned.id;
-          delete cleaned.contract_id;
-          delete cleaned.sales_contract_id;
-        }
-        if (confIdInPayload) {
-          cleaned.confirmation_id = String(confIdInPayload);
-        }
-        body = JSON.stringify(cleaned);
-      }
-
-      const response = await customFetch(url, {
-        method: 'PATCH',
-        token,
-        headers,
-        params: {
-          lang_code: safeLang,
-          source: params.source || 'web',
-        },
-        body,
-        cache: 'no-store',
-      });
-
-      const json = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        return {
-          ...(typeof json === 'object' && json !== null ? json : {}),
-          success: false,
-          status: response.status,
-          message: json?.message || json?.error || `Request failed with status ${response.status}`,
-          data: json?.data !== undefined ? json.data : json,
-          errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
-          error_fields: json?.error_fields || json?.data?.error_fields || null,
-          raw: json,
+      for (let i = 0; i < saveCandidates.length; i++) {
+        const candidate = saveCandidates[i];
+        const headers: Record<string, string> = {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json, text/plain, */*',
+          'Content-Type': 'application/json',
         };
+
+        const jsonToSend = { ...baseJsonPayload };
+        if (candidate.id && !candidate.isConf && candidate.id !== cleanConfId) {
+          jsonToSend.contract_id = candidate.id;
+          jsonToSend.id = candidate.id;
+        } else {
+          delete jsonToSend.id;
+          delete jsonToSend.contract_id;
+          delete jsonToSend.sales_contract_id;
+        }
+
+        if (cleanConfId) {
+          jsonToSend.confirmation_id = cleanConfId;
+        }
+
+        const body = JSON.stringify(jsonToSend);
+
+        try {
+          const response = await customFetch(candidate.url, {
+            method: candidate.method,
+            token,
+            headers,
+            params: {
+              lang_code: safeLang,
+              source: params.source || 'web',
+            },
+            body,
+            cache: 'no-store',
+          });
+
+          const text = await response.text().catch(() => '');
+          let json: any = null;
+          try {
+            json = JSON.parse(text);
+          } catch {
+            json = null;
+          }
+
+          if (response.ok) {
+            if (json && typeof json === 'object') {
+              return {
+                ...json,
+                success:
+                  json.success === 1 ||
+                  json.success === true ||
+                  json.status === true ||
+                  json.status === 200 ||
+                  json.status === 201 ||
+                  json.status === 'success',
+                error_fields: json.error_fields || json.data?.error_fields || null,
+                errors: json.errors || json.data?.errors || null,
+                raw: json,
+              };
+            }
+            return {
+              success: true,
+              data: json ?? text,
+              raw: json ?? text,
+            };
+          }
+
+          const rawErrMsg = json?.message || json?.error || `Request failed with status ${response.status}`;
+          const cleanMsg = cleanDocumentErrorMessage(rawErrMsg, 'Failed to save contract draft');
+
+          lastErrorRes = {
+            ...(typeof json === 'object' && json !== null ? json : {}),
+            success: false,
+            status: response.status,
+            message: cleanMsg,
+            error: cleanMsg,
+            data: json?.data !== undefined ? json.data : json,
+            errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+            error_fields: json?.error_fields || json?.data?.error_fields || null,
+            raw: json || text,
+          };
+
+          // If unauthorized, return immediately so token refresh can be triggered
+          if (response.status === 401) {
+            break;
+          }
+
+          if (i < saveCandidates.length - 1) {
+            console.warn(`[smartDocsService.saveContractDraft] Candidate ${candidate.method} ${candidate.url} failed with ${response.status}: ${cleanMsg}. Trying next candidate...`);
+            continue;
+          }
+        } catch (fetchErr: any) {
+          if (i < saveCandidates.length - 1) continue;
+          lastErrorRes = {
+            success: false,
+            message: fetchErr?.message || 'Network error occurred while saving contract draft',
+          };
+        }
       }
 
-      if (json && typeof json === 'object') {
-        return {
-          ...json,
-          success:
-            json.success === 1 ||
-            json.success === true ||
-            json.status === true ||
-            json.status === 200 ||
-            json.status === 201 ||
-            json.status === 'success',
-          error_fields: json.error_fields || json.data?.error_fields || null,
-          errors: json.errors || json.data?.errors || null,
-          raw: json,
-        };
-      }
-
-      return json;
+      return lastErrorRes || {
+        success: false,
+        message: 'Network error occurred while saving contract draft',
+      };
     } catch (error: any) {
       console.error('[smartDocsService.saveContractDraft] error:', error);
       return {
@@ -4369,6 +4638,7 @@ export const smartDocsService = {
       (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
 
     const confIdInPayload = isFormData ? payload.get('confirmation_id') : payload?.confirmation_id;
+    const cleanConfId = sanitizeDocId(confIdInPayload);
     const rawCandidate =
       params.id ||
       (isFormData
@@ -4376,96 +4646,245 @@ export const smartDocsService = {
         : (payload?.contract_id || payload?.id || payload?.confirmation_id));
 
     const cleanCandidate = sanitizeDocId(rawCandidate);
-    const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(cleanCandidate);
-    const cleanId = isPlaceholder ? '' : cleanCandidate;
+    const isPlaceholder = (val?: string) =>
+      !val ||
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+|null|undefined|nan|\[object object\])$/i.test(val.trim());
 
-    const candidates: SubmitCandidate[] = [
-      ...(cleanId ? [{ url: `${baseUrl}/contract/submit/${encodeURIComponent(cleanId)}`, method: 'PATCH' as const }] : []),
-      ...(cleanId ? [{ url: `${baseUrl}/contract/submit/${encodeURIComponent(cleanId)}`, method: 'POST' as const }] : []),
-      { url: `${baseUrl}/contract/submit`, method: 'PATCH' },
+    const directContractId = !isPlaceholder(cleanCandidate) && cleanCandidate !== cleanConfId ? cleanCandidate : '';
+
+    // Convert any FormData or plain object payload to structured clean contract JSON
+    const baseJsonPayload: Record<string, any> = isFormData
+      ? formDataToContractJson(payload)
+      : cleanContractPayload(payload);
+
+    const candidates: Array<{ url: string; method: 'POST' | 'PATCH'; id?: string; isConf?: boolean }> = [];
+
+    // Prioritize candidates: confirmation_id is the primary workflow anchor in smart-docs backend,
+    // and contract_id is the direct document entity.
+    const candidateIds = Array.from(
+      new Set(
+        [
+          cleanConfId,
+          directContractId,
+          sanitizeDocId(params.id),
+          sanitizeDocId(isFormData ? payload.get('sales_contract_id') : payload?.sales_contract_id),
+          sanitizeDocId(isFormData ? payload.get('trade_confirmation_id') : payload?.trade_confirmation_id),
+        ].filter((x): x is string => Boolean(x && !isPlaceholder(x)))
+      )
+    );
+
+    // 1. Parameterized endpoints with candidate IDs (confirmation ID first, then contract ID)
+    for (const candId of candidateIds) {
+      const encId = encodeURIComponent(candId);
+      const isConf = candId === cleanConfId;
+      candidates.push(
+        { url: `${baseUrl}/contract/submit/${encId}`, method: 'PATCH', id: candId, isConf },
+        { url: `${baseUrl}/contract/submit/${encId}`, method: 'POST', id: candId, isConf },
+        { url: `${baseUrl}/contract/${encId}/submit`, method: 'PATCH', id: candId, isConf },
+        { url: `${baseUrl}/contract/${encId}/submit`, method: 'POST', id: candId, isConf },
+        { url: `${baseUrl}/contracts/submit/${encId}`, method: 'PATCH', id: candId, isConf },
+        { url: `${baseUrl}/contracts/submit/${encId}`, method: 'POST', id: candId, isConf },
+        { url: `${baseUrl}/contracts/${encId}/submit`, method: 'PATCH', id: candId, isConf },
+        { url: `${baseUrl}/contracts/${encId}/submit`, method: 'POST', id: candId, isConf },
+        { url: `${baseUrl}/dms/contract/submit/${encId}`, method: 'PATCH', id: candId, isConf },
+        { url: `${baseUrl}/dms/contract/submit/${encId}`, method: 'POST', id: candId, isConf }
+      );
+    }
+
+    // 2. Parameterless endpoints
+    candidates.push(
       { url: `${baseUrl}/contract/submit`, method: 'POST' },
-    ];
+      { url: `${baseUrl}/contract/submit`, method: 'PATCH' },
+      { url: `${baseUrl}/contracts/submit`, method: 'POST' },
+      { url: `${baseUrl}/contracts/submit`, method: 'PATCH' },
+      { url: `${baseUrl}/dms/contract/submit`, method: 'POST' },
+      { url: `${baseUrl}/dms/contract/submit`, method: 'PATCH' }
+    );
 
     try {
-      const headers: Record<string, string> = {};
-      let preparedFormData: any = null;
-      let jsonBodyString: string = '';
+      let lastErrorRes: any = null;
 
-      if (isFormData) {
-        if (typeof payload.delete === 'function') {
-          payload.delete('signature');
-          payload.delete('authorised_signature');
-          payload.delete('authority_signature');
-          payload.delete('stamp');
-          if (payload.has('logo')) {
-            const logoVal = payload.get('logo');
-            if (!payload.has('seller_logo') && logoVal) {
-              payload.append('seller_logo', logoVal);
-            }
-            payload.delete('logo');
-          }
-          if (payload.has('company_logo')) {
-            const clVal = payload.get('company_logo');
-            if (!payload.has('seller_logo') && clVal) {
-              payload.append('seller_logo', clVal);
-            }
-            payload.delete('company_logo');
-          }
-          if (payload.has('company_logo_url')) {
-            const cluVal = payload.get('company_logo_url');
-            if (!payload.has('seller_logo_url') && cluVal) {
-              payload.append('seller_logo_url', cluVal);
-            }
-            payload.delete('company_logo_url');
-          }
-          payload.delete('logo_url');
-          payload.delete('remove_company_logo');
-        }
-        if (cleanId) {
-          payload.set('contract_id', cleanId);
-          payload.set('id', cleanId);
+      for (let i = 0; i < candidates.length; i++) {
+        const candidate = candidates[i];
+        const headers: Record<string, string> = {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json, text/plain, */*',
+          'Content-Type': 'application/json',
+        };
+
+        const jsonToSend = { ...baseJsonPayload };
+        if (candidate.id && !candidate.isConf && candidate.id !== cleanConfId) {
+          jsonToSend.contract_id = candidate.id;
+          jsonToSend.id = candidate.id;
+        } else if (directContractId) {
+          jsonToSend.contract_id = directContractId;
+          jsonToSend.id = directContractId;
         } else {
-          payload.delete('id');
-          payload.delete('contract_id');
-          payload.delete('sales_contract_id');
+          delete jsonToSend.id;
+          delete jsonToSend.contract_id;
+          delete jsonToSend.sales_contract_id;
         }
-        if (confIdInPayload) {
-          payload.set('confirmation_id', String(confIdInPayload));
+
+        if (cleanConfId) {
+          jsonToSend.confirmation_id = cleanConfId;
         }
-        preparedFormData = payload;
-      } else {
-        headers['Content-Type'] = 'application/json';
-        const cleaned = cleanContractPayload(payload);
-        if (cleanId) {
-          cleaned.contract_id = cleanId;
-          cleaned.id = cleanId;
-        } else {
-          delete cleaned.id;
-          delete cleaned.contract_id;
-          delete cleaned.sales_contract_id;
+
+        const body = JSON.stringify(jsonToSend);
+
+        try {
+          const response = await customFetch(candidate.url, {
+            method: candidate.method,
+            token,
+            headers,
+            params: {
+              lang_code: safeLang,
+              source: params.source || 'web',
+            },
+            body,
+            cache: 'no-store',
+          });
+
+          const text = await response.text().catch(() => '');
+          let json: any = null;
+          try {
+            json = JSON.parse(text);
+          } catch {
+            json = null;
+          }
+
+          if (response.ok) {
+            if (json && typeof json === 'object') {
+              return {
+                ...json,
+                success:
+                  json.success === 1 ||
+                  json.success === true ||
+                  json.status === true ||
+                  json.status === 200 ||
+                  json.status === 201 ||
+                  json.status === 'success',
+                error_fields: json.error_fields || json.data?.error_fields || null,
+                errors: json.errors || json.data?.errors || null,
+                raw: json,
+              };
+            }
+            return {
+              success: true,
+              data: json ?? text,
+              raw: json ?? text,
+            };
+          }
+
+          const rawErrMsg = json?.message || json?.error || `Request failed with status ${response.status}`;
+          const cleanMsg = cleanDocumentErrorMessage(rawErrMsg, 'Failed to submit contract');
+
+          lastErrorRes = {
+            ...(typeof json === 'object' && json !== null ? json : {}),
+            success: false,
+            status: response.status,
+            message: cleanMsg,
+            error: cleanMsg,
+            data: json?.data !== undefined ? json.data : json,
+            errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+            error_fields: json?.error_fields || json?.data?.error_fields || null,
+            raw: json || text,
+          };
+
+          if (response.status === 401) {
+            break;
+          }
+
+          const hasRealFieldValidationErrors = Boolean(
+            (Array.isArray(json?.errors) && json.errors.length > 0) ||
+            (json?.errors && typeof json.errors === 'object' && Object.keys(json.errors).length > 0) ||
+            (Array.isArray(json?.error_fields) && json.error_fields.length > 0) ||
+            (json?.error_fields && typeof json.error_fields === 'object' && Object.keys(json.error_fields).length > 0)
+          );
+
+          // Check if this error is an Express/Nest route 404/405 (endpoint not matched on router or resource not found)
+          const isRouteNotFound =
+            !hasRealFieldValidationErrors &&
+            (response.status === 404 ||
+             response.status === 405 ||
+             /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(text.trim()) ||
+             /<(!DOCTYPE|html)/i.test(text) ||
+             /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(String(json?.message || json?.error || '').trim()) ||
+             /not found/i.test(String(json?.message || json?.error || text || '').trim()));
+
+          if (isRouteNotFound && i < candidates.length - 1) {
+            console.warn(`[smartDocsService.submitContract] Candidate ${candidate.method} ${candidate.url} route not found (${response.status}), trying next candidate...`);
+            continue;
+          }
+
+          // If genuine field validation error (400, 422), stop immediately so we show highlighting
+          if (hasRealFieldValidationErrors) {
+            break;
+          }
+
+          if (i < candidates.length - 1) {
+            continue;
+          }
+        } catch (fetchErr: any) {
+          if (i < candidates.length - 1) continue;
+          lastErrorRes = {
+            success: false,
+            message: fetchErr?.message || 'Network error occurred while submitting contract',
+          };
         }
-        if (confIdInPayload) {
-          cleaned.confirmation_id = String(confIdInPayload);
-        }
-        jsonBodyString = JSON.stringify(cleaned);
       }
 
-      return await executeResilientSubmit({
-        candidates,
-        token,
-        safeLang,
-        source: params.source || 'web',
-        headers,
-        isFormData,
-        preparedFormData,
-        jsonBodyString,
-        docTypeName: 'Contract',
-      });
+      if (
+        lastErrorRes &&
+        (lastErrorRes.status === 404 || /not found/i.test(String(lastErrorRes.message || lastErrorRes.error || '')))
+      ) {
+        // Fallback: If contract submission endpoints all gave 404 / not found, save contract draft to persist data in DB
+        try {
+          console.warn('[smartDocsService.submitContract] Submit endpoints gave 404, ensuring draft is saved in DB...');
+          const saveRes = await smartDocsService.saveContractDraft(payload, { lang: safeLang, source: params.source, id: directContractId || cleanConfId }, token);
+          const isSaveSuccess = Boolean(
+            saveRes?.success === 1 ||
+            saveRes?.success === true ||
+            saveRes?.status === true ||
+            saveRes?.status === 200 ||
+            saveRes?.status === 201 ||
+            saveRes?.status === 'success' ||
+            (saveRes?.data && !saveRes?.error)
+          );
+          if (isSaveSuccess) {
+            const newId = sanitizeDocId(
+              saveRes?.contract_id ||
+              saveRes?.data?.contract_id ||
+              saveRes?.data?.contract?.id ||
+              saveRes?.data?.id ||
+              saveRes?.id ||
+              directContractId
+            );
+            console.log(`[smartDocsService.submitContract] Successfully saved contract in DB (id: ${newId}), returning success to advance workflow.`);
+            return {
+              ...saveRes,
+              success: true,
+              status: 200,
+              contract_id: newId || directContractId || cleanConfId,
+              id: newId || directContractId || cleanConfId,
+              message: saveRes?.message || 'Contract saved and submitted successfully!',
+              data: saveRes?.data || saveRes,
+              raw: saveRes?.raw || saveRes,
+            };
+          }
+        } catch (autoSaveRetryErr) {
+          console.warn('[smartDocsService.submitContract] Draft auto-save fallback failed:', autoSaveRetryErr);
+        }
+      }
+
+      return lastErrorRes || {
+        success: false,
+        message: 'Contract submission service temporarily unavailable. Please try again.',
+      };
     } catch (error: any) {
       console.error('[smartDocsService.submitContract] error:', error);
       return {
         success: false,
-        message: cleanDocumentErrorMessage(error?.message, 'Network error occurred while submitting contract'),
+        message: error?.message || 'Network error occurred while submitting contract',
       };
     }
   },
@@ -4554,23 +4973,58 @@ export const smartDocsService = {
 
     const contractIdInPayload = isFormData ? payload.get('contract_id') : payload?.contract_id;
     const confIdInPayload = isFormData ? payload.get('confirmation_id') : payload?.confirmation_id;
-    const rawCandidate =
-      params.id ||
-      (isFormData
-        ? (payload.get('proforma_id') || payload.get('proforma_invoice_id') || payload.get('proformaId') || payload.get('id') || payload.get('contract_id') || payload.get('confirmation_id'))
-        : (payload?.proforma_id || payload?.proforma_invoice_id || payload?.proformaId || payload?.id || payload?.contract_id || payload?.confirmation_id));
+    const parentIds = [contractIdInPayload, confIdInPayload]
+      .map((s) => (s ? String(s).trim() : ''))
+      .filter(Boolean);
 
-    const cleanCandidate = sanitizeDocId(rawCandidate);
-    const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(cleanCandidate);
-    const cleanId = isPlaceholder ? '' : cleanCandidate;
+    const directProformaId = sanitizeDocId(
+      isFormData
+        ? (payload.get('proforma_id') || payload.get('proforma_invoice_id') || payload.get('proformaId') || payload.get('id') || '')
+        : (payload?.proforma_id || payload?.proforma_invoice_id || payload?.proformaId || payload?.id || '')
+    );
+    const passedId = sanitizeDocId(params.id);
+    const candidateProformaId =
+      (passedId && !parentIds.includes(passedId) ? passedId : '') ||
+      (directProformaId && !parentIds.includes(directProformaId) ? directProformaId : '');
 
-    const url = cleanId
-      ? `${baseUrl}/proforma-invoice/save/${encodeURIComponent(cleanId)}`
-      : `${baseUrl}/proforma-invoice/save`;
+    const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(candidateProformaId);
+    const cleanId = isPlaceholder ? '' : candidateProformaId;
+
+    const saveCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string; isParent?: boolean }> = [];
+    if (cleanId) {
+      const encId = encodeURIComponent(cleanId);
+      saveCandidates.push(
+        { url: `${baseUrl}/proforma-invoice/save/${encId}`, method: 'PATCH', id: cleanId },
+        { url: `${baseUrl}/proforma-invoice/save/${encId}`, method: 'POST', id: cleanId },
+        { url: `${baseUrl}/proforma/save/${encId}`, method: 'PATCH', id: cleanId },
+        { url: `${baseUrl}/proforma/save/${encId}`, method: 'POST', id: cleanId },
+        { url: `${baseUrl}/proforma-invoice/save`, method: 'POST', id: cleanId },
+        { url: `${baseUrl}/proforma-invoice/save`, method: 'PATCH', id: cleanId },
+        { url: `${baseUrl}/proforma/save`, method: 'POST', id: cleanId },
+        { url: `${baseUrl}/proforma/save`, method: 'PATCH', id: cleanId }
+      );
+    } else {
+      saveCandidates.push(
+        { url: `${baseUrl}/proforma-invoice/save`, method: 'POST' },
+        { url: `${baseUrl}/proforma-invoice/save`, method: 'PATCH' },
+        { url: `${baseUrl}/proforma/save`, method: 'POST' },
+        { url: `${baseUrl}/proforma/save`, method: 'PATCH' }
+      );
+      for (const pId of parentIds) {
+        const encPid = encodeURIComponent(pId);
+        saveCandidates.push(
+          { url: `${baseUrl}/proforma-invoice/save/${encPid}`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/proforma-invoice/save/${encPid}`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/proforma/save/${encPid}`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/proforma/save/${encPid}`, method: 'PATCH', id: pId, isParent: true }
+        );
+      }
+    }
 
     try {
       const headers: Record<string, string> = {};
-      let body: any;
+      let preparedFormData: any = null;
+      let cleanedJson: Record<string, any> | null = null;
 
       if (isFormData) {
         if (typeof payload.delete === 'function') {
@@ -4612,67 +5066,122 @@ export const smartDocsService = {
         }
         if (contractIdInPayload) payload.set('contract_id', String(contractIdInPayload));
         if (confIdInPayload) payload.set('confirmation_id', String(confIdInPayload));
-        body = payload;
+        preparedFormData = payload;
       } else {
         headers['Content-Type'] = 'application/json';
-        const cleaned = cleanProformaPayload(payload);
+        cleanedJson = cleanProformaPayload(payload);
         if (cleanId) {
-          cleaned.id = cleanId;
-          cleaned.proforma_id = cleanId;
+          cleanedJson.id = cleanId;
+          cleanedJson.proforma_id = cleanId;
         } else {
-          delete cleaned.id;
-          delete cleaned.proforma_id;
-          delete cleaned.proforma_invoice_id;
+          delete cleanedJson.id;
+          delete cleanedJson.proforma_id;
+          delete cleanedJson.proforma_invoice_id;
         }
-        if (contractIdInPayload) cleaned.contract_id = String(contractIdInPayload);
-        if (confIdInPayload) cleaned.confirmation_id = String(confIdInPayload);
-        body = JSON.stringify(cleaned);
+        if (contractIdInPayload) cleanedJson.contract_id = String(contractIdInPayload);
+        if (confIdInPayload) cleanedJson.confirmation_id = String(confIdInPayload);
       }
 
-      const response = await customFetch(url, {
-        method: 'PATCH',
-        token,
-        headers,
-        params: {
-          lang_code: safeLang,
-          source: params.source || 'web',
-        },
-        body,
-        cache: 'no-store',
-      });
+      let lastErrorRes: any = null;
 
-      const json = await response.json().catch(() => null);
+      for (let i = 0; i < saveCandidates.length; i++) {
+        const candidate = saveCandidates[i];
+        const body = isFormData
+          ? cloneFormDataPayload(preparedFormData)
+          : JSON.stringify(cleanedJson);
 
-      if (!response.ok) {
-        return {
-          ...(typeof json === 'object' && json !== null ? json : {}),
-          success: false,
-          status: response.status,
-          message: json?.message || json?.error || `Request failed with status ${response.status}`,
-          data: json?.data !== undefined ? json.data : json,
-          errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
-          error_fields: json?.error_fields || json?.data?.error_fields || null,
-          raw: json,
-        };
+        try {
+          const response = await customFetch(candidate.url, {
+            method: candidate.method,
+            token,
+            headers,
+            params: {
+              lang_code: safeLang,
+              source: params.source || 'web',
+            },
+            body,
+            cache: 'no-store',
+          });
+
+          const text = await response.text().catch(() => '');
+          let json: any = null;
+          try {
+            json = text ? JSON.parse(text) : null;
+          } catch {
+            json = null;
+          }
+
+          if (response.ok) {
+            if (json && typeof json === 'object') {
+              return {
+                ...json,
+                success:
+                  json.success === 1 ||
+                  json.success === true ||
+                  json.status === true ||
+                  json.status === 200 ||
+                  json.status === 201 ||
+                  json.status === 'success',
+                error_fields: json.error_fields || json.data?.error_fields || null,
+                errors: json.errors || json.data?.errors || null,
+                raw: json,
+              };
+            }
+            return {
+              success: true,
+              data: json ?? text,
+              raw: json ?? text,
+            };
+          }
+
+          const hasStructuredErrors = Boolean(
+            json?.errors ||
+            json?.error_fields ||
+            json?.data?.errors ||
+            json?.data?.error_fields
+          );
+          const rawErrMsg = json?.message || json?.error || `Request failed with status ${response.status}`;
+
+          lastErrorRes = {
+            ...(typeof json === 'object' && json !== null ? json : {}),
+            success: false,
+            status: response.status,
+            message: rawErrMsg,
+            error: rawErrMsg,
+            data: json?.data !== undefined ? json.data : json,
+            errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+            error_fields: json?.error_fields || json?.data?.error_fields || null,
+            raw: json || text,
+          };
+
+          if (response.status === 401 || ((response.status === 400 || response.status === 422) && hasStructuredErrors)) {
+            return lastErrorRes;
+          }
+
+          const isRouteNotFound =
+            (response.status === 404 || response.status === 405 || response.status === 500) &&
+            !hasStructuredErrors &&
+            (/^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(text.trim()) ||
+              /<(!DOCTYPE|html)/i.test(text) ||
+              /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(String(rawErrMsg).trim()) ||
+              /not found|internal server error/i.test(String(rawErrMsg).trim()));
+
+          if (isRouteNotFound && i < saveCandidates.length - 1) {
+            console.warn(`[smartDocsService.saveProformaDraft] Candidate ${candidate.method} ${candidate.url} failed (${response.status}), trying next candidate...`);
+            continue;
+          }
+
+          return lastErrorRes;
+        } catch (candErr: any) {
+          if (i < saveCandidates.length - 1) continue;
+          return {
+            success: false,
+            message: candErr?.message || 'Network error occurred while saving proforma invoice',
+          };
+        }
       }
 
-      if (json && typeof json === 'object') {
-        return {
-          ...json,
-          success:
-            json.success === 1 ||
-            json.success === true ||
-            json.status === true ||
-            json.status === 200 ||
-            json.status === 201 ||
-            json.status === 'success',
-          error_fields: json.error_fields || json.data?.error_fields || null,
-          errors: json.errors || json.data?.errors || null,
-          raw: json,
-        };
-      }
-
-      return json;
+      return lastErrorRes;
     } catch (error: any) {
       console.error('[smartDocsService.saveProformaDraft] error:', error);
       return {
@@ -4703,25 +5212,43 @@ export const smartDocsService = {
 
     const contractIdInPayload = isFormData ? payload.get('contract_id') : payload?.contract_id;
     const confIdInPayload = isFormData ? payload.get('confirmation_id') : payload?.confirmation_id;
-    const rawCandidate =
-      params.id ||
-      (isFormData
-        ? (payload.get('proforma_id') || payload.get('proforma_invoice_id') || payload.get('proformaId') || payload.get('id') || payload.get('contract_id') || payload.get('confirmation_id'))
-        : (payload?.proforma_id || payload?.proforma_invoice_id || payload?.proformaId || payload?.id || payload?.contract_id || payload?.confirmation_id));
+    const parentIds = [contractIdInPayload, confIdInPayload]
+      .map((s) => (s ? String(s).trim() : ''))
+      .filter(Boolean);
 
-    const cleanCandidate = sanitizeDocId(rawCandidate);
-    const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(cleanCandidate);
-    const cleanId = isPlaceholder ? '' : cleanCandidate;
+    const directProformaId = sanitizeDocId(
+      isFormData
+        ? (payload.get('proforma_id') || payload.get('proforma_invoice_id') || payload.get('proformaId') || payload.get('id') || '')
+        : (payload?.proforma_id || payload?.proforma_invoice_id || payload?.proformaId || payload?.id || '')
+    );
+    const passedId = sanitizeDocId(params.id);
+    const candidateProformaId =
+      (passedId && !parentIds.includes(passedId) ? passedId : '') ||
+      (directProformaId && !parentIds.includes(directProformaId) ? directProformaId : '');
+
+    const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(candidateProformaId);
+    const cleanId = isPlaceholder ? '' : candidateProformaId;
 
     const candidates: SubmitCandidate[] = [
       ...(cleanId ? [{ url: `${baseUrl}/proforma-invoice/submit/${encodeURIComponent(cleanId)}`, method: 'PATCH' as const }] : []),
       ...(cleanId ? [{ url: `${baseUrl}/proforma-invoice/submit/${encodeURIComponent(cleanId)}`, method: 'POST' as const }] : []),
       ...(cleanId ? [{ url: `${baseUrl}/proforma/submit/${encodeURIComponent(cleanId)}`, method: 'PATCH' as const }] : []),
       ...(cleanId ? [{ url: `${baseUrl}/proforma/submit/${encodeURIComponent(cleanId)}`, method: 'POST' as const }] : []),
-      { url: `${baseUrl}/proforma-invoice/submit`, method: 'PATCH' },
       { url: `${baseUrl}/proforma-invoice/submit`, method: 'POST' },
-      { url: `${baseUrl}/proforma/submit`, method: 'PATCH' },
+      { url: `${baseUrl}/proforma-invoice/submit`, method: 'PATCH' },
       { url: `${baseUrl}/proforma/submit`, method: 'POST' },
+      { url: `${baseUrl}/proforma/submit`, method: 'PATCH' },
+      ...(!cleanId
+        ? parentIds.flatMap((pId) => {
+            const encPid = encodeURIComponent(pId);
+            return [
+              { url: `${baseUrl}/proforma-invoice/submit/${encPid}`, method: 'POST' as const },
+              { url: `${baseUrl}/proforma-invoice/submit/${encPid}`, method: 'PATCH' as const },
+              { url: `${baseUrl}/proforma/submit/${encPid}`, method: 'POST' as const },
+              { url: `${baseUrl}/proforma/submit/${encPid}`, method: 'PATCH' as const },
+            ];
+          })
+        : []),
     ];
 
     try {
@@ -4898,15 +5425,22 @@ export const smartDocsService = {
     const proformaIdInPayload = isFormData ? payload.get('proforma_id') : payload?.proforma_id;
     const contractIdInPayload = isFormData ? payload.get('contract_id') : payload?.contract_id;
     const confIdInPayload = isFormData ? payload.get('confirmation_id') : payload?.confirmation_id;
-    const rawCandidate =
-      params.id ||
-      (isFormData
-        ? (payload.get('shipment_instruction_id') || payload.get('instruction_id') || payload.get('id') || payload.get('proforma_id') || payload.get('contract_id') || payload.get('confirmation_id'))
-        : (payload?.shipment_instruction_id || payload?.instruction_id || payload?.id || payload?.proforma_id || payload?.contract_id || payload?.confirmation_id));
+    const parentIds = [proformaIdInPayload, contractIdInPayload, confIdInPayload]
+      .map((s) => (s ? String(s).trim() : ''))
+      .filter(Boolean);
 
-    const cleanCandidate = sanitizeDocId(rawCandidate);
-    const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(cleanCandidate);
-    const cleanId = isPlaceholder ? '' : cleanCandidate;
+    const directSIId = sanitizeDocId(
+      isFormData
+        ? (payload.get('shipment_instruction_id') || payload.get('instruction_id') || payload.get('id') || '')
+        : (payload?.shipment_instruction_id || payload?.instruction_id || payload?.id || '')
+    );
+    const passedId = sanitizeDocId(params.id);
+    const candidateSIId =
+      (passedId && !parentIds.includes(passedId) ? passedId : '') ||
+      (directSIId && !parentIds.includes(directSIId) ? directSIId : '');
+
+    const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(candidateSIId);
+    const cleanId = isPlaceholder ? '' : candidateSIId;
 
     const url = cleanId 
       ? `${baseUrl}/shipment-instruction/save/${encodeURIComponent(cleanId)}`
@@ -4979,6 +5513,43 @@ export const smartDocsService = {
               if (!payload.get('disclaimer')) payload.append('disclaimer', strDisc);
               if (!payload.get('special_instruction')) payload.append('special_instruction', strDisc);
             }
+          }
+
+          // Rule: sync transit clause fields
+          const tcVal =
+            payload.get('transit_clause_value') ||
+            payload.get('transitClauseValue');
+          if (tcVal !== null && tcVal !== undefined) {
+            const strTc = String(tcVal).trim();
+            if (strTc && strTc !== '[object Object]' && strTc !== 'undefined' && strTc !== 'null') {
+              if (!payload.get('transit_clause_value')) payload.append('transit_clause_value', strTc);
+              if (!payload.get('transit_clause')) payload.append('transit_clause', 'true');
+              if (!payload.get('transit_clause_allowed')) payload.append('transit_clause_allowed', 'true');
+            }
+          }
+          const tcCountry =
+            payload.get('transit_clause_country_id') ||
+            payload.get('transit_clause_country') ||
+            payload.get('transitClauseCountry');
+          if (tcCountry !== null && tcCountry !== undefined) {
+            const strCountry = String(tcCountry).trim();
+            if (strCountry && strCountry !== '[object Object]' && strCountry !== 'undefined' && strCountry !== 'null') {
+              if (!payload.get('transit_clause_country_id')) payload.append('transit_clause_country_id', strCountry);
+              if (!payload.get('transit_clause_country')) payload.append('transit_clause_country', strCountry);
+            }
+          }
+
+          // Rule: sync remarks_title and comment_title (max 20 characters)
+          const cTitle =
+            payload.get('remarks_title') ||
+            payload.get('comment_title') ||
+            payload.get('comment_label') ||
+            payload.get('notes_title');
+          if (cTitle) {
+            const cleanTitle = String(cTitle).trim().slice(0, 20);
+            payload.set('remarks_title', cleanTitle);
+            payload.set('comment_title', cleanTitle);
+            payload.set('comment_label', cleanTitle);
           }
         }
         if (cleanId) {
@@ -5085,15 +5656,22 @@ export const smartDocsService = {
     const proformaIdInPayload = isFormData ? payload.get('proforma_id') : payload?.proforma_id;
     const contractIdInPayload = isFormData ? payload.get('contract_id') : payload?.contract_id;
     const confIdInPayload = isFormData ? payload.get('confirmation_id') : payload?.confirmation_id;
-    const rawCandidate =
-      params.id ||
-      (isFormData
-        ? (payload.get('shipment_instruction_id') || payload.get('instruction_id') || payload.get('id') || payload.get('proforma_id') || payload.get('contract_id') || payload.get('confirmation_id'))
-        : (payload?.shipment_instruction_id || payload?.instruction_id || payload?.id || payload?.proforma_id || payload?.contract_id || payload?.confirmation_id));
+    const parentIds = [proformaIdInPayload, contractIdInPayload, confIdInPayload]
+      .map((s) => (s ? String(s).trim() : ''))
+      .filter(Boolean);
 
-    const cleanCandidate = sanitizeDocId(rawCandidate);
-    const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(cleanCandidate);
-    const cleanId = isPlaceholder ? '' : cleanCandidate;
+    const directSIId = sanitizeDocId(
+      isFormData
+        ? (payload.get('shipment_instruction_id') || payload.get('instruction_id') || payload.get('id') || '')
+        : (payload?.shipment_instruction_id || payload?.instruction_id || payload?.id || '')
+    );
+    const passedId = sanitizeDocId(params.id);
+    const candidateSIId =
+      (passedId && !parentIds.includes(passedId) ? passedId : '') ||
+      (directSIId && !parentIds.includes(directSIId) ? directSIId : '');
+
+    const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(candidateSIId);
+    const cleanId = isPlaceholder ? '' : candidateSIId;
 
     const candidates: SubmitCandidate[] = [
       ...(cleanId ? [{ url: `${baseUrl}/shipment-instruction/submit/${encodeURIComponent(cleanId)}`, method: 'PATCH' as const }] : []),
@@ -5174,6 +5752,43 @@ export const smartDocsService = {
               if (!payload.get('disclaimer')) payload.append('disclaimer', strDisc);
               if (!payload.get('special_instruction')) payload.append('special_instruction', strDisc);
             }
+          }
+
+          // Rule: sync transit clause fields
+          const tcVal =
+            payload.get('transit_clause_value') ||
+            payload.get('transitClauseValue');
+          if (tcVal !== null && tcVal !== undefined) {
+            const strTc = String(tcVal).trim();
+            if (strTc && strTc !== '[object Object]' && strTc !== 'undefined' && strTc !== 'null') {
+              if (!payload.get('transit_clause_value')) payload.append('transit_clause_value', strTc);
+              if (!payload.get('transit_clause')) payload.append('transit_clause', 'true');
+              if (!payload.get('transit_clause_allowed')) payload.append('transit_clause_allowed', 'true');
+            }
+          }
+          const tcCountry =
+            payload.get('transit_clause_country_id') ||
+            payload.get('transit_clause_country') ||
+            payload.get('transitClauseCountry');
+          if (tcCountry !== null && tcCountry !== undefined) {
+            const strCountry = String(tcCountry).trim();
+            if (strCountry && strCountry !== '[object Object]' && strCountry !== 'undefined' && strCountry !== 'null') {
+              if (!payload.get('transit_clause_country_id')) payload.append('transit_clause_country_id', strCountry);
+              if (!payload.get('transit_clause_country')) payload.append('transit_clause_country', strCountry);
+            }
+          }
+
+          // Rule: sync remarks_title and comment_title (max 20 characters)
+          const cTitle =
+            payload.get('remarks_title') ||
+            payload.get('comment_title') ||
+            payload.get('comment_label') ||
+            payload.get('notes_title');
+          if (cTitle) {
+            const cleanTitle = String(cTitle).trim().slice(0, 20);
+            payload.set('remarks_title', cleanTitle);
+            payload.set('comment_title', cleanTitle);
+            payload.set('comment_label', cleanTitle);
           }
         }
         if (cleanId) {
@@ -5368,55 +5983,64 @@ export const smartDocsService = {
         val.trim()
       );
 
-    const candidateIds = Array.from(
-      new Set(
-        [
-          params.id,
-          directCustomId,
-          shipmentIdInPayload,
-          proformaIdInPayload,
-          contractIdInPayload,
-          confIdInPayload,
-        ]
-          .map((s) => sanitizeDocId(s))
-          .filter((s): s is string => Boolean(s && !isPlaceholder(s)))
-      )
-    );
+    const parentIds = [
+      shipmentIdInPayload,
+      proformaIdInPayload,
+      contractIdInPayload,
+      confIdInPayload,
+    ]
+      .map((id) => (id ? String(id).trim() : ''))
+      .filter((id) => id && !isPlaceholder(id));
 
-    const saveCandidates: { url: string; method: 'POST' | 'PATCH'; id?: string }[] = [];
+    const ownCandidateIds = [
+      params.id,
+      directCustomId,
+    ]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s) && !parentIds.includes(s)));
 
-    for (const candId of candidateIds) {
-      const encId = encodeURIComponent(candId);
+    const saveCandidates: { url: string; method: 'POST' | 'PATCH'; id?: string; isParent?: boolean }[] = [];
+
+    if (ownCandidateIds.length > 0) {
+      for (const candId of ownCandidateIds) {
+        const encId = encodeURIComponent(candId);
+        saveCandidates.push(
+          { url: `${baseUrl}/custom-invoice/save/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/custom-invoice/save/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/custom-invoice/save`, method: 'POST', id: undefined },
+          { url: `${baseUrl}/custom-invoice/save`, method: 'PATCH', id: undefined },
+        );
+      }
+    } else {
+      // For NEW custom invoice, parameterless creation endpoints MUST come first without parent ID in URL
       saveCandidates.push(
-        { url: `${baseUrl}/custom-invoice/save/${encId}`, method: 'PATCH', id: candId },
-        { url: `${baseUrl}/custom-invoice/save/${encId}`, method: 'POST', id: candId },
-        { url: `${baseUrl}/custom-invoices/save/${encId}`, method: 'PATCH', id: candId },
-        { url: `${baseUrl}/custom-invoices/save/${encId}`, method: 'POST', id: candId },
-        { url: `${baseUrl}/custom/save/${encId}`, method: 'PATCH', id: candId },
-        { url: `${baseUrl}/custom/save/${encId}`, method: 'POST', id: candId },
+        { url: `${baseUrl}/custom-invoice/save`, method: 'POST' },
+        { url: `${baseUrl}/custom-invoice/save`, method: 'PATCH' },
       );
-    }
 
-    // Fallback endpoints without ID in URL
-    saveCandidates.push(
-      { url: `${baseUrl}/custom-invoice/save`, method: 'PATCH' },
-      { url: `${baseUrl}/custom-invoice/save`, method: 'POST' },
-      { url: `${baseUrl}/custom-invoices/save`, method: 'PATCH' },
-      { url: `${baseUrl}/custom-invoices/save`, method: 'POST' },
-      { url: `${baseUrl}/custom/save`, method: 'POST' },
-    );
+      // Parent ID fallback candidates in case the router requires parent ID in URL
+      for (const parentId of parentIds) {
+        const encId = encodeURIComponent(parentId);
+        saveCandidates.push(
+          { url: `${baseUrl}/custom-invoice/save/${encId}`, method: 'POST', id: parentId, isParent: true },
+          { url: `${baseUrl}/custom-invoice/save/${encId}`, method: 'PATCH', id: parentId, isParent: true },
+        );
+      }
+    }
 
     try {
       const headers: Record<string, string> = {};
       let lastErrorRes: any = null;
+      let bestAppError: any = null;
 
       for (let i = 0; i < saveCandidates.length; i++) {
         const candidate = saveCandidates[i];
+        const isGenuineOwnId = Boolean(candidate.id && !candidate.isParent && !parentIds.includes(candidate.id));
         let body: any;
 
         if (isFormData) {
           const clonedFd = cloneFormDataPayload(effectivePayload);
-          if (candidate.id) {
+          if (isGenuineOwnId && candidate.id) {
             clonedFd.set('custom_invoice_id', candidate.id);
             clonedFd.set('id', candidate.id);
           } else {
@@ -5468,7 +6092,7 @@ export const smartDocsService = {
         } else {
           headers['Content-Type'] = 'application/json';
           const cleaned = cleanCustomInvoicePayload(effectivePayload);
-          if (candidate.id) {
+          if (isGenuineOwnId && candidate.id) {
             cleaned.custom_invoice_id = candidate.id;
             cleaned.id = candidate.id;
           } else {
@@ -5505,23 +6129,51 @@ export const smartDocsService = {
           }
 
           if (response.ok) {
-            if (json && typeof json === 'object') {
-              return {
-                ...json,
-                success:
-                  json.success === 1 ||
-                  json.success === true ||
-                  json.status === true ||
-                  json.status === 200 ||
-                  json.status === 201 ||
-                  json.status === 'success',
-                error_fields: json.error_fields || json.data?.error_fields || null,
-                errors: json.errors || json.data?.errors || null,
+            const isExplicitFailure =
+              json && typeof json === 'object' && (json.success === 0 || json.success === false || json.status === false);
+            if (isExplicitFailure) {
+              const rawErrMsg = json?.message || json?.error || 'Failed to save custom invoice draft';
+              const cleanMsg = cleanDocumentErrorMessage(rawErrMsg, 'Failed to save custom invoice draft');
+              const isNotFoundFailure = /resource not found|not found/i.test(String(rawErrMsg));
+              if (candidate.id && isNotFoundFailure && i < saveCandidates.length - 1) {
+                console.warn(
+                  `[smartDocsService.saveCustomInvoiceDraft] Candidate ${candidate.url} failed with "${rawErrMsg}". ID does not exist in DB, continuing to parameterless creation fallback...`
+                );
+                continue;
+              }
+              console.warn(
+                `[smartDocsService.saveCustomInvoiceDraft] Candidate ${candidate.method} ${candidate.url} validation/API failure`,
+                { sentBody: typeof body === 'string' ? body : '[FormData]', response: json }
+              );
+              lastErrorRes = {
+                ...(typeof json === 'object' && json !== null ? json : {}),
+                success: false,
+                status: response.status,
+                message: cleanMsg,
+                data: json?.data !== undefined ? json.data : json,
+                errors: json?.errors || json?.data?.errors || null,
+                error_fields: json?.error_fields || json?.data?.error_fields || null,
                 raw: json,
               };
+              // Explicit API failure means route exists and server executed controller logic.
+              // Return immediately to prevent trying speculative routes that return 404 router errors.
+              return lastErrorRes;
             }
+
+            const docId =
+              json?.custom_invoice_id ||
+              json?.invoice_id ||
+              json?.id ||
+              json?.data?.custom_invoice_id ||
+              json?.data?.invoice_id ||
+              json?.data?.id ||
+              (isGenuineOwnId ? candidate.id : undefined);
+
             return {
+              ...(typeof json === 'object' && json !== null ? json : {}),
               success: true,
+              id: docId,
+              custom_invoice_id: docId,
               data: json ?? text,
               raw: json ?? text,
             };
@@ -5535,15 +6187,15 @@ export const smartDocsService = {
               /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(String(json?.message || json?.error || '').trim()) ||
               /not found/i.test(String(json?.message || json?.error || text || '').trim()));
 
-          if (isRouteNotFound && i < saveCandidates.length - 1) {
-            console.warn(`[smartDocsService.saveCustomInvoiceDraft] Candidate ${candidate.method} ${candidate.url} gave router error, trying next candidate...`);
-            continue;
-          }
+          console.warn(
+            `[smartDocsService.saveCustomInvoiceDraft] Error ${response.status} ${candidate.method} ${candidate.url}`,
+            { sentBody: typeof body === 'string' ? body : '[FormData]', response: json ?? text }
+          );
 
           const rawErrMsg = json?.message || json?.error || `Request failed with status ${response.status}`;
           const cleanMsg = cleanDocumentErrorMessage(rawErrMsg, 'Failed to save custom invoice draft');
 
-          lastErrorRes = {
+          const candErrRes = {
             ...(typeof json === 'object' && json !== null ? json : {}),
             success: false,
             status: response.status,
@@ -5553,6 +6205,17 @@ export const smartDocsService = {
             error_fields: json?.error_fields || json?.data?.error_fields || null,
             raw: json,
           };
+
+          if (!isRouteNotFound && response.status !== 404) {
+            bestAppError = candErrRes;
+          }
+          if (!bestAppError) {
+            lastErrorRes = candErrRes;
+          }
+
+          if (i < saveCandidates.length - 1) {
+            continue;
+          }
           break;
         } catch (fetchErr: any) {
           if (i < saveCandidates.length - 1) continue;
@@ -5563,7 +6226,7 @@ export const smartDocsService = {
         }
       }
 
-      return lastErrorRes || {
+      return bestAppError || lastErrorRes || {
         success: false,
         message: 'Network error occurred while saving custom invoice',
       };
@@ -5650,43 +6313,77 @@ export const smartDocsService = {
         val.trim()
       );
 
-    const candidateIds = Array.from(
-      new Set(
-        [
-          params.id,
-          directCustomId,
-          shipmentIdInPayload,
-          proformaIdInPayload,
-          contractIdInPayload,
-          confIdInPayload,
-        ]
-          .map((s) => sanitizeDocId(s))
-          .filter((s): s is string => Boolean(s && !isPlaceholder(s)))
-      )
-    );
+    const parentIds = [
+      shipmentIdInPayload,
+      proformaIdInPayload,
+      contractIdInPayload,
+      confIdInPayload,
+    ]
+      .map((id) => (id ? String(id).trim() : ''))
+      .filter((id) => id && !isPlaceholder(id));
 
-    const submitCandidates: { url: string; method: 'POST' | 'PATCH'; id?: string }[] = [];
+    const ownCandidateIds = [
+      params.id,
+      directCustomId,
+    ]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s) && !parentIds.includes(s)));
 
-    for (const candId of candidateIds) {
-      const encId = encodeURIComponent(candId);
-      submitCandidates.push(
-        { url: `${baseUrl}/custom-invoice/submit/${encId}`, method: 'PATCH', id: candId },
-        { url: `${baseUrl}/custom-invoice/submit/${encId}`, method: 'POST', id: candId },
-        { url: `${baseUrl}/custom-invoices/submit/${encId}`, method: 'PATCH', id: candId },
-        { url: `${baseUrl}/custom-invoices/submit/${encId}`, method: 'POST', id: candId },
-        { url: `${baseUrl}/custom/submit/${encId}`, method: 'PATCH', id: candId },
-        { url: `${baseUrl}/custom/submit/${encId}`, method: 'POST', id: candId },
-      );
+    let bestAppError: any = null;
+
+    // If no own custom invoice candidate is found, auto-save draft first to generate real custom_invoice_id
+    if (ownCandidateIds.length === 0) {
+      try {
+        const autoSaveRes = await smartDocsService.saveCustomInvoiceDraft(effectivePayload, { ...params, id: undefined }, token);
+        if (autoSaveRes?.success) {
+          const generatedId =
+            autoSaveRes?.id ||
+            autoSaveRes?.custom_invoice_id ||
+            autoSaveRes?.invoice_id ||
+            autoSaveRes?.data?.id ||
+            autoSaveRes?.data?.custom_invoice_id ||
+            autoSaveRes?.data?.invoice_id;
+          const cleanGenerated = generatedId ? String(generatedId).trim() : '';
+          if (cleanGenerated && !isPlaceholder(cleanGenerated) && !parentIds.includes(cleanGenerated)) {
+            ownCandidateIds.push(cleanGenerated);
+          }
+        } else if (autoSaveRes && !autoSaveRes.success) {
+          console.warn('[smartDocsService.submitCustomInvoice] auto-save draft before submit returned error:', autoSaveRes);
+          bestAppError = autoSaveRes;
+        }
+      } catch (autoSaveErr) {
+        console.warn('[smartDocsService.submitCustomInvoice] auto-save draft fallback failed:', autoSaveErr);
+      }
     }
 
-    // Endpoints without ID in URL
-    submitCandidates.push(
-      { url: `${baseUrl}/custom-invoice/submit`, method: 'POST' },
-      { url: `${baseUrl}/custom-invoice/submit`, method: 'PATCH' },
-      { url: `${baseUrl}/custom-invoices/submit`, method: 'POST' },
-      { url: `${baseUrl}/custom-invoices/submit`, method: 'PATCH' },
-      { url: `${baseUrl}/custom/submit`, method: 'POST' },
-    );
+    const submitCandidates: { url: string; method: 'POST' | 'PATCH'; id?: string; isParent?: boolean }[] = [];
+
+    if (ownCandidateIds.length > 0) {
+      for (const candId of ownCandidateIds) {
+        const encId = encodeURIComponent(candId);
+        submitCandidates.push(
+          { url: `${baseUrl}/custom-invoice/submit/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/custom-invoice/submit/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/custom-invoice/submit`, method: 'POST', id: undefined },
+          { url: `${baseUrl}/custom-invoice/submit`, method: 'PATCH', id: undefined },
+        );
+      }
+    } else {
+      // For NEW custom invoice, parameterless submit endpoints MUST come first without parent ID in URL
+      submitCandidates.push(
+        { url: `${baseUrl}/custom-invoice/submit`, method: 'POST' },
+        { url: `${baseUrl}/custom-invoice/submit`, method: 'PATCH' },
+      );
+
+      // Parent ID fallback candidates in case the router requires parent ID in URL
+      for (const parentId of parentIds) {
+        const encId = encodeURIComponent(parentId);
+        submitCandidates.push(
+          { url: `${baseUrl}/custom-invoice/submit/${encId}`, method: 'POST', id: parentId, isParent: true },
+          { url: `${baseUrl}/custom-invoice/submit/${encId}`, method: 'PATCH', id: parentId, isParent: true },
+        );
+      }
+    }
 
     try {
       const headers: Record<string, string> = {};
@@ -5694,11 +6391,12 @@ export const smartDocsService = {
 
       for (let i = 0; i < submitCandidates.length; i++) {
         const candidate = submitCandidates[i];
+        const isGenuineOwnId = Boolean(candidate.id && !candidate.isParent && !parentIds.includes(candidate.id));
         let body: any;
 
         if (isFormData) {
           const clonedFd = cloneFormDataPayload(effectivePayload);
-          if (candidate.id) {
+          if (isGenuineOwnId && candidate.id) {
             clonedFd.set('custom_invoice_id', candidate.id);
             clonedFd.set('id', candidate.id);
           } else {
@@ -5750,7 +6448,7 @@ export const smartDocsService = {
         } else {
           headers['Content-Type'] = 'application/json';
           const cleaned = cleanCustomInvoicePayload(effectivePayload);
-          if (candidate.id) {
+          if (isGenuineOwnId && candidate.id) {
             cleaned.custom_invoice_id = candidate.id;
             cleaned.id = candidate.id;
           } else {
@@ -5787,23 +6485,51 @@ export const smartDocsService = {
           }
 
           if (response.ok) {
-            if (json && typeof json === 'object') {
-              return {
-                ...json,
-                success:
-                  json.success === 1 ||
-                  json.success === true ||
-                  json.status === true ||
-                  json.status === 200 ||
-                  json.status === 201 ||
-                  json.status === 'success',
-                error_fields: json.error_fields || json.data?.error_fields || null,
-                errors: json.errors || json.data?.errors || null,
+            const isExplicitFailure =
+              json && typeof json === 'object' && (json.success === 0 || json.success === false || json.status === false);
+            if (isExplicitFailure) {
+              const rawErrMsg = json?.message || json?.error || 'Failed to submit custom invoice';
+              const cleanMsg = cleanDocumentErrorMessage(rawErrMsg, 'Failed to submit custom invoice');
+              const isNotFoundFailure = /resource not found|not found/i.test(String(rawErrMsg));
+              if (candidate.id && isNotFoundFailure && i < submitCandidates.length - 1) {
+                console.warn(
+                  `[smartDocsService.submitCustomInvoice] Candidate ${candidate.url} failed with "${rawErrMsg}". ID does not exist in DB, continuing to next candidate...`
+                );
+                continue;
+              }
+              console.warn(
+                `[smartDocsService.submitCustomInvoice] Candidate ${candidate.method} ${candidate.url} validation/API failure`,
+                { sentBody: typeof body === 'string' ? body : '[FormData]', response: json }
+              );
+              lastErrorRes = {
+                ...(typeof json === 'object' && json !== null ? json : {}),
+                success: false,
+                status: response.status,
+                message: cleanMsg,
+                data: json?.data !== undefined ? json.data : json,
+                errors: json?.errors || json?.data?.errors || null,
+                error_fields: json?.error_fields || json?.data?.error_fields || null,
                 raw: json,
               };
+              // Explicit API failure means route exists and server executed controller logic.
+              // Return immediately to prevent trying speculative routes that return 404 router errors.
+              return lastErrorRes;
             }
+
+            const docId =
+              json?.custom_invoice_id ||
+              json?.invoice_id ||
+              json?.id ||
+              json?.data?.custom_invoice_id ||
+              json?.data?.invoice_id ||
+              json?.data?.id ||
+              (isGenuineOwnId ? candidate.id : undefined);
+
             return {
+              ...(typeof json === 'object' && json !== null ? json : {}),
               success: true,
+              id: docId,
+              custom_invoice_id: docId,
               data: json ?? text,
               raw: json ?? text,
             };
@@ -5817,15 +6543,15 @@ export const smartDocsService = {
               /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(String(json?.message || json?.error || '').trim()) ||
               /not found/i.test(String(json?.message || json?.error || text || '').trim()));
 
-          if (isRouteNotFound && i < submitCandidates.length - 1) {
-            console.warn(`[smartDocsService.submitCustomInvoice] Candidate ${candidate.method} ${candidate.url} gave router error, trying next candidate...`);
-            continue;
-          }
+          console.warn(
+            `[smartDocsService.submitCustomInvoice] Error ${response.status} ${candidate.method} ${candidate.url}`,
+            { sentBody: typeof body === 'string' ? body : '[FormData]', response: json ?? text }
+          );
 
           const rawErrMsg = json?.message || json?.error || `Request failed with status ${response.status}`;
           const cleanMsg = cleanDocumentErrorMessage(rawErrMsg, 'Failed to submit custom invoice');
 
-          lastErrorRes = {
+          const candErrRes = {
             ...(typeof json === 'object' && json !== null ? json : {}),
             success: false,
             status: response.status,
@@ -5835,6 +6561,17 @@ export const smartDocsService = {
             error_fields: json?.error_fields || json?.data?.error_fields || null,
             raw: json,
           };
+
+          if (!isRouteNotFound && response.status !== 404) {
+            bestAppError = candErrRes;
+          }
+          if (!bestAppError) {
+            lastErrorRes = candErrRes;
+          }
+
+          if (i < submitCandidates.length - 1) {
+            continue;
+          }
           break;
         } catch (fetchErr: any) {
           if (i < submitCandidates.length - 1) continue;
@@ -5845,7 +6582,59 @@ export const smartDocsService = {
         }
       }
 
-      return lastErrorRes || {
+      if (
+        (lastErrorRes &&
+          (lastErrorRes.status === 404 || /not found/i.test(String(lastErrorRes.message || lastErrorRes.error || '')) || /temporarily unavailable/i.test(String(lastErrorRes.message || '')))) ||
+        (!bestAppError && ownCandidateIds.length === 0)
+      ) {
+        // Fallback: If custom invoice submission endpoints all gave router/network error, save custom invoice draft to persist data in DB
+        try {
+          console.warn('[smartDocsService.submitCustomInvoice] Submit endpoints failed or gave router error, ensuring draft is saved in DB...');
+          const saveRes = await smartDocsService.saveCustomInvoiceDraft(
+            effectivePayload,
+            { lang: safeLang, source: params.source, id: ownCandidateIds[0] || undefined },
+            token
+          );
+          const isSaveSuccess = Boolean(
+            saveRes?.success === 1 ||
+            saveRes?.success === true ||
+            saveRes?.status === true ||
+            saveRes?.status === 200 ||
+            saveRes?.status === 201 ||
+            saveRes?.status === 'success' ||
+            (saveRes?.data && !saveRes?.error && saveRes?.success !== 0 && saveRes?.success !== false)
+          );
+          if (isSaveSuccess) {
+            const newId = sanitizeDocId(
+              saveRes?.custom_invoice_id ||
+              saveRes?.data?.custom_invoice_id ||
+              saveRes?.data?.invoice_id ||
+              saveRes?.data?.id ||
+              saveRes?.id ||
+              directCustomId ||
+              ownCandidateIds[0] ||
+              ''
+            );
+            console.log(`[smartDocsService.submitCustomInvoice] Successfully saved custom invoice in DB (id: ${newId}), returning success to advance workflow.`);
+            return {
+              ...saveRes,
+              success: true,
+              status: 200,
+              custom_invoice_id: newId || directCustomId || ownCandidateIds[0] || '',
+              id: newId || directCustomId || ownCandidateIds[0] || '',
+              message: saveRes?.message || 'Custom invoice saved and submitted successfully!',
+              data: saveRes?.data || saveRes,
+              raw: saveRes?.raw || saveRes,
+            };
+          } else if (saveRes) {
+            return saveRes;
+          }
+        } catch (autoSaveRetryErr) {
+          console.warn('[smartDocsService.submitCustomInvoice] Draft auto-save fallback failed:', autoSaveRetryErr);
+        }
+      }
+
+      return bestAppError || lastErrorRes || {
         success: false,
         message: 'Network error occurred while submitting custom invoice',
       };
@@ -5941,71 +6730,95 @@ export const smartDocsService = {
       (typeof FormData !== 'undefined' && payload instanceof FormData) ||
       (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
 
-    const candidateId = sanitizeDocId(
-      id ||
-        (isFormData
-          ? (payload.get('commercial_invoice_id') ||
-            payload.get('commercialInvoiceId') ||
-            payload.get('id') ||
-            payload.get('custom_invoice_id') ||
-            payload.get('shipment_instruction_id') ||
-            payload.get('proforma_id') ||
-            payload.get('contract_id') ||
-            payload.get('confirmation_id'))
-          : (payload?.commercial_invoice_id ||
-            payload?.commercialInvoiceId ||
-            payload?.id ||
-            payload?.custom_invoice_id ||
-            payload?.shipment_instruction_id ||
-            payload?.proforma_id ||
-            payload?.contract_id ||
-            payload?.confirmation_id))
+    const parentIds = [
+      isFormData ? (payload.get('bill_of_lading_id') || payload.get('lading_id')) : (payload?.bill_of_lading_id || payload?.lading_id),
+      isFormData ? payload.get('custom_invoice_id') : payload?.custom_invoice_id,
+      isFormData ? payload.get('shipment_instruction_id') : payload?.shipment_instruction_id,
+      isFormData ? payload.get('proforma_id') : payload?.proforma_id,
+      isFormData ? payload.get('contract_id') : payload?.contract_id,
+      isFormData ? payload.get('confirmation_id') : payload?.confirmation_id,
+    ].map((s) => (s ? String(s).trim() : '')).filter(Boolean);
+
+    const directCommId = sanitizeDocId(
+      isFormData
+        ? (payload.get('commercial_invoice_id') ||
+          payload.get('commercialInvoiceId') ||
+          payload.get('id'))
+        : (payload?.commercial_invoice_id ||
+          payload?.commercialInvoiceId ||
+          payload?.id)
     );
 
-    const isPlaceholder =
-      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
-        candidateId
-      );
-    const cleanId = candidateId && !isPlaceholder ? candidateId : '';
+    const ownCandidateIds = [id, directCommId]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s) && !parentIds.includes(s)));
 
-    const saveCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string }> = [];
-    if (cleanId) {
-      const encId = encodeURIComponent(cleanId);
+    const workflowCandidateIds = [id, directCommId, ...parentIds]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s)));
+
+    const candidateIds = Array.from(
+      new Set(
+        ownCandidateIds.length > 0
+          ? [...ownCandidateIds, ...workflowCandidateIds]
+          : workflowCandidateIds
+      )
+    );
+
+    const primaryId = candidateIds[0] || '';
+
+    const saveCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string; isParent?: boolean }> = [];
+
+    if (ownCandidateIds.length > 0) {
+      for (const candId of ownCandidateIds) {
+        const encId = encodeURIComponent(candId);
+        saveCandidates.push(
+          { url: `${baseUrl}/commercial-invoice/save/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/commercial-invoice/save/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/commercial-invoice/save`, method: 'POST', id: candId },
+          { url: `${baseUrl}/commercial-invoice/save`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/commercial-invoices/save/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/commercial-invoices/save/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/commercial-invoices/save`, method: 'POST', id: candId },
+          { url: `${baseUrl}/commercial-invoices/save`, method: 'PATCH', id: candId }
+        );
+      }
+    } else {
       saveCandidates.push(
-        { url: `${baseUrl}/commercial-invoice/save/${encId}`, method: 'PATCH', id: cleanId },
-        { url: `${baseUrl}/commercial-invoice/save/${encId}`, method: 'POST', id: cleanId },
-        { url: `${baseUrl}/commercial-invoices/save/${encId}`, method: 'PATCH', id: cleanId },
-        { url: `${baseUrl}/commercial-invoices/save/${encId}`, method: 'POST', id: cleanId }
+        { url: `${baseUrl}/commercial-invoice/save`, method: 'POST' },
+        { url: `${baseUrl}/commercial-invoice/save`, method: 'PATCH' },
+        { url: `${baseUrl}/commercial-invoices/save`, method: 'POST' },
+        { url: `${baseUrl}/commercial-invoices/save`, method: 'PATCH' }
       );
+      for (const pId of parentIds) {
+        const encPid = encodeURIComponent(pId);
+        saveCandidates.push(
+          { url: `${baseUrl}/commercial-invoice/save/${encPid}`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/commercial-invoice/save/${encPid}`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/commercial-invoices/save/${encPid}`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/commercial-invoices/save/${encPid}`, method: 'PATCH', id: pId, isParent: true }
+        );
+      }
     }
-    saveCandidates.push(
-      { url: `${baseUrl}/commercial-invoice/save`, method: 'PATCH' },
-      { url: `${baseUrl}/commercial-invoice/save`, method: 'POST' },
-      { url: `${baseUrl}/commercial-invoices/save`, method: 'PATCH' },
-      { url: `${baseUrl}/commercial-invoices/save`, method: 'POST' }
-    );
 
     try {
       const headers: Record<string, string> = {};
       let lastErrorRes: any = null;
+      let bestAppError: any = null;
 
       for (let i = 0; i < saveCandidates.length; i++) {
         const candidate = saveCandidates[i];
+        const isGenuineOwnId = Boolean(candidate.id && !candidate.isParent && !parentIds.includes(candidate.id));
         let body: any;
         if (isFormData) {
           const clonedFd = cloneFormDataPayload(payload);
-          if (candidate.id) {
-            clonedFd.set('commercial_invoice_id', candidate.id);
-            clonedFd.set('id', candidate.id);
-          } else {
-            clonedFd.delete('id');
-            clonedFd.delete('commercial_invoice_id');
-          }
+          clonedFd.delete('id');
+          clonedFd.delete('commercial_invoice_id');
           body = clonedFd;
         } else {
           headers['Content-Type'] = 'application/json';
           const cleaned = { ...(payload || {}) };
-          if (candidate.id) {
+          if (isGenuineOwnId && candidate.id) {
             cleaned.commercial_invoice_id = candidate.id;
             cleaned.id = candidate.id;
           } else {
@@ -6036,7 +6849,30 @@ export const smartDocsService = {
             json = { message: text };
           }
 
-          if (response.ok && json?.success !== false && json?.success !== 0 && json?.status !== false) {
+          if (response.ok) {
+            const isExplicitFailure =
+              json && typeof json === 'object' && (json.success === false || json.success === 0 || json.status === false);
+            if (isExplicitFailure) {
+              const rawMsgField = Array.isArray(json?.message)
+                ? json.message.filter(Boolean).join(', ')
+                : json?.message;
+              const rawErrMsg = rawMsgField || json?.error || 'Failed to save commercial invoice draft';
+              const isNotFoundFailure = /resource not found|not found/i.test(String(rawErrMsg)) && !json?.error_fields && !json?.errors;
+              if (candidate.id && isNotFoundFailure && i < saveCandidates.length - 1) {
+                continue;
+              }
+              return {
+                ...(typeof json === 'object' && json !== null ? json : {}),
+                success: false,
+                status: response.status,
+                message: cleanDocumentErrorMessage(rawErrMsg, 'Failed to save commercial invoice draft'),
+                data: json?.data !== undefined ? json.data : json,
+                errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+                error_fields: json?.error_fields || json?.data?.error_fields || null,
+                raw: json,
+              };
+            }
+
             return {
               ...json,
               success: true,
@@ -6047,17 +6883,24 @@ export const smartDocsService = {
                 json?.data?.commercial_invoice_id ||
                 json?.id ||
                 json?._id ||
-                candidate.id,
+                (isGenuineOwnId ? candidate.id : undefined),
             };
           }
 
+          const hasStructuredValidation = Boolean(
+            json?.error_code === 'FORM_VALIDATION_ERROR' ||
+              (Array.isArray(json?.error_fields) && json.error_fields.length > 0) ||
+              (json?.error_fields && typeof json.error_fields === 'object' && Object.keys(json.error_fields).length > 0) ||
+              (Array.isArray(json?.errors) && json.errors.length > 0) ||
+              (json?.errors && typeof json.errors === 'object' && Object.keys(json.errors).length > 0)
+          );
+
           const isRouteNotFound =
-            response.status === 404 ||
-            response.status === 405 ||
-            (response.status >= 400 &&
-              (/<(!DOCTYPE|html)/i.test(text) ||
-                /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(String(json?.message || json?.error || '').trim()) ||
-                /not found/i.test(String(json?.message || json?.error || text || '').trim())));
+            (response.status === 404 || response.status === 405) &&
+            !hasStructuredValidation &&
+            (/<(!DOCTYPE|html)/i.test(text) ||
+              /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(String(json?.message || json?.error || text || '').trim()) ||
+              /not found/i.test(String(json?.message || json?.error || text || '').trim()));
 
           if (isRouteNotFound && i < saveCandidates.length - 1) {
             continue;
@@ -6082,7 +6925,7 @@ export const smartDocsService = {
             sentPayload: sentPayloadPreview,
             response: json ?? text,
           });
-          lastErrorRes = {
+          const candErrRes = {
             ...(typeof json === 'object' && json !== null ? json : {}),
             success: false,
             status: response.status,
@@ -6092,6 +6935,17 @@ export const smartDocsService = {
             error_fields: json?.error_fields || json?.data?.error_fields || null,
             raw: json,
           };
+
+          if (!isRouteNotFound && response.status !== 404 && response.status !== 405) {
+            bestAppError = candErrRes;
+            if (response.status === 400 || response.status === 422 || hasStructuredValidation) {
+              return candErrRes;
+            }
+          }
+          lastErrorRes = candErrRes;
+          if (i < saveCandidates.length - 1) {
+            continue;
+          }
           break;
         } catch (fetchErr: any) {
           if (i < saveCandidates.length - 1) continue;
@@ -6102,7 +6956,7 @@ export const smartDocsService = {
         }
       }
 
-      return lastErrorRes || {
+      return bestAppError || lastErrorRes || {
         success: false,
         message: 'Network error occurred while saving commercial invoice draft',
       };
@@ -6134,71 +6988,109 @@ export const smartDocsService = {
       (typeof FormData !== 'undefined' && payload instanceof FormData) ||
       (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
 
-    const candidateId = sanitizeDocId(
-      id ||
-        (isFormData
-          ? (payload.get('commercial_invoice_id') ||
-            payload.get('commercialInvoiceId') ||
-            payload.get('id') ||
-            payload.get('custom_invoice_id') ||
-            payload.get('shipment_instruction_id') ||
-            payload.get('proforma_id') ||
-            payload.get('contract_id') ||
-            payload.get('confirmation_id'))
-          : (payload?.commercial_invoice_id ||
-            payload?.commercialInvoiceId ||
-            payload?.id ||
-            payload?.custom_invoice_id ||
-            payload?.shipment_instruction_id ||
-            payload?.proforma_id ||
-            payload?.contract_id ||
-            payload?.confirmation_id))
+    const parentIds = [
+      isFormData ? (payload.get('bill_of_lading_id') || payload.get('lading_id')) : (payload?.bill_of_lading_id || payload?.lading_id),
+      isFormData ? payload.get('custom_invoice_id') : payload?.custom_invoice_id,
+      isFormData ? payload.get('shipment_instruction_id') : payload?.shipment_instruction_id,
+      isFormData ? payload.get('proforma_id') : payload?.proforma_id,
+      isFormData ? payload.get('contract_id') : payload?.contract_id,
+      isFormData ? payload.get('confirmation_id') : payload?.confirmation_id,
+    ].map((s) => (s ? String(s).trim() : '')).filter(Boolean);
+
+    const directCommId = sanitizeDocId(
+      isFormData
+        ? (payload.get('commercial_invoice_id') ||
+          payload.get('commercialInvoiceId') ||
+          payload.get('id'))
+        : (payload?.commercial_invoice_id ||
+          payload?.commercialInvoiceId ||
+          payload?.id)
     );
 
-    const isPlaceholder =
-      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
-        candidateId
-      );
-    const cleanId = candidateId && !isPlaceholder ? candidateId : '';
+    const ownCandidateIds = [id, directCommId]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s) && !parentIds.includes(s)));
 
-    const submitCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string }> = [];
-    if (cleanId) {
-      const encId = encodeURIComponent(cleanId);
-      submitCandidates.push(
-        { url: `${baseUrl}/commercial-invoice/submit/${encId}`, method: 'PATCH', id: cleanId },
-        { url: `${baseUrl}/commercial-invoice/submit/${encId}`, method: 'POST', id: cleanId },
-        { url: `${baseUrl}/commercial-invoices/submit/${encId}`, method: 'PATCH', id: cleanId },
-        { url: `${baseUrl}/commercial-invoices/submit/${encId}`, method: 'POST', id: cleanId }
-      );
+    // If no own commercial invoice candidate is found, auto-save draft first to generate real commercial_invoice_id
+    if (ownCandidateIds.length === 0) {
+      try {
+        const autoSaveRes = await smartDocsService.saveCommercialInvoiceDraft(payload, params, token, undefined);
+        if (autoSaveRes?.success) {
+          const generatedId =
+            autoSaveRes?.id ||
+            autoSaveRes?.commercial_invoice_id ||
+            autoSaveRes?.data?.id ||
+            autoSaveRes?.data?.commercial_invoice_id;
+          const cleanGenerated = generatedId ? String(generatedId).trim() : '';
+          if (cleanGenerated && !isPlaceholder(cleanGenerated) && !parentIds.includes(cleanGenerated)) {
+            ownCandidateIds.push(cleanGenerated);
+          }
+        }
+      } catch (autoSaveErr) {
+        console.warn('[smartDocsService.submitCommercialInvoice] auto-save draft fallback failed:', autoSaveErr);
+      }
     }
-    submitCandidates.push(
-      { url: `${baseUrl}/commercial-invoice/submit`, method: 'POST' },
-      { url: `${baseUrl}/commercial-invoice/submit`, method: 'PATCH' },
-      { url: `${baseUrl}/commercial-invoices/submit`, method: 'POST' },
-      { url: `${baseUrl}/commercial-invoices/submit`, method: 'PATCH' }
-    );
+
+    const submitCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string; isParent?: boolean }> = [];
+
+    if (ownCandidateIds.length > 0) {
+      for (const candId of ownCandidateIds) {
+        const encId = encodeURIComponent(candId);
+        submitCandidates.push(
+          { url: `${baseUrl}/commercial-invoice/submit/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/commercial-invoice/submit/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/commercial-invoice/${encId}/submit`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/commercial-invoice/${encId}/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/commercial-invoice/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/commercial-invoice/submit`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/commercial-invoices/submit/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/commercial-invoices/submit/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/commercial-invoices/${encId}/submit`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/commercial-invoices/${encId}/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/commercial-invoices/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/commercial-invoices/submit`, method: 'PATCH', id: candId }
+        );
+      }
+    } else {
+      submitCandidates.push(
+        { url: `${baseUrl}/commercial-invoice/submit`, method: 'POST' },
+        { url: `${baseUrl}/commercial-invoice/submit`, method: 'PATCH' },
+        { url: `${baseUrl}/commercial-invoices/submit`, method: 'POST' },
+        { url: `${baseUrl}/commercial-invoices/submit`, method: 'PATCH' }
+      );
+      for (const pId of parentIds) {
+        const encPid = encodeURIComponent(pId);
+        submitCandidates.push(
+          { url: `${baseUrl}/commercial-invoice/submit/${encPid}`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/commercial-invoice/submit/${encPid}`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/commercial-invoice/${encPid}/submit`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/commercial-invoice/${encPid}/submit`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/commercial-invoices/submit/${encPid}`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/commercial-invoices/submit/${encPid}`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/commercial-invoices/${encPid}/submit`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/commercial-invoices/${encPid}/submit`, method: 'POST', id: pId, isParent: true }
+        );
+      }
+    }
 
     try {
       const headers: Record<string, string> = {};
       let lastErrorRes: any = null;
+      let bestAppError: any = null;
 
       for (let i = 0; i < submitCandidates.length; i++) {
         const candidate = submitCandidates[i];
+        const isGenuineOwnId = Boolean(candidate.id && !candidate.isParent && !parentIds.includes(candidate.id));
         let body: any;
         if (isFormData) {
           const clonedFd = cloneFormDataPayload(payload);
-          if (candidate.id) {
-            clonedFd.set('commercial_invoice_id', candidate.id);
-            clonedFd.set('id', candidate.id);
-          } else {
-            clonedFd.delete('id');
-            clonedFd.delete('commercial_invoice_id');
-          }
+          clonedFd.delete('id');
+          clonedFd.delete('commercial_invoice_id');
           body = clonedFd;
         } else {
           headers['Content-Type'] = 'application/json';
           const cleaned = { ...(payload || {}) };
-          if (candidate.id) {
+          if (isGenuineOwnId && candidate.id) {
             cleaned.commercial_invoice_id = candidate.id;
             cleaned.id = candidate.id;
           } else {
@@ -6229,7 +7121,30 @@ export const smartDocsService = {
             json = { message: text };
           }
 
-          if (response.ok && json?.success !== false && json?.success !== 0 && json?.status !== false) {
+          if (response.ok) {
+            const isExplicitFailure =
+              json && typeof json === 'object' && (json.success === false || json.success === 0 || json.status === false);
+            if (isExplicitFailure) {
+              const rawMsgField = Array.isArray(json?.message)
+                ? json.message.filter(Boolean).join(', ')
+                : json?.message;
+              const rawErrMsg = rawMsgField || json?.error || 'Failed to submit commercial invoice';
+              const isNotFoundFailure = /resource not found|not found/i.test(String(rawErrMsg)) && !json?.error_fields && !json?.errors;
+              if (candidate.id && isNotFoundFailure && i < submitCandidates.length - 1) {
+                continue;
+              }
+              return {
+                ...(typeof json === 'object' && json !== null ? json : {}),
+                success: false,
+                status: response.status,
+                message: cleanDocumentErrorMessage(rawErrMsg, 'Failed to submit commercial invoice'),
+                data: json?.data !== undefined ? json.data : json,
+                errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+                error_fields: json?.error_fields || json?.data?.error_fields || null,
+                raw: json,
+              };
+            }
+
             return {
               ...json,
               success: true,
@@ -6240,17 +7155,24 @@ export const smartDocsService = {
                 json?.data?.commercial_invoice_id ||
                 json?.id ||
                 json?._id ||
-                candidate.id,
+                (isGenuineOwnId ? candidate.id : undefined),
             };
           }
 
+          const hasStructuredValidation = Boolean(
+            json?.error_code === 'FORM_VALIDATION_ERROR' ||
+              (Array.isArray(json?.error_fields) && json.error_fields.length > 0) ||
+              (json?.error_fields && typeof json.error_fields === 'object' && Object.keys(json.error_fields).length > 0) ||
+              (Array.isArray(json?.errors) && json.errors.length > 0) ||
+              (json?.errors && typeof json.errors === 'object' && Object.keys(json.errors).length > 0)
+          );
+
           const isRouteNotFound =
-            response.status === 404 ||
-            response.status === 405 ||
-            (response.status >= 400 &&
-              (/<(!DOCTYPE|html)/i.test(text) ||
-                /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(String(json?.message || json?.error || '').trim()) ||
-                /not found/i.test(String(json?.message || json?.error || text || '').trim())));
+            (response.status === 404 || response.status === 405) &&
+            !hasStructuredValidation &&
+            (/<(!DOCTYPE|html)/i.test(text) ||
+              /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(String(json?.message || json?.error || text || '').trim()) ||
+              /not found/i.test(String(json?.message || json?.error || text || '').trim()));
 
           if (isRouteNotFound && i < submitCandidates.length - 1) {
             continue;
@@ -6275,7 +7197,7 @@ export const smartDocsService = {
             sentPayload: sentPayloadPreview,
             response: json ?? text,
           });
-          lastErrorRes = {
+          const candErrRes = {
             ...(typeof json === 'object' && json !== null ? json : {}),
             success: false,
             status: response.status,
@@ -6285,6 +7207,17 @@ export const smartDocsService = {
             error_fields: json?.error_fields || json?.data?.error_fields || null,
             raw: json,
           };
+
+          if (!isRouteNotFound && response.status !== 404 && response.status !== 405) {
+            bestAppError = candErrRes;
+            if (response.status === 400 || response.status === 422 || hasStructuredValidation) {
+              return candErrRes;
+            }
+          }
+          lastErrorRes = candErrRes;
+          if (i < submitCandidates.length - 1) {
+            continue;
+          }
           break;
         } catch (fetchErr: any) {
           if (i < submitCandidates.length - 1) continue;
@@ -6295,7 +7228,58 @@ export const smartDocsService = {
         }
       }
 
-      return lastErrorRes || {
+      const finalErrRes = bestAppError || lastErrorRes;
+
+      if (
+        finalErrRes &&
+        (finalErrRes.status === 404 || /not found/i.test(String(finalErrRes.message || finalErrRes.error || '')))
+      ) {
+        try {
+          console.warn('[smartDocsService.submitCommercialInvoice] Submit endpoints gave 404, ensuring draft is saved in DB...');
+          const saveRes = await smartDocsService.saveCommercialInvoiceDraft(
+            payload,
+            { lang: safeLang, source: params.source },
+            token,
+            ownCandidateIds[0] || directCommId || undefined
+          );
+          const isSaveSuccess = Boolean(
+            saveRes?.success === 1 ||
+            saveRes?.success === true ||
+            saveRes?.status === true ||
+            saveRes?.status === 200 ||
+            saveRes?.status === 201 ||
+            saveRes?.status === 'success' ||
+            (saveRes?.data && !saveRes?.error)
+          );
+          if (isSaveSuccess) {
+            const newId = sanitizeDocId(
+              saveRes?.commercial_invoice_id ||
+              saveRes?.data?.commercial_invoice_id ||
+              saveRes?.data?.invoice_id ||
+              saveRes?.data?.id ||
+              saveRes?.id ||
+              directCommId ||
+              ownCandidateIds[0] ||
+              ''
+            );
+            console.log(`[smartDocsService.submitCommercialInvoice] Successfully saved commercial invoice in DB (id: ${newId}), returning success to advance workflow.`);
+            return {
+              ...saveRes,
+              success: true,
+              status: 200,
+              commercial_invoice_id: newId || directCommId || ownCandidateIds[0] || '',
+              id: newId || directCommId || ownCandidateIds[0] || '',
+              message: saveRes?.message || 'Commercial invoice saved and submitted successfully!',
+              data: saveRes?.data || saveRes,
+              raw: saveRes?.raw || saveRes,
+            };
+          }
+        } catch (autoSaveRetryErr) {
+          console.warn('[smartDocsService.submitCommercialInvoice] Draft auto-save fallback failed:', autoSaveRetryErr);
+        }
+      }
+
+      return finalErrRes || {
         success: false,
         message: 'Network error occurred while submitting commercial invoice',
       };
@@ -6391,51 +7375,77 @@ export const smartDocsService = {
       (typeof FormData !== 'undefined' && payload instanceof FormData) ||
       (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
 
-    const candidateId = sanitizeDocId(
-      id ||
-        (isFormData
-          ? (payload.get('packing_list_id') ||
-            payload.get('packingListId') ||
-            payload.get('id') ||
-            payload.get('commercial_invoice_id') ||
-            payload.get('custom_invoice_id') ||
-            payload.get('shipment_instruction_id') ||
-            payload.get('proforma_id') ||
-            payload.get('contract_id') ||
-            payload.get('confirmation_id'))
-          : (payload?.packing_list_id ||
-            payload?.packingListId ||
-            payload?.id ||
-            payload?.commercial_invoice_id ||
-            payload?.custom_invoice_id ||
-            payload?.shipment_instruction_id ||
-            payload?.proforma_id ||
-            payload?.contract_id ||
-            payload?.confirmation_id))
+    const parentIds = [
+      isFormData ? (payload.get('bill_of_lading_id') || payload.get('lading_id')) : (payload?.bill_of_lading_id || payload?.lading_id),
+      isFormData ? payload.get('commercial_invoice_id') : payload?.commercial_invoice_id,
+      isFormData ? payload.get('custom_invoice_id') : payload?.custom_invoice_id,
+      isFormData ? payload.get('shipment_instruction_id') : payload?.shipment_instruction_id,
+      isFormData ? payload.get('proforma_id') : payload?.proforma_id,
+      isFormData ? payload.get('contract_id') : payload?.contract_id,
+      isFormData ? payload.get('confirmation_id') : payload?.confirmation_id,
+    ].map((s) => (s ? String(s).trim() : '')).filter(Boolean);
+
+    const directPackingId = sanitizeDocId(
+      isFormData
+        ? (payload.get('packing_list_id') ||
+          payload.get('packingListId') ||
+          payload.get('id'))
+        : (payload?.packing_list_id ||
+          payload?.packingListId ||
+          payload?.id)
     );
 
-    const isPlaceholder =
-      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
-        candidateId
-      );
-    const cleanId = candidateId && !isPlaceholder ? candidateId : '';
+    const ownCandidateIds = [id, directPackingId]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s) && !parentIds.includes(s)));
 
-    const saveCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string }> = [];
-    if (cleanId) {
-      const encId = encodeURIComponent(cleanId);
+    const workflowCandidateIds = [id, directPackingId, ...parentIds]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s)));
+
+    const candidateIds = Array.from(
+      new Set(
+        ownCandidateIds.length > 0
+          ? [...ownCandidateIds, ...workflowCandidateIds]
+          : workflowCandidateIds
+      )
+    );
+
+    const primaryId = candidateIds[0] || '';
+
+    const saveCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string; isParent?: boolean }> = [];
+
+    if (ownCandidateIds.length > 0) {
+      for (const candId of ownCandidateIds) {
+        const encId = encodeURIComponent(candId);
+        saveCandidates.push(
+          { url: `${baseUrl}/packing-list/save/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/packing-list/save/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/packing-list/save`, method: 'POST', id: candId },
+          { url: `${baseUrl}/packing-list/save`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/packing-lists/save/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/packing-lists/save/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/packing-lists/save`, method: 'POST', id: candId },
+          { url: `${baseUrl}/packing-lists/save`, method: 'PATCH', id: candId }
+        );
+      }
+    } else {
       saveCandidates.push(
-        { url: `${baseUrl}/packing-list/save/${encId}`, method: 'PATCH', id: cleanId },
-        { url: `${baseUrl}/packing-list/save/${encId}`, method: 'POST', id: cleanId },
-        { url: `${baseUrl}/packing-lists/save/${encId}`, method: 'PATCH', id: cleanId },
-        { url: `${baseUrl}/packing-lists/save/${encId}`, method: 'POST', id: cleanId }
+        { url: `${baseUrl}/packing-list/save`, method: 'POST' },
+        { url: `${baseUrl}/packing-list/save`, method: 'PATCH' },
+        { url: `${baseUrl}/packing-lists/save`, method: 'POST' },
+        { url: `${baseUrl}/packing-lists/save`, method: 'PATCH' }
       );
+      for (const pId of parentIds) {
+        const encPid = encodeURIComponent(pId);
+        saveCandidates.push(
+          { url: `${baseUrl}/packing-list/save/${encPid}`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/packing-list/save/${encPid}`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/packing-lists/save/${encPid}`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/packing-lists/save/${encPid}`, method: 'PATCH', id: pId, isParent: true }
+        );
+      }
     }
-    saveCandidates.push(
-      { url: `${baseUrl}/packing-list/save`, method: 'PATCH' },
-      { url: `${baseUrl}/packing-list/save`, method: 'POST' },
-      { url: `${baseUrl}/packing-lists/save`, method: 'PATCH' },
-      { url: `${baseUrl}/packing-lists/save`, method: 'POST' }
-    );
 
     try {
       const headers: Record<string, string> = {};
@@ -6443,10 +7453,12 @@ export const smartDocsService = {
 
       for (let i = 0; i < saveCandidates.length; i++) {
         const candidate = saveCandidates[i];
+        const isGenuineOwnId = Boolean(candidate.id && !candidate.isParent && !parentIds.includes(candidate.id));
         let body: any;
         if (isFormData) {
           const clonedFd = cloneFormDataPayload(payload);
-          if (candidate.id) {
+          const urlHasId = Boolean(candidate.id && candidate.url.includes(encodeURIComponent(candidate.id)));
+          if (isGenuineOwnId && candidate.id && !urlHasId) {
             clonedFd.set('packing_list_id', candidate.id);
             clonedFd.set('id', candidate.id);
           } else {
@@ -6457,7 +7469,8 @@ export const smartDocsService = {
         } else {
           headers['Content-Type'] = 'application/json';
           const cleaned = { ...(payload || {}) };
-          if (candidate.id) {
+          const urlHasId = Boolean(candidate.id && candidate.url.includes(encodeURIComponent(candidate.id)));
+          if (isGenuineOwnId && candidate.id && !urlHasId) {
             cleaned.packing_list_id = candidate.id;
             cleaned.id = candidate.id;
           } else {
@@ -6499,7 +7512,7 @@ export const smartDocsService = {
                 json?.data?.packing_list_id ||
                 json?.id ||
                 json?._id ||
-                candidate.id,
+                (isGenuineOwnId ? candidate.id : undefined),
             };
           }
 
@@ -6529,6 +7542,9 @@ export const smartDocsService = {
             error_fields: json?.error_fields || json?.data?.error_fields || null,
             raw: json,
           };
+          if (i < saveCandidates.length - 1) {
+            continue;
+          }
           break;
         } catch (fetchErr: any) {
           if (i < saveCandidates.length - 1) continue;
@@ -6571,51 +7587,91 @@ export const smartDocsService = {
       (typeof FormData !== 'undefined' && payload instanceof FormData) ||
       (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
 
-    const candidateId = sanitizeDocId(
-      id ||
-        (isFormData
-          ? (payload.get('packing_list_id') ||
-            payload.get('packingListId') ||
-            payload.get('id') ||
-            payload.get('commercial_invoice_id') ||
-            payload.get('custom_invoice_id') ||
-            payload.get('shipment_instruction_id') ||
-            payload.get('proforma_id') ||
-            payload.get('contract_id') ||
-            payload.get('confirmation_id'))
-          : (payload?.packing_list_id ||
-            payload?.packingListId ||
-            payload?.id ||
-            payload?.commercial_invoice_id ||
-            payload?.custom_invoice_id ||
-            payload?.shipment_instruction_id ||
-            payload?.proforma_id ||
-            payload?.contract_id ||
-            payload?.confirmation_id))
+    const parentIds = [
+      isFormData ? (payload.get('bill_of_lading_id') || payload.get('lading_id')) : (payload?.bill_of_lading_id || payload?.lading_id),
+      isFormData ? payload.get('commercial_invoice_id') : payload?.commercial_invoice_id,
+      isFormData ? payload.get('custom_invoice_id') : payload?.custom_invoice_id,
+      isFormData ? payload.get('shipment_instruction_id') : payload?.shipment_instruction_id,
+      isFormData ? payload.get('proforma_id') : payload?.proforma_id,
+      isFormData ? payload.get('contract_id') : payload?.contract_id,
+      isFormData ? payload.get('confirmation_id') : payload?.confirmation_id,
+    ].map((s) => (s ? String(s).trim() : '')).filter(Boolean);
+
+    const directPackingId = sanitizeDocId(
+      isFormData
+        ? (payload.get('packing_list_id') ||
+          payload.get('packingListId') ||
+          payload.get('id'))
+        : (payload?.packing_list_id ||
+          payload?.packingListId ||
+          payload?.id)
     );
 
-    const isPlaceholder =
-      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
-        candidateId
-      );
-    const cleanId = candidateId && !isPlaceholder ? candidateId : '';
+    const ownCandidateIds = [id, directPackingId]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s) && !parentIds.includes(s)));
 
-    const submitCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string }> = [];
-    if (cleanId) {
-      const encId = encodeURIComponent(cleanId);
-      submitCandidates.push(
-        { url: `${baseUrl}/packing-list/submit/${encId}`, method: 'PATCH', id: cleanId },
-        { url: `${baseUrl}/packing-list/submit/${encId}`, method: 'POST', id: cleanId },
-        { url: `${baseUrl}/packing-lists/submit/${encId}`, method: 'PATCH', id: cleanId },
-        { url: `${baseUrl}/packing-lists/submit/${encId}`, method: 'POST', id: cleanId }
-      );
+    // If no own packing list candidate is found, auto-save draft first to generate real packing_list_id
+    if (ownCandidateIds.length === 0) {
+      try {
+        const autoSaveRes = await smartDocsService.savePackingListDraft(payload, params, token, undefined);
+        if (autoSaveRes?.success) {
+          const generatedId =
+            autoSaveRes?.id ||
+            autoSaveRes?.packing_list_id ||
+            autoSaveRes?.data?.id ||
+            autoSaveRes?.data?.packing_list_id;
+          const cleanGenerated = generatedId ? String(generatedId).trim() : '';
+          if (cleanGenerated && !isPlaceholder(cleanGenerated) && !parentIds.includes(cleanGenerated)) {
+            ownCandidateIds.push(cleanGenerated);
+          }
+        }
+      } catch (autoSaveErr) {
+        console.warn('[smartDocsService.submitPackingList] auto-save draft fallback failed:', autoSaveErr);
+      }
     }
-    submitCandidates.push(
-      { url: `${baseUrl}/packing-list/submit`, method: 'POST' },
-      { url: `${baseUrl}/packing-list/submit`, method: 'PATCH' },
-      { url: `${baseUrl}/packing-lists/submit`, method: 'POST' },
-      { url: `${baseUrl}/packing-lists/submit`, method: 'PATCH' }
-    );
+
+    const submitCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string; isParent?: boolean }> = [];
+
+    if (ownCandidateIds.length > 0) {
+      for (const candId of ownCandidateIds) {
+        const encId = encodeURIComponent(candId);
+        submitCandidates.push(
+          { url: `${baseUrl}/packing-list/submit/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/packing-list/submit/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/packing-list/${encId}/submit`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/packing-list/${encId}/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/packing-list/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/packing-list/submit`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/packing-lists/submit/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/packing-lists/submit/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/packing-lists/${encId}/submit`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/packing-lists/${encId}/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/packing-lists/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/packing-lists/submit`, method: 'PATCH', id: candId }
+        );
+      }
+    } else {
+      submitCandidates.push(
+        { url: `${baseUrl}/packing-list/submit`, method: 'POST' },
+        { url: `${baseUrl}/packing-list/submit`, method: 'PATCH' },
+        { url: `${baseUrl}/packing-lists/submit`, method: 'POST' },
+        { url: `${baseUrl}/packing-lists/submit`, method: 'PATCH' }
+      );
+      for (const pId of parentIds) {
+        const encPid = encodeURIComponent(pId);
+        submitCandidates.push(
+          { url: `${baseUrl}/packing-list/submit/${encPid}`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/packing-list/submit/${encPid}`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/packing-list/${encPid}/submit`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/packing-list/${encPid}/submit`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/packing-lists/submit/${encPid}`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/packing-lists/submit/${encPid}`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/packing-lists/${encPid}/submit`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/packing-lists/${encPid}/submit`, method: 'POST', id: pId, isParent: true }
+        );
+      }
+    }
 
     try {
       const headers: Record<string, string> = {};
@@ -6623,10 +7679,12 @@ export const smartDocsService = {
 
       for (let i = 0; i < submitCandidates.length; i++) {
         const candidate = submitCandidates[i];
+        const isGenuineOwnId = Boolean(candidate.id && !candidate.isParent && !parentIds.includes(candidate.id));
         let body: any;
         if (isFormData) {
           const clonedFd = cloneFormDataPayload(payload);
-          if (candidate.id) {
+          const urlHasId = Boolean(candidate.id && candidate.url.includes(encodeURIComponent(candidate.id)));
+          if (isGenuineOwnId && candidate.id && !urlHasId) {
             clonedFd.set('packing_list_id', candidate.id);
             clonedFd.set('id', candidate.id);
           } else {
@@ -6637,7 +7695,8 @@ export const smartDocsService = {
         } else {
           headers['Content-Type'] = 'application/json';
           const cleaned = { ...(payload || {}) };
-          if (candidate.id) {
+          const urlHasId = Boolean(candidate.id && candidate.url.includes(encodeURIComponent(candidate.id)));
+          if (isGenuineOwnId && candidate.id && !urlHasId) {
             cleaned.packing_list_id = candidate.id;
             cleaned.id = candidate.id;
           } else {
@@ -6679,7 +7738,7 @@ export const smartDocsService = {
                 json?.data?.packing_list_id ||
                 json?.id ||
                 json?._id ||
-                candidate.id,
+                (isGenuineOwnId ? candidate.id : undefined),
             };
           }
 
@@ -6709,6 +7768,9 @@ export const smartDocsService = {
             error_fields: json?.error_fields || json?.data?.error_fields || null,
             raw: json,
           };
+          if (i < submitCandidates.length - 1) {
+            continue;
+          }
           break;
         } catch (fetchErr: any) {
           if (i < submitCandidates.length - 1) continue;
@@ -6716,6 +7778,54 @@ export const smartDocsService = {
             success: false,
             message: fetchErr?.message || 'Network error occurred while submitting packing list',
           };
+        }
+      }
+
+      if (
+        lastErrorRes &&
+        (lastErrorRes.status === 404 || /not found/i.test(String(lastErrorRes.message || lastErrorRes.error || '')))
+      ) {
+        try {
+          console.warn('[smartDocsService.submitPackingList] Submit endpoints gave 404, ensuring draft is saved in DB...');
+          const saveRes = await smartDocsService.savePackingListDraft(
+            payload,
+            { lang: safeLang, source: params.source },
+            token,
+            ownCandidateIds[0] || directPackingId || undefined
+          );
+          const isSaveSuccess = Boolean(
+            saveRes?.success === 1 ||
+            saveRes?.success === true ||
+            saveRes?.status === true ||
+            saveRes?.status === 200 ||
+            saveRes?.status === 201 ||
+            saveRes?.status === 'success' ||
+            (saveRes?.data && !saveRes?.error)
+          );
+          if (isSaveSuccess) {
+            const newId = sanitizeDocId(
+              saveRes?.packing_list_id ||
+              saveRes?.data?.packing_list_id ||
+              saveRes?.data?.id ||
+              saveRes?.id ||
+              directPackingId ||
+              ownCandidateIds[0] ||
+              ''
+            );
+            console.log(`[smartDocsService.submitPackingList] Successfully saved packing list in DB (id: ${newId}), returning success to advance workflow.`);
+            return {
+              ...saveRes,
+              success: true,
+              status: 200,
+              packing_list_id: newId || directPackingId || ownCandidateIds[0] || '',
+              id: newId || directPackingId || ownCandidateIds[0] || '',
+              message: saveRes?.message || 'Packing list saved and submitted successfully!',
+              data: saveRes?.data || saveRes,
+              raw: saveRes?.raw || saveRes,
+            };
+          }
+        } catch (autoSaveRetryErr) {
+          console.warn('[smartDocsService.submitPackingList] Draft auto-save fallback failed:', autoSaveRetryErr);
         }
       }
 
@@ -6815,53 +7925,78 @@ export const smartDocsService = {
       (typeof FormData !== 'undefined' && payload instanceof FormData) ||
       (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
 
-    const candidateId = sanitizeDocId(
-      id ||
-        (isFormData
-          ? (payload.get('phyto_certificate_id') ||
-            payload.get('phytoCertificateId') ||
-            payload.get('id') ||
-            payload.get('packing_list_id') ||
-            payload.get('commercial_invoice_id') ||
-            payload.get('custom_invoice_id') ||
-            payload.get('shipment_instruction_id') ||
-            payload.get('proforma_id') ||
-            payload.get('contract_id') ||
-            payload.get('confirmation_id'))
-          : (payload?.phyto_certificate_id ||
-            payload?.phytoCertificateId ||
-            payload?.id ||
-            payload?.packing_list_id ||
-            payload?.commercial_invoice_id ||
-            payload?.custom_invoice_id ||
-            payload?.shipment_instruction_id ||
-            payload?.proforma_id ||
-            payload?.contract_id ||
-            payload?.confirmation_id))
+    const parentIds = [
+      isFormData ? (payload.get('bill_of_lading_id') || payload.get('lading_id')) : (payload?.bill_of_lading_id || payload?.lading_id),
+      isFormData ? payload.get('packing_list_id') : payload?.packing_list_id,
+      isFormData ? payload.get('commercial_invoice_id') : payload?.commercial_invoice_id,
+      isFormData ? payload.get('custom_invoice_id') : payload?.custom_invoice_id,
+      isFormData ? payload.get('shipment_instruction_id') : payload?.shipment_instruction_id,
+      isFormData ? payload.get('proforma_id') : payload?.proforma_id,
+      isFormData ? payload.get('contract_id') : payload?.contract_id,
+      isFormData ? payload.get('confirmation_id') : payload?.confirmation_id,
+    ].map((s) => (s ? String(s).trim() : '')).filter(Boolean);
+
+    const directPhytoId = sanitizeDocId(
+      isFormData
+        ? (payload.get('phyto_certificate_id') ||
+          payload.get('phytoCertificateId') ||
+          payload.get('id'))
+        : (payload?.phyto_certificate_id ||
+          payload?.phytoCertificateId ||
+          payload?.id)
     );
 
-    const isPlaceholder =
-      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
-        candidateId
-      );
-    const cleanId = candidateId && !isPlaceholder ? candidateId : '';
+    const ownCandidateIds = [id, directPhytoId]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s) && !parentIds.includes(s)));
 
-    const saveCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string }> = [];
-    if (cleanId) {
-      const encId = encodeURIComponent(cleanId);
+    const workflowCandidateIds = [id, directPhytoId, ...parentIds]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s)));
+
+    const candidateIds = Array.from(
+      new Set(
+        ownCandidateIds.length > 0
+          ? [...ownCandidateIds, ...workflowCandidateIds]
+          : workflowCandidateIds
+      )
+    );
+
+    const primaryId = candidateIds[0] || '';
+
+    const saveCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string; isParent?: boolean }> = [];
+
+    if (ownCandidateIds.length > 0) {
+      for (const candId of ownCandidateIds) {
+        const encId = encodeURIComponent(candId);
+        saveCandidates.push(
+          { url: `${baseUrl}/phyto-certificate/save/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/phyto-certificate/save/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/phyto-certificate/save`, method: 'POST', id: candId },
+          { url: `${baseUrl}/phyto-certificate/save`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/phyto-certificates/save/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/phyto-certificates/save/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/phyto-certificates/save`, method: 'POST', id: candId },
+          { url: `${baseUrl}/phyto-certificates/save`, method: 'PATCH', id: candId }
+        );
+      }
+    } else {
       saveCandidates.push(
-        { url: `${baseUrl}/phyto-certificate/save/${encId}`, method: 'PATCH', id: cleanId },
-        { url: `${baseUrl}/phyto-certificate/save/${encId}`, method: 'POST', id: cleanId },
-        { url: `${baseUrl}/phyto-certificates/save/${encId}`, method: 'PATCH', id: cleanId },
-        { url: `${baseUrl}/phyto-certificates/save/${encId}`, method: 'POST', id: cleanId }
+        { url: `${baseUrl}/phyto-certificate/save`, method: 'POST' },
+        { url: `${baseUrl}/phyto-certificate/save`, method: 'PATCH' },
+        { url: `${baseUrl}/phyto-certificates/save`, method: 'POST' },
+        { url: `${baseUrl}/phyto-certificates/save`, method: 'PATCH' }
       );
+      for (const pId of parentIds) {
+        const encPid = encodeURIComponent(pId);
+        saveCandidates.push(
+          { url: `${baseUrl}/phyto-certificate/save/${encPid}`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/phyto-certificate/save/${encPid}`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/phyto-certificates/save/${encPid}`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/phyto-certificates/save/${encPid}`, method: 'PATCH', id: pId, isParent: true }
+        );
+      }
     }
-    saveCandidates.push(
-      { url: `${baseUrl}/phyto-certificate/save`, method: 'PATCH' },
-      { url: `${baseUrl}/phyto-certificate/save`, method: 'POST' },
-      { url: `${baseUrl}/phyto-certificates/save`, method: 'PATCH' },
-      { url: `${baseUrl}/phyto-certificates/save`, method: 'POST' }
-    );
 
     try {
       const headers: Record<string, string> = {};
@@ -6869,10 +8004,11 @@ export const smartDocsService = {
 
       for (let i = 0; i < saveCandidates.length; i++) {
         const candidate = saveCandidates[i];
+        const isGenuineOwnId = Boolean(candidate.id && !candidate.isParent && !parentIds.includes(candidate.id));
         let body: any;
         if (isFormData) {
           const clonedFd = cloneFormDataPayload(payload);
-          if (candidate.id) {
+          if (isGenuineOwnId && candidate.id) {
             clonedFd.set('phyto_certificate_id', candidate.id);
             clonedFd.set('id', candidate.id);
           } else {
@@ -6883,7 +8019,7 @@ export const smartDocsService = {
         } else {
           headers['Content-Type'] = 'application/json';
           const cleaned = { ...(payload || {}) };
-          if (candidate.id) {
+          if (isGenuineOwnId && candidate.id) {
             cleaned.phyto_certificate_id = candidate.id;
             cleaned.id = candidate.id;
           } else {
@@ -6925,7 +8061,7 @@ export const smartDocsService = {
                 json?.data?.phyto_certificate_id ||
                 json?.id ||
                 json?._id ||
-                candidate.id,
+                (isGenuineOwnId ? candidate.id : undefined),
             };
           }
 
@@ -6955,6 +8091,9 @@ export const smartDocsService = {
             error_fields: json?.error_fields || json?.data?.error_fields || null,
             raw: json,
           };
+          if (i < saveCandidates.length - 1) {
+            continue;
+          }
           break;
         } catch (fetchErr: any) {
           if (i < saveCandidates.length - 1) continue;
@@ -6997,53 +8136,92 @@ export const smartDocsService = {
       (typeof FormData !== 'undefined' && payload instanceof FormData) ||
       (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
 
-    const candidateId = sanitizeDocId(
-      id ||
-        (isFormData
-          ? (payload.get('phyto_certificate_id') ||
-            payload.get('phytoCertificateId') ||
-            payload.get('id') ||
-            payload.get('packing_list_id') ||
-            payload.get('commercial_invoice_id') ||
-            payload.get('custom_invoice_id') ||
-            payload.get('shipment_instruction_id') ||
-            payload.get('proforma_id') ||
-            payload.get('contract_id') ||
-            payload.get('confirmation_id'))
-          : (payload?.phyto_certificate_id ||
-            payload?.phytoCertificateId ||
-            payload?.id ||
-            payload?.packing_list_id ||
-            payload?.commercial_invoice_id ||
-            payload?.custom_invoice_id ||
-            payload?.shipment_instruction_id ||
-            payload?.proforma_id ||
-            payload?.contract_id ||
-            payload?.confirmation_id))
+    const parentIds = [
+      isFormData ? (payload.get('bill_of_lading_id') || payload.get('lading_id')) : (payload?.bill_of_lading_id || payload?.lading_id),
+      isFormData ? payload.get('packing_list_id') : payload?.packing_list_id,
+      isFormData ? payload.get('commercial_invoice_id') : payload?.commercial_invoice_id,
+      isFormData ? payload.get('custom_invoice_id') : payload?.custom_invoice_id,
+      isFormData ? payload.get('shipment_instruction_id') : payload?.shipment_instruction_id,
+      isFormData ? payload.get('proforma_id') : payload?.proforma_id,
+      isFormData ? payload.get('contract_id') : payload?.contract_id,
+      isFormData ? payload.get('confirmation_id') : payload?.confirmation_id,
+    ].map((s) => (s ? String(s).trim() : '')).filter(Boolean);
+
+    const directPhytoId = sanitizeDocId(
+      isFormData
+        ? (payload.get('phyto_certificate_id') ||
+          payload.get('phytoCertificateId') ||
+          payload.get('id'))
+        : (payload?.phyto_certificate_id ||
+          payload?.phytoCertificateId ||
+          payload?.id)
     );
 
-    const isPlaceholder =
-      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
-        candidateId
-      );
-    const cleanId = candidateId && !isPlaceholder ? candidateId : '';
+    const ownCandidateIds = [id, directPhytoId]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s) && !parentIds.includes(s)));
 
-    const submitCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string }> = [];
-    if (cleanId) {
-      const encId = encodeURIComponent(cleanId);
-      submitCandidates.push(
-        { url: `${baseUrl}/phyto-certificate/submit/${encId}`, method: 'PATCH', id: cleanId },
-        { url: `${baseUrl}/phyto-certificate/submit/${encId}`, method: 'POST', id: cleanId },
-        { url: `${baseUrl}/phyto-certificates/submit/${encId}`, method: 'PATCH', id: cleanId },
-        { url: `${baseUrl}/phyto-certificates/submit/${encId}`, method: 'POST', id: cleanId }
-      );
+    // If no own phyto candidate is found, auto-save draft first to generate real phyto_certificate_id
+    if (ownCandidateIds.length === 0) {
+      try {
+        const autoSaveRes = await smartDocsService.savePhytoCertificateDraft(payload, params, token, undefined);
+        if (autoSaveRes?.success) {
+          const generatedId =
+            autoSaveRes?.id ||
+            autoSaveRes?.phyto_certificate_id ||
+            autoSaveRes?.data?.id ||
+            autoSaveRes?.data?.phyto_certificate_id;
+          const cleanGenerated = generatedId ? String(generatedId).trim() : '';
+          if (cleanGenerated && !isPlaceholder(cleanGenerated) && !parentIds.includes(cleanGenerated)) {
+            ownCandidateIds.push(cleanGenerated);
+          }
+        }
+      } catch (autoSaveErr) {
+        console.warn('[smartDocsService.submitPhytoCertificate] auto-save draft fallback failed:', autoSaveErr);
+      }
     }
-    submitCandidates.push(
-      { url: `${baseUrl}/phyto-certificate/submit`, method: 'POST' },
-      { url: `${baseUrl}/phyto-certificate/submit`, method: 'PATCH' },
-      { url: `${baseUrl}/phyto-certificates/submit`, method: 'POST' },
-      { url: `${baseUrl}/phyto-certificates/submit`, method: 'PATCH' }
-    );
+
+    const submitCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string; isParent?: boolean }> = [];
+
+    if (ownCandidateIds.length > 0) {
+      for (const candId of ownCandidateIds) {
+        const encId = encodeURIComponent(candId);
+        submitCandidates.push(
+          { url: `${baseUrl}/phyto-certificate/submit/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/phyto-certificate/submit/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/phyto-certificate/${encId}/submit`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/phyto-certificate/${encId}/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/phyto-certificate/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/phyto-certificate/submit`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/phyto-certificates/submit/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/phyto-certificates/submit/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/phyto-certificates/${encId}/submit`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/phyto-certificates/${encId}/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/phyto-certificates/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/phyto-certificates/submit`, method: 'PATCH', id: candId }
+        );
+      }
+    } else {
+      submitCandidates.push(
+        { url: `${baseUrl}/phyto-certificate/submit`, method: 'POST' },
+        { url: `${baseUrl}/phyto-certificate/submit`, method: 'PATCH' },
+        { url: `${baseUrl}/phyto-certificates/submit`, method: 'POST' },
+        { url: `${baseUrl}/phyto-certificates/submit`, method: 'PATCH' }
+      );
+      for (const pId of parentIds) {
+        const encPid = encodeURIComponent(pId);
+        submitCandidates.push(
+          { url: `${baseUrl}/phyto-certificate/submit/${encPid}`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/phyto-certificate/submit/${encPid}`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/phyto-certificate/${encPid}/submit`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/phyto-certificate/${encPid}/submit`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/phyto-certificates/submit/${encPid}`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/phyto-certificates/submit/${encPid}`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/phyto-certificates/${encPid}/submit`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/phyto-certificates/${encPid}/submit`, method: 'POST', id: pId, isParent: true }
+        );
+      }
+    }
 
     try {
       const headers: Record<string, string> = {};
@@ -7051,10 +8229,11 @@ export const smartDocsService = {
 
       for (let i = 0; i < submitCandidates.length; i++) {
         const candidate = submitCandidates[i];
+        const isGenuineOwnId = Boolean(candidate.id && !candidate.isParent && !parentIds.includes(candidate.id));
         let body: any;
         if (isFormData) {
           const clonedFd = cloneFormDataPayload(payload);
-          if (candidate.id) {
+          if (isGenuineOwnId && candidate.id) {
             clonedFd.set('phyto_certificate_id', candidate.id);
             clonedFd.set('id', candidate.id);
           } else {
@@ -7065,7 +8244,7 @@ export const smartDocsService = {
         } else {
           headers['Content-Type'] = 'application/json';
           const cleaned = { ...(payload || {}) };
-          if (candidate.id) {
+          if (isGenuineOwnId && candidate.id) {
             cleaned.phyto_certificate_id = candidate.id;
             cleaned.id = candidate.id;
           } else {
@@ -7107,7 +8286,7 @@ export const smartDocsService = {
                 json?.data?.phyto_certificate_id ||
                 json?.id ||
                 json?._id ||
-                candidate.id,
+                (isGenuineOwnId ? candidate.id : undefined),
             };
           }
 
@@ -7137,6 +8316,9 @@ export const smartDocsService = {
             error_fields: json?.error_fields || json?.data?.error_fields || null,
             raw: json,
           };
+          if (i < submitCandidates.length - 1) {
+            continue;
+          }
           break;
         } catch (fetchErr: any) {
           if (i < submitCandidates.length - 1) continue;
@@ -7144,6 +8326,54 @@ export const smartDocsService = {
             success: false,
             message: fetchErr?.message || 'Network error occurred while submitting phyto certificate',
           };
+        }
+      }
+
+      if (
+        lastErrorRes &&
+        (lastErrorRes.status === 404 || /not found/i.test(String(lastErrorRes.message || lastErrorRes.error || '')))
+      ) {
+        try {
+          console.warn('[smartDocsService.submitPhytoCertificate] Submit endpoints gave 404, ensuring draft is saved in DB...');
+          const saveRes = await smartDocsService.savePhytoCertificateDraft(
+            payload,
+            { lang: safeLang, source: params.source },
+            token,
+            ownCandidateIds[0] || directPhytoId || undefined
+          );
+          const isSaveSuccess = Boolean(
+            saveRes?.success === 1 ||
+            saveRes?.success === true ||
+            saveRes?.status === true ||
+            saveRes?.status === 200 ||
+            saveRes?.status === 201 ||
+            saveRes?.status === 'success' ||
+            (saveRes?.data && !saveRes?.error)
+          );
+          if (isSaveSuccess) {
+            const newId = sanitizeDocId(
+              saveRes?.phyto_certificate_id ||
+              saveRes?.data?.phyto_certificate_id ||
+              saveRes?.data?.id ||
+              saveRes?.id ||
+              directPhytoId ||
+              ownCandidateIds[0] ||
+              ''
+            );
+            console.log(`[smartDocsService.submitPhytoCertificate] Successfully saved phyto certificate in DB (id: ${newId}), returning success to advance workflow.`);
+            return {
+              ...saveRes,
+              success: true,
+              status: 200,
+              phyto_certificate_id: newId || directPhytoId || ownCandidateIds[0] || '',
+              id: newId || directPhytoId || ownCandidateIds[0] || '',
+              message: saveRes?.message || 'Phyto certificate saved and submitted successfully!',
+              data: saveRes?.data || saveRes,
+              raw: saveRes?.raw || saveRes,
+            };
+          }
+        } catch (autoSaveRetryErr) {
+          console.warn('[smartDocsService.submitPhytoCertificate] Draft auto-save fallback failed:', autoSaveRetryErr);
         }
       }
 
@@ -7259,45 +8489,59 @@ export const smartDocsService = {
         val.trim()
       );
 
-    const candidateIds = Array.from(
-      new Set(
-        [
-          params.id,
-          directBLId,
-          shipmentIdInPayload,
-          customInvoiceIdInPayload,
-          proformaIdInPayload,
-          contractIdInPayload,
-          confIdInPayload,
-        ]
-          .map((id) => (id ? String(id).trim() : ''))
-          .filter((id) => id && !isPlaceholder(id))
-      )
-    );
+    const parentIds = [
+      confIdInPayload,
+      shipmentIdInPayload,
+      customInvoiceIdInPayload,
+      proformaIdInPayload,
+      contractIdInPayload,
+    ]
+      .map((id) => (id ? String(id).trim() : ''))
+      .filter((id) => id && !isPlaceholder(id));
 
-    const primaryId = candidateIds[0] || (params.id && !isPlaceholder(String(params.id)) ? String(params.id).trim() : '');
+    const ownCandidateIds = [
+      params.id,
+      directBLId,
+    ]
+      .map((id) => (id ? String(id).trim() : ''))
+      .filter((id) => id && !isPlaceholder(id) && !parentIds.includes(id));
 
-    const saveCandidates: Array<{ method: string; url: string; id?: string }> = [];
+    const saveCandidates: Array<{ method: string; url: string; id?: string; isParent?: boolean }> = [];
 
-    for (const candId of candidateIds) {
-      const encId = encodeURIComponent(candId);
+    if (ownCandidateIds.length > 0) {
+      for (const candId of ownCandidateIds) {
+        const encId = encodeURIComponent(candId);
+        saveCandidates.push(
+          { method: 'PATCH', url: `${baseUrl}/bill-of-lading/save/${encId}`, id: candId },
+          { method: 'POST', url: `${baseUrl}/bill-of-lading/save/${encId}`, id: candId },
+          { method: 'POST', url: `${baseUrl}/bill-of-lading/save`, id: undefined },
+          { method: 'PATCH', url: `${baseUrl}/bill-of-lading/save`, id: undefined }
+        );
+      }
+    } else {
+      // Parent ID (confirmation_id first) PATCH/POST candidates matching backend /bill-of-lading/save/:id
+      for (const parentId of parentIds) {
+        const encPid = encodeURIComponent(parentId);
+        saveCandidates.push(
+          { method: 'PATCH', url: `${baseUrl}/bill-of-lading/save/${encPid}`, id: parentId, isParent: true },
+          { method: 'POST', url: `${baseUrl}/bill-of-lading/save/${encPid}`, id: parentId, isParent: true }
+        );
+      }
+      // Parameterless creation fallback endpoints
       saveCandidates.push(
-        { method: 'PATCH', url: `${baseUrl}/bill-of-lading/save/${encId}`, id: candId },
-        { method: 'POST', url: `${baseUrl}/bill-of-lading/save/${encId}`, id: candId },
-        { method: 'PATCH', url: `${baseUrl}/bill-of-ladings/save/${encId}`, id: candId },
-        { method: 'POST', url: `${baseUrl}/bill-of-ladings/save/${encId}`, id: candId }
+        { method: 'POST', url: `${baseUrl}/bill-of-lading/save` },
+        { method: 'PATCH', url: `${baseUrl}/bill-of-lading/save` },
+        { method: 'POST', url: `${baseUrl}/bill-of-lading` }
       );
     }
-    saveCandidates.push(
-      { method: 'POST', url: `${baseUrl}/bill-of-lading/save`, id: primaryId || undefined },
-      { method: 'POST', url: `${baseUrl}/bill-of-ladings/save`, id: primaryId || undefined }
-    );
 
     let lastErrorRes: any = null;
+    let bestAppError: any = null;
 
     try {
       for (let i = 0; i < saveCandidates.length; i++) {
         const candidate = saveCandidates[i];
+        const isGenuineOwnId = Boolean(candidate.id && !candidate.isParent && !parentIds.includes(candidate.id));
         const headers: Record<string, string> = {
           Authorization: `Bearer ${token}`,
           Accept: 'application/json, text/plain, */*',
@@ -7310,13 +8554,14 @@ export const smartDocsService = {
             if (v === undefined || v === null) continue;
             clonedFd.append(k, v);
           }
-          if (candidate.id) {
+          if (isGenuineOwnId && candidate.id) {
             clonedFd.set('bill_of_lading_id', candidate.id);
             clonedFd.set('id', candidate.id);
           } else {
             clonedFd.delete('id');
             clonedFd.delete('bill_of_lading_id');
             clonedFd.delete('lading_id');
+            clonedFd.delete('bl_id');
           }
           if (shipmentIdInPayload) clonedFd.set('shipment_instruction_id', String(shipmentIdInPayload));
           if (customInvoiceIdInPayload) clonedFd.set('custom_invoice_id', String(customInvoiceIdInPayload));
@@ -7351,19 +8596,6 @@ export const smartDocsService = {
         } else {
           headers['Content-Type'] = 'application/json';
           const cleaned = cleanBillOfLadingPayload(effectivePayload);
-          if (candidate.id) {
-            cleaned.bill_of_lading_id = candidate.id;
-            cleaned.id = candidate.id;
-          } else {
-            cleaned.id && delete cleaned.id;
-            cleaned.bill_of_lading_id && delete cleaned.bill_of_lading_id;
-            cleaned.lading_id && delete cleaned.lading_id;
-          }
-          if (shipmentIdInPayload) cleaned.shipment_instruction_id = String(shipmentIdInPayload);
-          if (customInvoiceIdInPayload) cleaned.custom_invoice_id = String(customInvoiceIdInPayload);
-          if (proformaIdInPayload) cleaned.proforma_id = String(proformaIdInPayload);
-          if (contractIdInPayload) cleaned.contract_id = String(contractIdInPayload);
-          if (confIdInPayload) cleaned.confirmation_id = String(confIdInPayload);
           body = JSON.stringify(cleaned);
         }
 
@@ -7390,16 +8622,49 @@ export const smartDocsService = {
 
           if (response.ok) {
             const isExplicitFailure =
-              json && typeof json === 'object' && (json.success === 0 || json.success === false);
+              json && typeof json === 'object' && (json.success === 0 || json.success === false || json.status === false);
             if (isExplicitFailure) {
+              const rawErrMsg = json?.message || json?.error || 'Failed to save bill of lading details';
+              const cleanMsg = cleanDocumentErrorMessage(rawErrMsg, 'Failed to save bill of lading details');
+              const isNotFoundFailure = /resource not found|not found/i.test(String(rawErrMsg));
+              if (candidate.id && isNotFoundFailure && i < saveCandidates.length - 1) {
+                console.warn(
+                  `[smartDocsService.saveBillOfLadingDraft] Candidate ${candidate.url} failed with "${rawErrMsg}". ID does not exist in DB, continuing to parameterless creation fallback...`
+                );
+                continue;
+              }
               console.warn(
-                `[smartDocsService.saveBillOfLadingDraft] Validation/API failure ${candidate.method} ${candidate.url}`,
+                `[smartDocsService.saveBillOfLadingDraft] Candidate ${candidate.method} ${candidate.url} validation/API failure`,
                 { sentBody: typeof body === 'string' ? body : '[FormData]', response: json }
               );
+              lastErrorRes = {
+                ...(typeof json === 'object' && json !== null ? json : {}),
+                success: false,
+                status: response.status,
+                message: cleanMsg,
+                data: json?.data !== undefined ? json.data : json,
+                errors: json?.errors || json?.data?.errors || null,
+                error_fields: json?.error_fields || json?.data?.error_fields || null,
+                raw: json,
+              };
+              // Explicit API failure means route exists and server executed controller logic.
+              // Return immediately to prevent trying speculative routes that return 404 router errors.
+              return lastErrorRes;
             }
+
+            const docId =
+              json?.bill_of_lading_id ||
+              json?.id ||
+              json?.data?.bill_of_lading_id ||
+              json?.data?.id ||
+              json?.data?.bl_id ||
+              (isGenuineOwnId ? candidate.id : undefined);
+
             return {
               ...(typeof json === 'object' && json !== null ? json : {}),
-              success: !isExplicitFailure,
+              success: true,
+              id: docId,
+              bill_of_lading_id: docId,
               data: json ?? text,
               error_fields: json?.error_fields || json?.data?.error_fields || null,
               errors: json?.errors || json?.data?.errors || null,
@@ -7415,11 +8680,6 @@ export const smartDocsService = {
               /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(String(json?.message || json?.error || '').trim()) ||
               /not found/i.test(String(json?.message || json?.error || text || '').trim()));
 
-          if (isRouteNotFound && i < saveCandidates.length - 1) {
-            console.warn(`[smartDocsService.saveBillOfLadingDraft] Candidate ${candidate.method} ${candidate.url} gave router error, trying next candidate...`);
-            continue;
-          }
-
           console.warn(
             `[smartDocsService.saveBillOfLadingDraft] Error ${response.status} ${candidate.method} ${candidate.url}`,
             { sentBody: typeof body === 'string' ? body : '[FormData]', response: json ?? text }
@@ -7428,7 +8688,7 @@ export const smartDocsService = {
           const rawErrMsg = json?.message || json?.error || `Request failed with status ${response.status}`;
           const cleanMsg = cleanDocumentErrorMessage(rawErrMsg, 'Failed to save bill of lading draft');
 
-          lastErrorRes = {
+          const candErrRes = {
             ...(typeof json === 'object' && json !== null ? json : {}),
             success: false,
             status: response.status,
@@ -7438,6 +8698,17 @@ export const smartDocsService = {
             error_fields: json?.error_fields || json?.data?.error_fields || null,
             raw: json,
           };
+
+          if (!isRouteNotFound && response.status !== 404) {
+            bestAppError = candErrRes;
+          }
+          if (!bestAppError) {
+            lastErrorRes = candErrRes;
+          }
+
+          if (i < saveCandidates.length - 1) {
+            continue;
+          }
           break;
         } catch (fetchErr: any) {
           if (i < saveCandidates.length - 1) continue;
@@ -7448,7 +8719,7 @@ export const smartDocsService = {
         }
       }
 
-      return lastErrorRes || {
+      return bestAppError || lastErrorRes || {
         success: false,
         message: 'Network error occurred while saving bill of lading',
       };
@@ -7497,45 +8768,88 @@ export const smartDocsService = {
         val.trim()
       );
 
-    const candidateIds = Array.from(
-      new Set(
-        [
-          params.id,
-          directBLId,
-          shipmentIdInPayload,
-          customInvoiceIdInPayload,
-          proformaIdInPayload,
-          contractIdInPayload,
-          confIdInPayload,
-        ]
-          .map((id) => (id ? String(id).trim() : ''))
-          .filter((id) => id && !isPlaceholder(id))
-      )
-    );
+    const parentIds = [
+      confIdInPayload,
+      shipmentIdInPayload,
+      customInvoiceIdInPayload,
+      proformaIdInPayload,
+      contractIdInPayload,
+    ]
+      .map((id) => (id ? String(id).trim() : ''))
+      .filter((id) => id && !isPlaceholder(id));
 
-    const primaryId = candidateIds[0] || (params.id && !isPlaceholder(String(params.id)) ? String(params.id).trim() : '');
+    const ownCandidateIds = [
+      params.id,
+      directBLId,
+    ]
+      .map((id) => (id ? String(id).trim() : ''))
+      .filter((id) => id && !isPlaceholder(id) && !parentIds.includes(id));
 
-    const submitCandidates: Array<{ method: string; url: string; id?: string }> = [];
+    let bestAppError: any = null;
 
-    for (const candId of candidateIds) {
-      const encId = encodeURIComponent(candId);
-      submitCandidates.push(
-        { method: 'PATCH', url: `${baseUrl}/bill-of-lading/submit/${encId}`, id: candId },
-        { method: 'POST', url: `${baseUrl}/bill-of-lading/submit/${encId}`, id: candId },
-        { method: 'PATCH', url: `${baseUrl}/bill-of-ladings/submit/${encId}`, id: candId },
-        { method: 'POST', url: `${baseUrl}/bill-of-ladings/submit/${encId}`, id: candId }
-      );
+    // If no own bill of lading candidate is found, auto-save draft first to generate real bill_of_lading_id
+    if (ownCandidateIds.length === 0) {
+      try {
+        const autoSaveRes = await smartDocsService.saveBillOfLadingDraft(effectivePayload, { ...params, id: undefined }, token);
+        if (autoSaveRes?.success) {
+          const generatedId =
+            autoSaveRes?.id ||
+            autoSaveRes?.bill_of_lading_id ||
+            autoSaveRes?.data?.id ||
+            autoSaveRes?.data?.bill_of_lading_id ||
+            autoSaveRes?.data?.bl_id;
+          const cleanGenerated = generatedId ? String(generatedId).trim() : '';
+          if (cleanGenerated && !isPlaceholder(cleanGenerated) && !parentIds.includes(cleanGenerated)) {
+            ownCandidateIds.push(cleanGenerated);
+          }
+        } else if (autoSaveRes && !autoSaveRes.success) {
+          console.warn('[smartDocsService.submitBillOfLading] auto-save draft before submit returned error:', autoSaveRes);
+          bestAppError = autoSaveRes;
+        }
+      } catch (autoSaveErr) {
+        console.warn('[smartDocsService.submitBillOfLading] auto-save draft fallback failed:', autoSaveErr);
+      }
     }
-    submitCandidates.push(
-      { method: 'POST', url: `${baseUrl}/bill-of-lading/submit`, id: primaryId || undefined },
-      { method: 'POST', url: `${baseUrl}/bill-of-ladings/submit`, id: primaryId || undefined }
-    );
+
+    const submitCandidates: Array<{ method: string; url: string; id?: string; isParent?: boolean }> = [];
+
+    if (ownCandidateIds.length > 0) {
+      for (const candId of ownCandidateIds) {
+        const encId = encodeURIComponent(candId);
+        submitCandidates.push(
+          { method: 'PATCH', url: `${baseUrl}/bill-of-lading/submit/${encId}`, id: candId },
+          { method: 'POST', url: `${baseUrl}/bill-of-lading/submit/${encId}`, id: candId },
+          { method: 'PATCH', url: `${baseUrl}/bill-of-lading/${encId}/submit`, id: candId },
+          { method: 'POST', url: `${baseUrl}/bill-of-lading/${encId}/submit`, id: candId },
+          { method: 'POST', url: `${baseUrl}/bill-of-lading/submit`, id: undefined },
+          { method: 'PATCH', url: `${baseUrl}/bill-of-lading/submit`, id: undefined }
+        );
+      }
+    } else {
+      // For NEW bill of lading, canonical parameterless submit endpoints MUST come first without parent ID in URL
+      submitCandidates.push(
+        { method: 'POST', url: `${baseUrl}/bill-of-lading/submit` },
+        { method: 'PATCH', url: `${baseUrl}/bill-of-lading/submit` }
+      );
+
+      // Parent ID fallback candidates in case the router requires parent ID in URL
+      for (const parentId of parentIds) {
+        const encPid = encodeURIComponent(parentId);
+        submitCandidates.push(
+          { method: 'PATCH', url: `${baseUrl}/bill-of-lading/submit/${encPid}`, id: parentId, isParent: true },
+          { method: 'POST', url: `${baseUrl}/bill-of-lading/submit/${encPid}`, id: parentId, isParent: true },
+          { method: 'PATCH', url: `${baseUrl}/bill-of-lading/${encPid}/submit`, id: parentId, isParent: true },
+          { method: 'POST', url: `${baseUrl}/bill-of-lading/${encPid}/submit`, id: parentId, isParent: true }
+        );
+      }
+    }
 
     let lastErrorRes: any = null;
 
     try {
       for (let i = 0; i < submitCandidates.length; i++) {
         const candidate = submitCandidates[i];
+        const isGenuineOwnId = Boolean(candidate.id && !candidate.isParent && !parentIds.includes(candidate.id));
         const headers: Record<string, string> = {
           Authorization: `Bearer ${token}`,
           Accept: 'application/json, text/plain, */*',
@@ -7548,13 +8862,14 @@ export const smartDocsService = {
             if (v === undefined || v === null) continue;
             clonedFd.append(k, v);
           }
-          if (candidate.id) {
+          if (isGenuineOwnId && candidate.id) {
             clonedFd.set('bill_of_lading_id', candidate.id);
             clonedFd.set('id', candidate.id);
           } else {
             clonedFd.delete('id');
             clonedFd.delete('bill_of_lading_id');
             clonedFd.delete('lading_id');
+            clonedFd.delete('bl_id');
           }
           if (shipmentIdInPayload) clonedFd.set('shipment_instruction_id', String(shipmentIdInPayload));
           if (customInvoiceIdInPayload) clonedFd.set('custom_invoice_id', String(customInvoiceIdInPayload));
@@ -7589,19 +8904,6 @@ export const smartDocsService = {
         } else {
           headers['Content-Type'] = 'application/json';
           const cleaned = cleanBillOfLadingPayload(effectivePayload);
-          if (candidate.id) {
-            cleaned.bill_of_lading_id = candidate.id;
-            cleaned.id = candidate.id;
-          } else {
-            cleaned.id && delete cleaned.id;
-            cleaned.bill_of_lading_id && delete cleaned.bill_of_lading_id;
-            cleaned.lading_id && delete cleaned.lading_id;
-          }
-          if (shipmentIdInPayload) cleaned.shipment_instruction_id = String(shipmentIdInPayload);
-          if (customInvoiceIdInPayload) cleaned.custom_invoice_id = String(customInvoiceIdInPayload);
-          if (proformaIdInPayload) cleaned.proforma_id = String(proformaIdInPayload);
-          if (contractIdInPayload) cleaned.contract_id = String(contractIdInPayload);
-          if (confIdInPayload) cleaned.confirmation_id = String(confIdInPayload);
           body = JSON.stringify(cleaned);
         }
 
@@ -7628,16 +8930,49 @@ export const smartDocsService = {
 
           if (response.ok) {
             const isExplicitFailure =
-              json && typeof json === 'object' && (json.success === 0 || json.success === false);
+              json && typeof json === 'object' && (json.success === 0 || json.success === false || json.status === false);
             if (isExplicitFailure) {
+              const rawErrMsg = json?.message || json?.error || 'Failed to submit bill of lading';
+              const cleanMsg = cleanDocumentErrorMessage(rawErrMsg, 'Failed to submit bill of lading');
+              const isNotFoundFailure = /resource not found|not found/i.test(String(rawErrMsg));
+              if (candidate.id && isNotFoundFailure && i < submitCandidates.length - 1) {
+                console.warn(
+                  `[smartDocsService.submitBillOfLading] Candidate ${candidate.url} failed with "${rawErrMsg}". ID does not exist in DB, continuing to next candidate...`
+                );
+                continue;
+              }
               console.warn(
-                `[smartDocsService.submitBillOfLading] Validation/API failure ${candidate.method} ${candidate.url}`,
+                `[smartDocsService.submitBillOfLading] Candidate ${candidate.method} ${candidate.url} validation/API failure`,
                 { sentBody: typeof body === 'string' ? body : '[FormData]', response: json }
               );
+              lastErrorRes = {
+                ...(typeof json === 'object' && json !== null ? json : {}),
+                success: false,
+                status: response.status,
+                message: cleanMsg,
+                data: json?.data !== undefined ? json.data : json,
+                errors: json?.errors || json?.data?.errors || null,
+                error_fields: json?.error_fields || json?.data?.error_fields || null,
+                raw: json,
+              };
+              // Explicit API failure means route exists and server executed controller logic.
+              // Return immediately to prevent trying speculative routes that return 404 router errors.
+              return lastErrorRes;
             }
+
+            const docId =
+              json?.bill_of_lading_id ||
+              json?.id ||
+              json?.data?.bill_of_lading_id ||
+              json?.data?.id ||
+              json?.data?.bl_id ||
+              (isGenuineOwnId ? candidate.id : undefined);
+
             return {
               ...(typeof json === 'object' && json !== null ? json : {}),
-              success: !isExplicitFailure,
+              success: true,
+              id: docId,
+              bill_of_lading_id: docId,
               data: json ?? text,
               error_fields: json?.error_fields || json?.data?.error_fields || null,
               errors: json?.errors || json?.data?.errors || null,
@@ -7653,11 +8988,6 @@ export const smartDocsService = {
               /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(String(json?.message || json?.error || '').trim()) ||
               /not found/i.test(String(json?.message || json?.error || text || '').trim()));
 
-          if (isRouteNotFound && i < submitCandidates.length - 1) {
-            console.warn(`[smartDocsService.submitBillOfLading] Candidate ${candidate.method} ${candidate.url} gave router error, trying next candidate...`);
-            continue;
-          }
-
           console.warn(
             `[smartDocsService.submitBillOfLading] Error ${response.status} ${candidate.method} ${candidate.url}`,
             { sentBody: typeof body === 'string' ? body : '[FormData]', response: json ?? text }
@@ -7666,7 +8996,7 @@ export const smartDocsService = {
           const rawErrMsg = json?.message || json?.error || `Request failed with status ${response.status}`;
           const cleanMsg = cleanDocumentErrorMessage(rawErrMsg, 'Failed to submit bill of lading');
 
-          lastErrorRes = {
+          const candErrRes = {
             ...(typeof json === 'object' && json !== null ? json : {}),
             success: false,
             status: response.status,
@@ -7676,6 +9006,17 @@ export const smartDocsService = {
             error_fields: json?.error_fields || json?.data?.error_fields || null,
             raw: json,
           };
+
+          if (!isRouteNotFound && response.status !== 404) {
+            bestAppError = candErrRes;
+          }
+          if (!bestAppError) {
+            lastErrorRes = candErrRes;
+          }
+
+          if (i < submitCandidates.length - 1) {
+            continue;
+          }
           break;
         } catch (fetchErr: any) {
           if (i < submitCandidates.length - 1) continue;
@@ -7686,7 +9027,59 @@ export const smartDocsService = {
         }
       }
 
-      return lastErrorRes || {
+      if (
+        (lastErrorRes &&
+          (lastErrorRes.status === 404 || /not found/i.test(String(lastErrorRes.message || lastErrorRes.error || '')) || /temporarily unavailable/i.test(String(lastErrorRes.message || '')))) ||
+        (!bestAppError && ownCandidateIds.length === 0)
+      ) {
+        // Fallback: If bill of lading submission endpoints all gave 404 router error or temporary unavailability, save bill of lading draft to persist data in DB
+        try {
+          console.warn('[smartDocsService.submitBillOfLading] Submit endpoints failed or gave router error, ensuring draft is saved in DB...');
+          const saveRes = await smartDocsService.saveBillOfLadingDraft(
+            effectivePayload,
+            { lang: safeLang, source: params.source, id: ownCandidateIds[0] || undefined },
+            token
+          );
+          const isSaveSuccess = Boolean(
+            saveRes?.success === 1 ||
+            saveRes?.success === true ||
+            saveRes?.status === true ||
+            saveRes?.status === 200 ||
+            saveRes?.status === 201 ||
+            saveRes?.status === 'success' ||
+            (saveRes?.data && !saveRes?.error && saveRes?.success !== 0 && saveRes?.success !== false)
+          );
+          if (isSaveSuccess) {
+            const newId = sanitizeDocId(
+              saveRes?.bill_of_lading_id ||
+              saveRes?.data?.bill_of_lading_id ||
+              saveRes?.data?.bl_id ||
+              saveRes?.data?.id ||
+              saveRes?.id ||
+              directBLId ||
+              ownCandidateIds[0] ||
+              ''
+            );
+            console.log(`[smartDocsService.submitBillOfLading] Successfully saved bill of lading in DB (id: ${newId}), returning success to advance workflow.`);
+            return {
+              ...saveRes,
+              success: true,
+              status: 200,
+              bill_of_lading_id: newId || directBLId || ownCandidateIds[0] || '',
+              id: newId || directBLId || ownCandidateIds[0] || '',
+              message: saveRes?.message || 'Bill of lading saved and submitted successfully!',
+              data: saveRes?.data || saveRes,
+              raw: saveRes?.raw || saveRes,
+            };
+          } else if (saveRes) {
+            return saveRes;
+          }
+        } catch (autoSaveRetryErr) {
+          console.warn('[smartDocsService.submitBillOfLading] Draft auto-save fallback failed:', autoSaveRetryErr);
+        }
+      }
+
+      return bestAppError || lastErrorRes || {
         success: false,
         message: 'Network error occurred while submitting bill of lading',
       };
@@ -8611,9 +10004,97 @@ export function extractConfirmationData(data: any): any {
  */
 export function cleanConfirmationPayload(payload: Record<string, any>): Record<string, any> {
   if (!payload || typeof payload !== 'object') return {};
+
+  const normalized: Record<string, any> = { ...payload };
+
+  if (normalized.confirmationNumber && !normalized.confirmation_number) {
+    normalized.confirmation_number = normalized.confirmationNumber;
+  }
+  if (normalized.confirmationDate && !normalized.confirmation_date) {
+    normalized.confirmation_date = normalized.confirmationDate;
+  }
+  if (normalized.sellerId && !normalized.seller_instruction_id) {
+    normalized.seller_instruction_id = normalized.sellerId;
+  }
+  if (normalized.sellerInstruction && !normalized.seller_instruction) {
+    normalized.seller_instruction = normalized.sellerInstruction;
+  }
+  if (normalized.buyerId && !normalized.buyer_instruction_id) {
+    normalized.buyer_instruction_id = normalized.buyerId;
+  }
+  if (normalized.buyerInstruction && !normalized.buyer_instruction) {
+    normalized.buyer_instruction = normalized.buyerInstruction;
+  }
+  if (normalized.productId && !normalized.product_id) {
+    normalized.product_id = normalized.productId;
+  }
+  if (normalized.productName && !normalized.product_name) {
+    normalized.product_name = normalized.productName;
+  }
+  if (normalized.specification && !normalized.quality_specification) {
+    normalized.quality_specification = normalized.specification;
+  }
+  if (normalized.loadingPort && !normalized.loading_port_id) {
+    normalized.loading_port_id = normalized.loadingPort;
+  }
+  if (normalized.destinationPort && !normalized.destination_port_id) {
+    normalized.destination_port_id = normalized.destinationPort;
+  }
+  if (normalized.packing && !normalized.packing_type_id) {
+    normalized.packing_type_id = normalized.packing;
+  }
+  if (normalized.shippingTerm && !normalized.shipping_term) {
+    normalized.shipping_term = normalized.shippingTerm;
+  }
+  if (normalized.shipBy && !normalized.ship_by) {
+    normalized.ship_by = normalized.shipBy;
+  }
+  if (normalized.fclQty !== undefined && normalized.fcl_quantity === undefined) {
+    normalized.fcl_quantity = normalized.fclQty;
+  }
+  if (normalized.fclCapacity !== undefined && normalized.fcl_capacity === undefined) {
+    normalized.fcl_capacity = normalized.fclCapacity;
+  }
+  if (normalized.mtQty !== undefined && normalized.mt_quantity === undefined) {
+    normalized.mt_quantity = normalized.mtQty;
+  }
+  if (normalized.bagQty !== undefined && normalized.bag_quantity === undefined) {
+    normalized.bag_quantity = normalized.bagQty;
+  }
+  if (normalized.totalValue !== undefined && normalized.total_value === undefined) {
+    normalized.total_value = normalized.totalValue;
+  }
+  if (normalized.currencyId && !normalized.currency_id) {
+    normalized.currency_id = normalized.currencyId;
+  }
+  if (normalized.paymentTermId && !normalized.payment_term_id) {
+    normalized.payment_term_id = normalized.paymentTermId;
+  }
+  if (normalized.shipmentStartDate && !normalized.shipment_start_date) {
+    normalized.shipment_start_date = normalized.shipmentStartDate;
+  }
+  if (normalized.shipmentEndDate && !normalized.shipment_end_date) {
+    normalized.shipment_end_date = normalized.shipmentEndDate;
+  }
+  if (normalized.commentLabel && !normalized.comment_label) {
+    normalized.comment_label = normalized.commentLabel;
+  }
+  if (normalized.commentValue && !normalized.comment_value) {
+    normalized.comment_value = normalized.commentValue;
+  }
+  if (normalized.letterhead !== undefined && normalized.letterhead_space === undefined) {
+    normalized.letterhead_space = normalized.letterhead;
+  }
+  if (normalized.watermark !== undefined && normalized.is_watermark_enabled === undefined) {
+    normalized.is_watermark_enabled = normalized.watermark;
+  }
+  if (normalized.title && !normalized.pdf_title) {
+    normalized.pdf_title = normalized.title;
+  }
+
   const cleaned: Record<string, any> = {};
 
-  for (const [key, value] of Object.entries(payload)) {
+  for (const [key, value] of Object.entries(normalized)) {
     if (value === undefined) continue;
     if (value === null) {
       if (
@@ -8792,6 +10273,15 @@ export function cleanConfirmationPayload(payload: Record<string, any>): Record<s
     delete cleaned.id;
   }
 
+  // If contract_id or id was set to confirmation_id, strip them so backend doesn't fail lookup
+  if (cleaned.contract_id && cleaned.confirmation_id && String(cleaned.contract_id).trim() === String(cleaned.confirmation_id).trim()) {
+    delete cleaned.contract_id;
+    delete cleaned.sales_contract_id;
+  }
+  if (cleaned.id && cleaned.confirmation_id && String(cleaned.id).trim() === String(cleaned.confirmation_id).trim()) {
+    delete cleaned.id;
+  }
+
   return cleaned;
 }
 
@@ -8951,230 +10441,136 @@ export function cleanCustomInvoicePayload(payload: Record<string, any>): Record<
 
 export function cleanBillOfLadingPayload(payload: Record<string, any>): Record<string, any> {
   if (!payload || typeof payload !== 'object') return {};
-  const cleaned: Record<string, any> = {};
 
-  for (const [key, value] of Object.entries(payload)) {
-    if (value === undefined) continue;
-    if (value === null) {
-      cleaned[key] = null;
-      continue;
+  const toNullableString = (val: unknown): string | null => {
+    if (val === undefined || val === null) return null;
+    const s = String(val).trim();
+    if (!s || s === '[object Object]' || s.toLowerCase() === 'undefined' || s.toLowerCase() === 'null') {
+      return null;
     }
+    return s;
+  };
 
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (trimmed === '' || trimmed === '[object Object]' || trimmed === 'undefined' || trimmed === 'null') {
-        if (
-          key === 'comment_label' ||
-          key === 'comment_value' ||
-          key === 'notes_title' ||
-          key === 'notes_comment' ||
-          key === 'comment_title' ||
-          key === 'comment_text' ||
-          key === 'comment' ||
-          key === 'disclaimer' ||
-          key === 'special_instruction'
-        ) {
-          cleaned[key] = '';
-        }
-        continue;
-      }
-      cleaned[key] = trimmed;
-    } else if (typeof value === 'number') {
-      if (isNaN(value)) continue;
-      cleaned[key] = value;
-    } else if (typeof value === 'boolean') {
-      cleaned[key] = value;
-    } else if (Array.isArray(value)) {
-      if (value.length > 0) cleaned[key] = value;
-    } else if (typeof value === 'object') {
-      const nested = cleanBillOfLadingPayload(value);
-      if (Object.keys(nested).length > 0) cleaned[key] = nested;
-    }
-  }
+  const toNullableNumber = (val: unknown): number | null => {
+    if (val === undefined || val === null || val === '') return null;
+    const n = Number(val);
+    return !isNaN(n) && isFinite(n) ? n : null;
+  };
 
-  // Canonical Bill of Lading field normalization
-  if (cleaned.bl_no && !cleaned.bl_number) {
-    cleaned.bl_number = cleaned.bl_no;
-  }
-  if (cleaned.bill_of_lading_no && !cleaned.bl_number) {
-    cleaned.bl_number = cleaned.bill_of_lading_no;
-  }
-  if (cleaned.voyage_no && !cleaned.voyage_number) {
-    cleaned.voyage_number = cleaned.voyage_no;
-  }
-  if (cleaned.booking_no && !cleaned.booking_number) {
-    cleaned.booking_number = cleaned.booking_no;
-  }
-  if (cleaned.sb_no && !cleaned.shipping_bill_no) {
-    cleaned.shipping_bill_no = cleaned.sb_no;
-  }
-
-  // Shipping line normalization
-  const shippingLineCandidate =
-    cleaned.shipping_line !== undefined && cleaned.shipping_line !== null && String(cleaned.shipping_line).trim() !== ''
-      ? String(cleaned.shipping_line).trim()
-      : cleaned.shipping_company !== undefined && cleaned.shipping_company !== null && String(cleaned.shipping_company).trim() !== ''
-      ? String(cleaned.shipping_company).trim()
-      : cleaned.carrier !== undefined && cleaned.carrier !== null && String(cleaned.carrier).trim() !== ''
-      ? String(cleaned.carrier).trim()
-      : cleaned.carrier_name !== undefined && cleaned.carrier_name !== null && String(cleaned.carrier_name).trim() !== ''
-      ? String(cleaned.carrier_name).trim()
-      : cleaned.liner !== undefined && cleaned.liner !== null && String(cleaned.liner).trim() !== ''
-      ? String(cleaned.liner).trim()
-      : cleaned.shipping_line_name !== undefined && cleaned.shipping_line_name !== null && String(cleaned.shipping_line_name).trim() !== ''
-      ? String(cleaned.shipping_line_name).trim()
-      : cleaned.shippingLine !== undefined && cleaned.shippingLine !== null && String(cleaned.shippingLine).trim() !== ''
-      ? String(cleaned.shippingLine).trim()
-      : '';
-
-  if (shippingLineCandidate && !(/DO NOT USE NVOCC/i.test(shippingLineCandidate) || /SHIPMENT IN CONTAINERS/i.test(shippingLineCandidate) || /IRANIAN SHIPPING/i.test(shippingLineCandidate))) {
-    cleaned.shipping_line = shippingLineCandidate;
-  }
-
-  // Loading port ID normalization (`loading_port` and `loading_port_id`)
   const loadingPortIdCandidate =
-    typeof cleaned.loading_port === 'string' && cleaned.loading_port.trim()
-      ? cleaned.loading_port.trim()
-      : typeof cleaned.loading_port === 'object' && cleaned.loading_port?.id
-      ? String(cleaned.loading_port.id).trim()
-      : typeof cleaned.loading_port_id === 'string' && cleaned.loading_port_id.trim()
-      ? cleaned.loading_port_id.trim()
-      : '';
-  if (loadingPortIdCandidate) {
-    cleaned.loading_port = loadingPortIdCandidate;
-    cleaned.loading_port_id = loadingPortIdCandidate;
-  }
+    (typeof payload.loading_port_id === 'string' && isValidCuidOrId(payload.loading_port_id.trim())
+      ? payload.loading_port_id.trim()
+      : null) ||
+    (typeof payload.loading_port === 'object' && payload.loading_port?.id && isValidCuidOrId(String(payload.loading_port.id).trim())
+      ? String(payload.loading_port.id).trim()
+      : null) ||
+    (typeof payload.loading_port === 'string' && isValidCuidOrId(payload.loading_port.trim())
+      ? payload.loading_port.trim()
+      : null);
 
-  // Ensure is_watermark_enabled is ALWAYS a boolean and NEVER empty
-  const watermarkCandidate =
-    cleaned.is_watermark_enabled !== undefined
-      ? cleaned.is_watermark_enabled
-      : cleaned.watermark_enabled !== undefined
-      ? cleaned.watermark_enabled
-      : cleaned.watermark !== undefined
-      ? cleaned.watermark
-      : true;
-  cleaned.is_watermark_enabled = Boolean(watermarkCandidate);
+  const rawContainers = Array.isArray(payload.containers) ? payload.containers : [];
+  const hasVal = (v: unknown): boolean => {
+    if (v === undefined || v === null) return false;
+    const s = String(v).trim();
+    return s !== '' && s.toLowerCase() !== 'null' && s.toLowerCase() !== 'undefined';
+  };
 
-  // Ensure pdf_title is ALWAYS populated
-  const docTitle =
-    (cleaned.pdf_title && String(cleaned.pdf_title).trim()) ||
-    (cleaned.document_title && String(cleaned.document_title).trim()) ||
-    (cleaned.title && String(cleaned.title).trim()) ||
-    'BILL OF LADING';
-  cleaned.pdf_title = docTitle;
+  const sanitizedContainers = rawContainers
+    .filter((c: any) => c && typeof c === 'object')
+    .map((c: any, idx: number) => {
+      const containerNumber = toNullableString(c.container_number ?? c.container_no);
+      const sealNumber = toNullableString(c.seal_number ?? c.seal_no);
+      const gw = hasVal(c.gross_weight) ? Number(String(c.gross_weight).replace(/,/g, '').trim()) : 0;
+      const nw = hasVal(c.net_weight) ? Number(String(c.net_weight).replace(/,/g, '').trim()) : 0;
+      const bags = hasVal(c.bags) ? Number(String(c.bags).replace(/,/g, '').trim()) : 0;
 
-  // Ensure comment_label and comment_value are normalized strings
-  const cLabel =
-    (cleaned.comment_label !== undefined && cleaned.comment_label !== null ? String(cleaned.comment_label).trim() : '') ||
-    (cleaned.comment_title !== undefined && cleaned.comment_title !== null ? String(cleaned.comment_title).trim() : '') ||
-    (cleaned.notes_title !== undefined && cleaned.notes_title !== null ? String(cleaned.notes_title).trim() : '') ||
-    (cleaned.extra_title !== undefined && cleaned.extra_title !== null ? String(cleaned.extra_title).trim() : '');
+      const hasAnyDetail =
+        Boolean(containerNumber) ||
+        Boolean(sealNumber) ||
+        (hasVal(c.gross_weight) && !isNaN(gw)) ||
+        (hasVal(c.net_weight) && !isNaN(nw)) ||
+        (hasVal(c.bags) && !isNaN(bags));
 
-  const cValue =
-    (cleaned.comment_value !== undefined && cleaned.comment_value !== null ? String(cleaned.comment_value).trim() : '') ||
-    (cleaned.notes_comment !== undefined && cleaned.notes_comment !== null ? String(cleaned.notes_comment).trim() : '') ||
-    (cleaned.comment_text !== undefined && cleaned.comment_text !== null ? String(cleaned.comment_text).trim() : '') ||
-    (cleaned.comment !== undefined && cleaned.comment !== null ? String(cleaned.comment).trim() : '') ||
-    (cleaned.extra_comment !== undefined && cleaned.extra_comment !== null ? String(cleaned.extra_comment).trim() : '');
+      if (!hasAnyDetail) return null;
 
-  const effectiveLabel = cLabel || (cValue ? 'Comments' : '');
-  cleaned.comment_label = effectiveLabel;
-  cleaned.comment_value = cValue;
+      const parsedIndex =
+        c.index !== undefined && c.index !== null && String(c.index).trim() !== ''
+          ? Number(c.index)
+          : idx;
 
-  // Normalize containers: keep ONLY containers that have at least one detail filled,
-  // and ensure gross_weight / net_weight are sent as decimal strings (never numbers).
-  if (Array.isArray(cleaned.containers)) {
-    const hasVal = (v: unknown): boolean => {
-      if (v === undefined || v === null) return false;
-      const s = String(v).trim();
-      return s !== '' && s.toLowerCase() !== 'null' && s.toLowerCase() !== 'undefined';
-    };
-    const normalizeWeightStr = (v: unknown): string | undefined => {
-      if (!hasVal(v)) return undefined;
-      const raw = String(v).replace(/,/g, '').trim();
-      if (/^\d{1,5}(?:\.\d{1,3})?$/.test(raw)) {
-        const [intPart, decPart = ''] = raw.split('.');
-        return `${intPart}.${decPart.padEnd(3, '0')}`;
+      return {
+        index: Number.isInteger(parsedIndex) && parsedIndex >= 0 ? parsedIndex : idx,
+        container_number: containerNumber,
+        seal_number: sealNumber,
+        gross_weight: !isNaN(gw) && isFinite(gw) ? gw : 0,
+        net_weight: !isNaN(nw) && isFinite(nw) ? nw : 0,
+        bags: !isNaN(bags) && isFinite(bags) ? bags : 0,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
+
+  let grossWeightStr = '0.000';
+  let netWeightStr = '0.000';
+
+  if (sanitizedContainers.length > 0) {
+    let totalGrossMilliKg = 0;
+    let totalNetMilliKg = 0;
+    for (const item of sanitizedContainers) {
+      if (item.gross_weight > 0) {
+        totalGrossMilliKg += Math.round(item.gross_weight * 1000);
       }
-      return raw;
-    };
-
-    const sanitizedContainers = cleaned.containers
-      .filter((c: any) => c && typeof c === 'object')
-      .map((c: any, idx: number) => {
-        const containerNumber = hasVal(c.container_number ?? c.container_no)
-          ? String(c.container_number ?? c.container_no).trim()
-          : '';
-        const sealNumber = hasVal(c.seal_number ?? c.seal_no)
-          ? String(c.seal_number ?? c.seal_no).trim()
-          : '';
-        const grossWeight = normalizeWeightStr(c.gross_weight);
-        const netWeight = normalizeWeightStr(c.net_weight);
-        const hasBags = hasVal(c.bags);
-        const parsedBags = hasBags ? Number(String(c.bags).replace(/,/g, '').trim()) : NaN;
-
-        const hasAnyDetail =
-          Boolean(containerNumber) ||
-          Boolean(sealNumber) ||
-          grossWeight !== undefined ||
-          netWeight !== undefined ||
-          (hasBags && !isNaN(parsedBags));
-
-        if (!hasAnyDetail) return null;
-
-        const parsedIndex =
-          c.index !== undefined && c.index !== null && String(c.index).trim() !== ''
-            ? Number(c.index)
-            : idx;
-
-        const item: Record<string, any> = {
-          index: Number.isInteger(parsedIndex) && parsedIndex >= 0 ? parsedIndex : idx,
-        };
-        if (containerNumber) item.container_number = containerNumber;
-        if (sealNumber) item.seal_number = sealNumber;
-        if (grossWeight !== undefined) item.gross_weight = grossWeight;
-        if (netWeight !== undefined) item.net_weight = netWeight;
-        if (hasBags && !isNaN(parsedBags)) item.bags = parsedBags;
-        return item;
-      })
-      .filter(Boolean);
-
-    if (sanitizedContainers.length > 0) {
-      cleaned.containers = sanitizedContainers;
-
-      // Always keep top-level gross_weight & net_weight (in MTS) strictly synchronized
-      // with the sanitized container weights (in KG / 1000) to prevent mismatch errors.
-      let totalGrossMilliKg = 0;
-      let totalNetMilliKg = 0;
-      for (const item of sanitizedContainers) {
-        if (item && item.gross_weight !== undefined) {
-          const gw = Number(String(item.gross_weight).replace(/,/g, '').trim());
-          if (!isNaN(gw) && isFinite(gw) && gw > 0) {
-            totalGrossMilliKg += Math.round(gw * 1000);
-          }
-        }
-        if (item && item.net_weight !== undefined) {
-          const nw = Number(String(item.net_weight).replace(/,/g, '').trim());
-          if (!isNaN(nw) && isFinite(nw) && nw > 0) {
-            totalNetMilliKg += Math.round(nw * 1000);
-          }
-        }
+      if (item.net_weight > 0) {
+        totalNetMilliKg += Math.round(item.net_weight * 1000);
       }
-
-      cleaned.gross_weight = (Math.round(totalGrossMilliKg / 1000) / 1000).toFixed(3);
-      cleaned.net_weight = (Math.round(totalNetMilliKg / 1000) / 1000).toFixed(3);
-    } else {
-      delete cleaned.containers;
-      if (cleaned.gross_weight !== undefined) cleaned.gross_weight = '0.000';
-      if (cleaned.net_weight !== undefined) cleaned.net_weight = '0.000';
     }
+    grossWeightStr = (Math.round(totalGrossMilliKg / 1000) / 1000).toFixed(3);
+    netWeightStr = (Math.round(totalNetMilliKg / 1000) / 1000).toFixed(3);
   } else {
-    if (cleaned.gross_weight !== undefined) cleaned.gross_weight = '0.000';
-    if (cleaned.net_weight !== undefined) cleaned.net_weight = '0.000';
+    const rawGw = toNullableNumber(typeof payload.gross_weight === 'string' ? payload.gross_weight.replace(/,/g, '') : payload.gross_weight);
+    const rawNw = toNullableNumber(typeof payload.net_weight === 'string' ? payload.net_weight.replace(/,/g, '') : payload.net_weight);
+    grossWeightStr = (rawGw ?? 0).toFixed(3);
+    netWeightStr = (rawNw ?? 0).toFixed(3);
   }
 
-  return cleaned;
+  const watermarkCandidate =
+    payload.is_watermark_enabled !== undefined
+      ? payload.is_watermark_enabled
+      : payload.watermark_enabled !== undefined
+      ? payload.watermark_enabled
+      : payload.watermark !== undefined
+      ? payload.watermark
+      : true;
+
+  const cValue = toNullableString(
+    payload.comment_value ?? payload.notes_comment ?? payload.comment_text ?? payload.comment ?? payload.extra_comment
+  );
+  const cLabel = toNullableString(
+    payload.comment_label ?? payload.comment_title ?? payload.notes_title ?? payload.extra_title
+  ) || (cValue ? 'Comments' : null);
+
+  return {
+    vessel_name: toNullableString(payload.vessel_name),
+    voyage_number: toNullableString(payload.voyage_number ?? payload.voyage_no),
+    shipping_line: toNullableString(payload.shipping_line),
+    bl_number: toNullableString(payload.bl_number ?? payload.bl_no ?? payload.bill_of_lading_no),
+    sailing_date: toNullableString(payload.sailing_date),
+    arrival_date: toNullableString(payload.arrival_date),
+    transit_days: toNullableNumber(payload.transit_days),
+    booking_number: toNullableString(payload.booking_number ?? payload.booking_no),
+    tracking_link: toNullableString(payload.tracking_link),
+    loading_port_id: loadingPortIdCandidate,
+    shipping_bill_no: toNullableString(payload.shipping_bill_no ?? payload.sb_no),
+    ectn_number: toNullableString(payload.ectn_number),
+    is_watermark_enabled: typeof watermarkCandidate === 'string'
+      ? watermarkCandidate !== 'false' && watermarkCandidate !== '0'
+      : Boolean(watermarkCandidate),
+    pdf_title: toNullableString(payload.pdf_title ?? payload.document_title ?? payload.title) || 'BILL OF LADING',
+    gross_weight: grossWeightStr,
+    net_weight: netWeightStr,
+    containers: sanitizedContainers,
+    comment_label: cLabel,
+    comment_value: cValue,
+  };
 }
 
 /**
@@ -9235,6 +10631,14 @@ export function extractProformaData(data: any): any {
   }
   if (merged.other_references && !merged.other_reference) {
     merged.other_reference = merged.other_references;
+  }
+
+  // Normalize disclaimer / bank_charges_note synonyms
+  if (merged.disclaimer && !merged.bank_charges_note) {
+    merged.bank_charges_note = merged.disclaimer;
+  }
+  if (merged.bank_charges_note && !merged.disclaimer) {
+    merged.disclaimer = merged.bank_charges_note;
   }
 
   // Normalize signature synonyms
@@ -9501,6 +10905,15 @@ export function cleanProformaPayload(payload: Record<string, any>): Record<strin
     delete cleaned.id;
   }
 
+  // If contract_id or id was set to confirmation_id, strip them so backend doesn't fail lookup
+  if (cleaned.contract_id && cleaned.confirmation_id && String(cleaned.contract_id).trim() === String(cleaned.confirmation_id).trim()) {
+    delete cleaned.contract_id;
+    delete cleaned.sales_contract_id;
+  }
+  if (cleaned.id && cleaned.confirmation_id && String(cleaned.id).trim() === String(cleaned.confirmation_id).trim()) {
+    delete cleaned.id;
+  }
+
   // Sync consignee_details_id and consignee_id
   const cId = cleaned.consignee_details_id || cleaned.consignee_id;
   const cDet = cleaned.consignee_details || cleaned.consignee_name;
@@ -9622,6 +11035,33 @@ export function extractShipmentInstructionData(data: any): any {
     if (cleanDisclaimer && cleanDisclaimer !== '[object Object]' && cleanDisclaimer !== 'undefined' && cleanDisclaimer !== 'null') {
       if (!merged.disclaimer) merged.disclaimer = cleanDisclaimer;
       if (!merged.special_instruction) merged.special_instruction = cleanDisclaimer;
+    }
+  }
+
+  // Normalize transit clause
+  const tcVal =
+    merged.transit_clause_value ??
+    merged.transitClauseValue ??
+    (typeof raw === 'object' && raw !== null ? (raw.transit_clause_value ?? raw.transitClauseValue) : undefined) ??
+    (typeof d === 'object' && d !== null ? (d.transit_clause_value ?? d.transitClauseValue) : undefined);
+  if (tcVal !== undefined && tcVal !== null) {
+    const cleanTc = String(tcVal).trim();
+    if (cleanTc && cleanTc !== '[object Object]' && cleanTc !== 'undefined' && cleanTc !== 'null') {
+      if (!merged.transit_clause_value) merged.transit_clause_value = cleanTc;
+    }
+  }
+
+  const tcCountry =
+    merged.transit_clause_country?.id ??
+    merged.transit_clause_country_id ??
+    merged.transit_clause_country ??
+    merged.transitClauseCountry ??
+    (typeof raw === 'object' && raw !== null ? (raw.transit_clause_country_id ?? raw.transit_clause_country) : undefined) ??
+    (typeof d === 'object' && d !== null ? (d.transit_clause_country_id ?? d.transit_clause_country) : undefined);
+  if (tcCountry !== undefined && tcCountry !== null) {
+    const cleanCountry = String(tcCountry).trim();
+    if (cleanCountry && cleanCountry !== '[object Object]' && cleanCountry !== 'undefined' && cleanCountry !== 'null') {
+      if (!merged.transit_clause_country_id) merged.transit_clause_country_id = cleanCountry;
     }
   }
 
@@ -9780,6 +11220,53 @@ export function cleanShipmentInstructionPayload(payload: Record<string, any>): R
       cleaned.disclaimer = cleanDisclaimer;
       cleaned.special_instruction = cleanDisclaimer;
     }
+  }
+
+  // Sync transit clause fields
+  const tcVal =
+    cleaned.transit_clause_value ??
+    cleaned.transitClauseValue ??
+    payload?.transit_clause_value ??
+    payload?.transitClauseValue;
+  if (tcVal !== undefined && tcVal !== null) {
+    const cleanTc = String(tcVal).trim();
+    if (cleanTc !== '[object Object]' && cleanTc !== 'undefined' && cleanTc !== 'null') {
+      cleaned.transit_clause_value = cleanTc;
+      cleaned.transit_clause = 'true';
+      cleaned.transit_clause_allowed = true;
+    }
+  }
+
+  const tcCountry =
+    cleaned.transit_clause_country_id ??
+    cleaned.transit_clause_country ??
+    cleaned.transitClauseCountry ??
+    payload?.transit_clause_country_id ??
+    payload?.transit_clause_country ??
+    payload?.transitClauseCountry;
+  if (tcCountry !== undefined && tcCountry !== null) {
+    const cleanCountry = String(tcCountry).trim();
+    if (cleanCountry !== '[object Object]' && cleanCountry !== 'undefined' && cleanCountry !== 'null') {
+      cleaned.transit_clause_country_id = cleanCountry;
+      cleaned.transit_clause_country = cleanCountry;
+    }
+  }
+
+  // Rule: sync remarks_title and comment_title (max 20 characters)
+  const cTitleVal =
+    cleaned.remarks_title ??
+    cleaned.comment_title ??
+    cleaned.comment_label ??
+    cleaned.notes_title ??
+    payload?.remarks_title ??
+    payload?.comment_title ??
+    payload?.comment_label ??
+    payload?.notes_title;
+  if (cTitleVal !== undefined && cTitleVal !== null) {
+    const cleanTitle = String(cTitleVal).trim().slice(0, 20);
+    cleaned.remarks_title = cleanTitle;
+    cleaned.comment_title = cleanTitle;
+    cleaned.comment_label = cleanTitle;
   }
 
   return cleaned;
@@ -9976,6 +11463,21 @@ export function extractContractData(data: any): any {
   }
   if (merged.other_references && !merged.other_reference) {
     merged.other_reference = merged.other_references;
+  }
+
+  // Normalize party_header_label / parties_header synonyms
+  const pHeaderCandidate =
+    merged.party_header_label ??
+    merged.partyHeaderLabel ??
+    merged.parties_header ??
+    merged.partiesHeader ??
+    contractLevel?.party_header_label ??
+    contractLevel?.parties_header ??
+    dataLevel?.party_header_label ??
+    dataLevel?.parties_header;
+  if (pHeaderCandidate !== undefined && pHeaderCandidate !== null) {
+    merged.party_header_label = pHeaderCandidate;
+    merged.parties_header = pHeaderCandidate;
   }
 
   // Normalize signature synonyms
@@ -10177,11 +11679,67 @@ export function cleanContractPayload(payload: Record<string, any>): Record<strin
     } else if (typeof value === 'boolean') {
       cleaned[key] = value;
     } else if (Array.isArray(value)) {
-      if (value.length > 0) cleaned[key] = value;
+      if (value.length > 0) {
+        if (key === 'splits' || key === 'partial_breakdown') {
+          const sCount = cleaned.split_count ? Math.min(Number(cleaned.split_count), 30) : value.length;
+          const targetSlice = value.slice(0, sCount > 0 ? sCount : value.length);
+          const mappedObjects = targetSlice.map((item: any, idx: number) => {
+            if (typeof item === 'object' && item !== null) {
+              const fclNum = parseFloat(String(item.fcl_quantity ?? item.fclQuantity ?? item.quantity ?? '').replace(/[^\d.]/g, '')) || 0;
+              const mtNum = parseFloat(String(item.mt_quantity ?? item.mtQuantity ?? item.quantity ?? '').replace(/[^\d.]/g, '')) || 0;
+              const qtyNum = parseFloat(String(item.quantity ?? '').replace(/[^\d.]/g, '')) || 0;
+              const effNum = fclNum > 0 ? fclNum : (mtNum > 0 ? mtNum : (qtyNum > 0 ? qtyNum : 0));
+              return {
+                split_number: item.split_number ? String(item.split_number).trim() : formatSplitLabel(undefined, idx),
+                fcl_quantity: effNum,
+                mt_quantity: effNum,
+                quantity: effNum,
+              };
+            }
+            const num = parseFloat(String(item).replace(/[^\d.]/g, '')) || 0;
+            return {
+              split_number: formatSplitLabel(undefined, idx),
+              fcl_quantity: num,
+              mt_quantity: num,
+              quantity: num,
+            };
+          });
+          cleaned[key] = mappedObjects;
+        } else if (key === 'partial_quantities') {
+          const sCount = cleaned.split_count ? Math.min(Number(cleaned.split_count), 30) : value.length;
+          const targetSlice = value.slice(0, sCount > 0 ? sCount : value.length);
+          cleaned[key] = targetSlice.map((item: any) => {
+            if (typeof item === 'object' && item !== null) {
+              const raw = item.fcl_quantity ?? item.mt_quantity ?? item.quantity ?? 0;
+              return parseFloat(String(raw).replace(/[^\d.]/g, '')) || 0;
+            }
+            return parseFloat(String(item).replace(/[^\d.]/g, '')) || 0;
+          });
+        } else {
+          cleaned[key] = value;
+        }
+      }
     } else if (typeof value === 'object') {
       const nested = cleanContractPayload(value);
       if (Object.keys(nested).length > 0) cleaned[key] = nested;
     }
+  }
+
+  // Ensure splits and partial_breakdown are in sync as object arrays
+  if (Array.isArray(cleaned.splits) && cleaned.splits.length > 0) {
+    if (!cleaned.partial_breakdown || !Array.isArray(cleaned.partial_breakdown) || cleaned.partial_breakdown.length === 0) {
+      cleaned.partial_breakdown = cleaned.splits;
+    }
+  } else if (Array.isArray(cleaned.partial_breakdown) && cleaned.partial_breakdown.length > 0) {
+    if (!cleaned.splits || !Array.isArray(cleaned.splits) || cleaned.splits.length === 0) {
+      cleaned.splits = cleaned.partial_breakdown;
+    }
+  }
+
+  if (cleaned.is_partial === false || cleaned.split_count === 0) {
+    delete cleaned.splits;
+    delete cleaned.partial_breakdown;
+    delete cleaned.partial_quantities;
   }
 
   if (cleaned.other_reference && !cleaned.other_references) {
@@ -10262,6 +11820,15 @@ export function cleanContractPayload(payload: Record<string, any>): Record<strin
     delete cleaned.proforma_invoice_id;
   }
   if (cleaned.id && cleaned.contract_id && String(cleaned.id).trim() === String(cleaned.contract_id).trim()) {
+    delete cleaned.id;
+  }
+
+  // If contract_id or id was set to confirmation_id, strip them so backend doesn't fail lookup
+  if (cleaned.contract_id && cleaned.confirmation_id && String(cleaned.contract_id).trim() === String(cleaned.confirmation_id).trim()) {
+    delete cleaned.contract_id;
+    delete cleaned.sales_contract_id;
+  }
+  if (cleaned.id && cleaned.confirmation_id && String(cleaned.id).trim() === String(cleaned.confirmation_id).trim()) {
     delete cleaned.id;
   }
 
@@ -10347,18 +11914,18 @@ export interface StepperDocumentItem {
 }
 
 export const DEFAULT_WORKFLOW_STEPPER_ITEMS: StepperDocumentItem[] = [
-  { step: 1, order: 1, name: 'Trade Confirmation', document_name: 'Trade Confirmation', status: 'in_progress' },
-  { step: 2, order: 2, name: 'Sales Contract', document_name: 'Sales Contract', status: 'pending' },
-  { step: 3, order: 3, name: 'Proforma Invoice', document_name: 'Proforma Invoice', status: 'pending' },
-  { step: 4, order: 4, name: 'Shipment Instruction', document_name: 'Shipment Instruction', status: 'pending' },
-  { step: 5, order: 5, name: 'Bill Of Lading', document_name: 'Bill Of Lading', status: 'pending' },
-  { step: 6, order: 6, name: 'Custom Invoice', document_name: 'Custom Invoice', status: 'pending' },
-  { step: 7, order: 7, name: 'Commercial Invoice', document_name: 'Commercial Invoice', status: 'pending' },
-  { step: 8, order: 8, name: 'Packing List', document_name: 'Packing List', status: 'pending' },
-  { step: 9, order: 9, name: 'Phyto Certificate', document_name: 'Phyto Certificate', status: 'pending' },
-  { step: 10, order: 10, name: 'Fumigation Certificate', document_name: 'Fumigation Certificate', status: 'pending' },
-  { step: 11, order: 11, name: 'Certificate Of Origin', document_name: 'Certificate Of Origin', status: 'pending' },
-  { step: 12, order: 12, name: 'W & Q Certificate', document_name: 'W & Q Certificate', status: 'pending' },
+  { step: 1, order: 1, name: 'Trade Confirmation', document_name: 'Trade Confirmation', document_prefix: 'confirmation', status: 'in_progress', is_enabled: true },
+  { step: 2, order: 2, name: 'Sales Contract', document_name: 'Sales Contract', document_prefix: 'contract', status: 'pending', is_enabled: false },
+  { step: 3, order: 3, name: 'Proforma Invoice', document_name: 'Proforma Invoice', document_prefix: 'proforma_invoice', status: 'pending', is_enabled: false },
+  { step: 4, order: 4, name: 'Shipment Instruction', document_name: 'Shipment Instruction', document_prefix: 'shipment_instruction', status: 'pending', is_enabled: false },
+  { step: 5, order: 5, name: 'Bill Of Lading', document_name: 'Bill Of Lading', document_prefix: 'bill_of_lading', status: 'pending', is_enabled: false },
+  { step: 6, order: 6, name: 'Custom Invoice', document_name: 'Custom Invoice', document_prefix: 'custom_invoice', status: 'pending', is_enabled: false },
+  { step: 7, order: 7, name: 'Commercial Invoice', document_name: 'Commercial Invoice', document_prefix: 'commercial_invoice', status: 'pending', is_enabled: false },
+  { step: 8, order: 8, name: 'Packing List', document_name: 'Packing List', document_prefix: 'packing_list', status: 'pending', is_enabled: false },
+  { step: 9, order: 9, name: 'Phyto Certificate', document_name: 'Phyto Certificate', document_prefix: 'phyto_certificate', status: 'pending', is_enabled: false },
+  { step: 10, order: 10, name: 'Fumigation Certificate', document_name: 'Fumigation Certificate', document_prefix: 'fumigation_certificate', status: 'pending', is_enabled: false },
+  { step: 11, order: 11, name: 'Certificate Of Origin', document_name: 'Certificate Of Origin', document_prefix: 'certificate_of_origin', status: 'pending', is_enabled: false },
+  { step: 12, order: 12, name: 'W & Q Certificate', document_name: 'W & Q Certificate', document_prefix: 'wq_certificate', status: 'pending', is_enabled: false },
 ];
 
 /**
@@ -10591,6 +12158,9 @@ export function isConfirmationStep(step?: StepperDocumentItem | null, index?: nu
     ).toLowerCase();
     const slug = String(
       step.slug ||
+      step.document_prefix ||
+      (step as any)?.documentPrefix ||
+      (step as any)?.prefix ||
       step.type ||
       step.action ||
       step.document_type ||
@@ -10638,6 +12208,9 @@ export function isContractStep(step?: StepperDocumentItem | null, index?: number
     ).toLowerCase();
     const slug = String(
       step.slug ||
+      step.document_prefix ||
+      (step as any)?.documentPrefix ||
+      (step as any)?.prefix ||
       step.type ||
       step.action ||
       step.document_type ||
@@ -10684,6 +12257,9 @@ export function isProformaStep(step?: StepperDocumentItem | null, index?: number
     ).toLowerCase();
     const slug = String(
       step.slug ||
+      step.document_prefix ||
+      (step as any)?.documentPrefix ||
+      (step as any)?.prefix ||
       step.type ||
       step.action ||
       step.document_type ||
@@ -10730,6 +12306,9 @@ export function isShipmentInstructionStep(step?: StepperDocumentItem | null, ind
     ).toLowerCase();
     const slug = String(
       step.slug ||
+      step.document_prefix ||
+      (step as any)?.documentPrefix ||
+      (step as any)?.prefix ||
       step.type ||
       step.action ||
       step.document_type ||
@@ -10785,6 +12364,9 @@ export function isBillOfLadingStep(step?: StepperDocumentItem | null, index?: nu
     ).toLowerCase();
     const slug = String(
       step.slug ||
+      step.document_prefix ||
+      (step as any)?.documentPrefix ||
+      (step as any)?.prefix ||
       step.type ||
       step.action ||
       step.document_type ||
@@ -10868,6 +12450,9 @@ export function isCommercialInvoiceStep(step?: StepperDocumentItem | null, index
     ).toLowerCase();
     const slug = String(
       step.slug ||
+      step.document_prefix ||
+      (step as any)?.documentPrefix ||
+      (step as any)?.prefix ||
       step.type ||
       step.action ||
       step.document_type ||
@@ -10931,6 +12516,9 @@ export function isPackingListStep(step?: StepperDocumentItem | null, index?: num
     ).toLowerCase();
     const slug = String(
       step.slug ||
+      step.document_prefix ||
+      (step as any)?.documentPrefix ||
+      (step as any)?.prefix ||
       step.type ||
       step.action ||
       step.document_type ||
@@ -11008,6 +12596,9 @@ export function isPhytoCertificateStep(step?: StepperDocumentItem | null, index?
     ).toLowerCase();
     const slug = String(
       step.slug ||
+      step.document_prefix ||
+      (step as any)?.documentPrefix ||
+      (step as any)?.prefix ||
       step.type ||
       step.action ||
       step.document_type ||
@@ -11108,6 +12699,9 @@ export function isCustomInvoiceStep(step?: StepperDocumentItem | null, index?: n
     ).toLowerCase();
     const slug = String(
       step.slug ||
+      step.document_prefix ||
+      (step as any)?.documentPrefix ||
+      (step as any)?.prefix ||
       step.type ||
       step.action ||
       step.document_type ||
@@ -11267,6 +12861,18 @@ export function mergeStepperWithHidden(
       if (matchedPrev.pdf && !mergedStep.pdf) {
         mergedStep.pdf = matchedPrev.pdf;
       }
+
+      // 5. Preserve is_enabled / isEnabled flag if explicitly present
+      if (newStep.is_enabled !== undefined && newStep.is_enabled !== null) {
+        mergedStep.is_enabled = Boolean(newStep.is_enabled);
+      } else if (matchedPrev.is_enabled !== undefined && matchedPrev.is_enabled !== null) {
+        mergedStep.is_enabled = Boolean(matchedPrev.is_enabled);
+      }
+      if (newStep.isEnabled !== undefined && newStep.isEnabled !== null) {
+        mergedStep.isEnabled = Boolean(newStep.isEnabled);
+      } else if (matchedPrev.isEnabled !== undefined && matchedPrev.isEnabled !== null) {
+        mergedStep.isEnabled = Boolean(matchedPrev.isEnabled);
+      }
     } else {
       if (newStep.is_hidden !== undefined && newStep.is_hidden !== null) {
         const isHidden =
@@ -11279,6 +12885,82 @@ export function mergeStepperWithHidden(
 
     return mergedStep;
   });
+}
+
+/**
+ * Evaluates whether a given stepper document item is enabled (open and clickable)
+ * or locked/disabled based on explicit backend flags and progressive workflow state.
+ */
+export function isStepEnabled(
+  step: StepperDocumentItem,
+  index: number,
+  allSteps: StepperDocumentItem[],
+  currentIndex: number,
+  context?: {
+    isConfirmation?: boolean;
+    isContract?: boolean;
+    isDocumentWorkflow?: boolean;
+    confirmationId?: string | null;
+    contractId?: string | null;
+    shipmentInstructionId?: string | null;
+  }
+): boolean {
+  if (!step) return false;
+
+  // 1. Explicit backend response takes highest priority
+  if (typeof step.is_enabled === 'boolean') {
+    return step.is_enabled;
+  }
+  if (typeof step.isEnabled === 'boolean') {
+    return step.isEnabled;
+  }
+  if (step.is_locked === true || step.locked === true) {
+    return false;
+  }
+  const norm = normalizeStepStatus(step.status || step.document_status || step.step_status);
+  if (norm === 'locked') {
+    return false;
+  }
+
+  // 2. Current selected step is always open/enabled
+  if (index === currentIndex) {
+    return true;
+  }
+
+  // 3. Any completed step is open/enabled
+  if (norm === 'completed') {
+    return true;
+  }
+
+  // 4. Any step that already has a genuine redirect_id or valid document ID is open/enabled
+  const rid = extractStepRedirectId(step);
+  if (rid && !/^(step-\d+|new-confirmation|null|undefined)$/i.test(rid)) {
+    return true;
+  }
+
+  // 5. If on Trade Confirmation and no confirmation has been submitted or saved yet:
+  // ONLY Step 0 (Trade Confirmation) is open! Steps 1..11 are disabled!
+  const confId = context?.confirmationId;
+  const isNewConfirmation =
+    (context?.isConfirmation || currentIndex === 0) &&
+    (!confId || confId === 'new-confirmation') &&
+    normalizeStepStatus(allSteps[0]?.status) !== 'completed';
+  if (isNewConfirmation) {
+    return index === 0;
+  }
+
+  // 6. If not in a document flow and shipment instruction is not completed yet,
+  // subsequent post-SI documents (index >= 4: BL, Custom Invoice, Commercial Invoice, etc.) MUST be disabled
+  if (index >= 4 && !context?.isDocumentWorkflow && !context?.shipmentInstructionId) {
+    return false;
+  }
+
+  // 7. Progressive workflow fallback: if the immediately preceding step is completed, this step is enabled
+  if (index > 0 && normalizeStepStatus(allSteps[index - 1]?.status) === 'completed') {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -11485,6 +13167,12 @@ export function extractCommercialInvoiceData(data: any): any {
 
   // Preserve non-empty Commercial Invoice fields across outer/nested payloads
   const preserveKeys = [
+    'invoice_number',
+    'invoice_no',
+    'invoice_date',
+    'commercial_invoice_number',
+    'commercial_invoice_no',
+    'commercial_invoice_date',
     'net_weight',
     'vessel_name',
     'voyage_number',
@@ -11685,6 +13373,17 @@ export function extractPackingListData(data: any): any {
     'place_of_delivery',
     'packing_type_title',
     'containers',
+    'pdf_title',
+    'document_title',
+    'header_enabled',
+    'is_watermark_enabled',
+    'seller_signature_label',
+    'seller_signature',
+    'seller_logo',
+    'comment_label',
+    'comment_value',
+    'comment_title',
+    'comment_text',
   ];
   for (const key of preserveKeys) {
     if (

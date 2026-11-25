@@ -10,6 +10,7 @@ interface PlanCardProps {
   isCurrentPlan: boolean;
   userHasOtherMembership?: boolean;
   isTrialEligible?: boolean;
+  isLoading?: boolean;
   onSelect: (plan: MembershipPlan) => void;
   dict?: any;
 }
@@ -187,6 +188,7 @@ export default function PlanCard({
   isCurrentPlan,
   userHasOtherMembership = false,
   isTrialEligible = false,
+  isLoading = false,
   onSelect,
 }: PlanCardProps) {
   const planNameLower = plan.plan_name.toLowerCase();
@@ -396,11 +398,16 @@ export default function PlanCard({
         <div className="mb-4">
           <button
             type="button"
-            onClick={() => !isCurrentPlan && onSelect(plan)}
-            disabled={isCurrentPlan}
-            className={`w-full h-11 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${buttonClass}`}
+            onClick={() => !isCurrentPlan && !isLoading && onSelect(plan)}
+            disabled={isCurrentPlan || isLoading}
+            className={`w-full h-11 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-75 ${buttonClass}`}
           >
-            {isCurrentPlan ? (
+            {isLoading ? (
+              <>
+                <i className="fa-solid fa-circle-notch fa-spin text-xs"></i>
+                <span>Processing...</span>
+              </>
+            ) : isCurrentPlan ? (
               <>
                 <i className="fa-solid fa-check text-xs"></i>
                 <span>Current</span>
