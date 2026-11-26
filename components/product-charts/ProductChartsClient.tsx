@@ -987,6 +987,17 @@ export default function ProductChartsClient({
 
   const handleDelete = async (id: number | string) => {
     setDeleteConfirmId(null);
+
+    const hasAuth = Boolean(
+      userType ||
+      (typeof document !== 'undefined' && (document.cookie.includes('auth_token=') || document.cookie.includes('user_info=') || document.cookie.includes('__Secure-uid=')))
+    );
+
+    if (!hasAuth) {
+      router.push(`/${lang}/login`);
+      return;
+    }
+
     const previousProducts = [...addedProducts];
     // Optimistic removal
     setAddedProducts(prev => prev.filter((p) => p.id !== id));

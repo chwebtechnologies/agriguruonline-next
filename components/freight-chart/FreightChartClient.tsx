@@ -416,6 +416,18 @@ export default function FreightChartClient({
 
   // 5. Handle Delete Freight
   const handleDelete = async (id: string) => {
+    setDeleteConfirmId(null);
+
+    const hasAuth = Boolean(
+      initialUserType ||
+      (typeof document !== 'undefined' && (document.cookie.includes('auth_token=') || document.cookie.includes('user_info=') || document.cookie.includes('__Secure-uid=')))
+    );
+
+    if (!hasAuth) {
+      router.push(`/${lang}/login`);
+      return;
+    }
+
     setIsDeleting(true);
     try {
       const result = await deleteFavoritePortAction(id, lang);
