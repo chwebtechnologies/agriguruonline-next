@@ -160,7 +160,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP
         </div>
 
         <div className="mt-auto">
-          {product.loading_ports && product.loading_ports.length > 0 && product.loading_ports[0].price > 0 ? (
+          {product.loading_ports && product.loading_ports.length > 0 && product.loading_ports[0].price > 0 && (
             <div className="flex items-baseline justify-center gap-1 mt-0.5 mb-2 h-5 sm:h-6 whitespace-nowrap flex-nowrap shrink-0 overflow-hidden">
               <span className="text-[13px] min-[360px]:text-[14px] sm:text-[17px] font-extrabold text-foreground/85 mr-0.5 leading-none tracking-tight shrink-0">
                 FOB
@@ -172,8 +172,6 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP
                 / MT
               </span>
             </div>
-          ) : (
-            <div className="h-5 sm:h-6 mt-0.5 mb-2" />
           )}
 
           <div className="space-y-1.5">
