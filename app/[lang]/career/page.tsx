@@ -4,7 +4,7 @@ import DOMPurify from 'isomorphic-dompurify';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { getDictionary } from '@/app/[lang]/dictionaries';
 import { cmsService } from '@/lib/api/cms.service';
-import { getAlternates, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo';
+import { getAlternates, getSafeLanguage, getSiteUrl, serializeJsonLd, resolveSocialPreview } from '@/lib/seo';
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton';
 import { resolveImageUrl } from '@/lib/image-utils';
 import type { CmsContentItem } from '@/types/cms';
@@ -23,31 +23,79 @@ export async function generateMetadata(
 
   const data = await cmsService.getContentBySlug('career', lang);
 
-  const title = data?.title || 'Career';
-  const description =
+  // Prioritize page title from backend API (page_title -> title -> meta_title -> name)
+  const pageTitle =
+    (data as any)?.page_title ||
+    data?.title ||
+    (data as any)?.meta_title ||
+    (data as any)?.name ||
+    'Career';
+
+  const fullTitle = pageTitle.includes('AgriGuru')
+    ? pageTitle
+    : `${pageTitle} | AgriGuru Online`;
+
+  // Prioritize meta description from backend API (meta_description -> meta_desc -> description)
+  const metaDescription =
     data?.meta_description ||
+    (data as any)?.meta_desc ||
+    (data as any)?.description ||
     'Explore career opportunities and open positions at AgriGuru Online.';
-  const keywords = data?.meta_keywords || 'career, jobs, agriguru online, hiring';
+
+  // Keywords
+  const keywords =
+    data?.meta_keywords ||
+    (data as any)?.keywords ||
+    'career, jobs, agriguru online, hiring, agriculture tech careers';
+
   const alternates = getAlternates('career', lang);
 
-  const firstImage = data?.page_description?.[0]?.image_url;
-  const imageUrl = firstImage ? resolveImageUrl(firstImage) : `${getSiteUrl()}/logo.png`;
+  // Check top-level image fields first, then section images
+  const backendImage =
+    (data as any)?.social_image ||
+    (data as any)?.og_image ||
+    (data as any)?.social_preview_image ||
+    (data as any)?.preview_image ||
+    (data as any)?.meta_image ||
+    (data as any)?.image_url ||
+    (data as any)?.image ||
+    (data as any)?.banner_image ||
+    data?.page_description?.[0]?.image_url ||
+    (data?.page_description?.[0] as any)?.image;
+
+  // Resolve to absolute image URL or fallback to high-resolution career / logo preview
+  const socialPreview = resolveSocialPreview({
+    candidateUrl: backendImage,
+    slug: 'career',
+    pageKey: 'career',
+  });
 
   return {
-    title,
-    description,
+    title: pageTitle,
+    description: metaDescription,
     keywords,
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
+    },
     openGraph: {
-      title: `${title} | AgriGuru Online`,
-      description,
+      title: fullTitle,
+      description: metaDescription,
       url: alternates.canonical,
       siteName: 'AgriGuru Online',
       images: [
         {
-          url: imageUrl,
-          width: 600,
-          height: 400,
-          alt: title,
+          url: socialPreview.url,
+          width: socialPreview.width,
+          height: socialPreview.height,
+          alt: pageTitle,
         },
       ],
       locale: lang,
@@ -55,10 +103,11 @@ export async function generateMetadata(
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${title} | AgriGuru Online`,
-      description,
-      images: [imageUrl],
+      title: fullTitle,
+      description: metaDescription,
+      images: [socialPreview.url],
       site: '@AgriGuruOnline',
+      creator: '@AgriGuruOnline',
     },
     alternates,
   };
@@ -82,7 +131,18 @@ export default async function CareerPage(props: {
   const commonDict = (dict as Record<string, any>).common || {};
   const footerDict = (dict as Record<string, any>).footer || {};
   const backText = commonDict.back || 'Back';
-  const pageTitle = content.title || footerDict.career || 'Career';
+  const pageTitle =
+    (content as any)?.page_title ||
+    content.title ||
+    (content as any)?.name ||
+    footerDict.career ||
+    'Career';
+
+  const metaDescription =
+    content.meta_description ||
+    (content as any)?.meta_desc ||
+    (content as any)?.description ||
+    'Explore career opportunities and open positions at AgriGuru Online.';
 
   const sortedSections = [...(content.page_description || [])].sort(
     (a, b) => (a.index ?? 0) - (b.index ?? 0)
@@ -209,8 +269,18 @@ export default async function CareerPage(props: {
               "@context": "https://schema.org",
               "@type": "WebPage",
               "name": pageTitle,
-              "description": content.meta_description || "Explore career opportunities and open positions at AgriGuru Online.",
+              "description": metaDescription,
               "url": `${getSiteUrl()}/${lang}/career`,
+              "publisher": {
+                "@type": "Organization",
+                "name": "AgriGuru Online",
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": `${getSiteUrl()}/logo.png`,
+                  "width": 512,
+                  "height": 512
+                }
+              },
               "isPartOf": {
                 "@type": "WebSite",
                 "@id": `${getSiteUrl()}/#website`,

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { resolveImageUrl } from './image-utils'
 
 export const SUPPORTED_LANGUAGES = ['en', 'ar', 'zh', 'fr'] as const
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
@@ -18,15 +19,10 @@ export function getSafeLanguage(lang?: string): SupportedLanguage {
 
 export function getSiteUrl(): string {
   const envUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim()
-  // If explicitly set to a real domain (not localhost/127.0.0.1)
-  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+  if (envUrl) {
     return envUrl.replace(/\/$/, '')
   }
-  // In production builds, NEVER allow localhost to leak into canonical tags, sitemaps, or structured data
-  if (process.env.NODE_ENV === 'production') {
-    return 'https://agriguruonline.com'
-  }
-  return (envUrl || 'https://agriguruonline.com').replace(/\/$/, '')
+  return 'https://agriguruonline.com'
 }
 
 /**
@@ -875,14 +871,37 @@ export const SEO_DICTIONARY: Record<
       description: 'Configurez et gérez vos alertes de cours personnalisées, vos seuils de fret et vos configurations de marché sur AgriGuru Online.',
     },
   },
+  career: {
+    en: {
+      title: 'Careers - Join AgriGuru Online',
+      description: 'Explore career opportunities and open positions at AgriGuru Online. Shape the future of global agricultural commodity trading and AgriTech.',
+      keywords: ['AgriGuru careers', 'AgriTech jobs', 'commodity trading careers', 'jobs in agriculture tech', 'agriguru online hiring'],
+    },
+    ar: {
+      title: 'الوظائف - انضم إلى فريق AgriGuru Online',
+      description: 'استكشف الفرص الوظيفية والوظائف الشاغرة في AgriGuru Online. ساهم في تشكيل مستقبل التجارة الزراعية والتكنولوجيا الزراعية العالمية.',
+      keywords: ['وظائف زراعية', 'وظائف AgriGuru', 'تكنولوجيا زراعية', 'فرص عمل تجارة السلع'],
+    },
+    zh: {
+      title: '职业机会与诚聘英才 - 加入 AgriGuru Online',
+      description: '探索 AgriGuru Online 全球职位发展与招聘机会。与我们携手共塑全球农产品大宗贸易数字化新未来。',
+      keywords: ['AgriGuru招聘', '农业科技职位', '大宗贸易英才', '农业互联网招聘'],
+    },
+    fr: {
+      title: 'Carrières - Rejoignez AgriGuru Online',
+      description: 'Découvrez les offres d’emploi et opportunités de carrière chez AgriGuru Online. Façonnez l’avenir du négoce agricole mondial et de l’AgriTech.',
+      keywords: ['Carrières AgriGuru', 'Emplois AgriTech', 'Recrutement négoce agricole', 'Postes vacants'],
+    },
+  },
 }
 
 // Dedicated social preview images mapping for static / listing pages (from public/social-preview/)
-const SOCIAL_PREVIEW_PAGE_IMAGES: Record<string, { file: string; width: number; height: number }> = {
+export const SOCIAL_PREVIEW_PAGE_IMAGES: Record<string, { file: string; width: number; height: number }> = {
   'about': { file: 'about-us.png', width: 700, height: 368 },
   'about_us': { file: 'about-us.png', width: 700, height: 368 },
   'contact': { file: 'contact-us.png', width: 700, height: 368 },
   'contact_us': { file: 'contact-us.png', width: 700, height: 368 },
+  'career': { file: 'career.png', width: 1200, height: 630 },
   'events': { file: 'events.png', width: 700, height: 368 },
   'latest_inquiries': { file: 'inquiries-for-sellers.png', width: 700, height: 368 },
   'login': { file: 'login-register.png', width: 700, height: 368 },
@@ -895,6 +914,75 @@ const SOCIAL_PREVIEW_PAGE_IMAGES: Record<string, { file: string; width: number; 
   'participation_gallery': { file: 'photo-gallery.png', width: 700, height: 368 },
   'market_updates': { file: 'updates.png', width: 700, height: 368 },
   'video_gallery': { file: 'video-gallery.png', width: 700, height: 368 },
+  'insights': { file: 'updates.png', width: 700, height: 368 },
+  'product_charts': { file: 'marketed-products.png', width: 700, height: 368 },
+  'freight_charts': { file: 'marketed-products.png', width: 700, height: 368 },
+  'download_app': { file: 'default.png', width: 1200, height: 630 },
+  'default': { file: 'default.png', width: 1200, height: 630 },
+}
+
+/**
+ * Resolves a social preview image URL and dimensions.
+ * Prefers candidate from backend if valid and not a fallback icon;
+ * otherwise resolves to a known page card or default website logo.
+ */
+export function resolveSocialPreview({
+  candidateUrl,
+  pageKey,
+  slug,
+}: {
+  candidateUrl?: string | null;
+  pageKey?: string;
+  slug?: string;
+} = {}): { url: string; width: number; height: number } {
+  const siteUrl = getSiteUrl();
+
+  // If a valid image URL is received from backend
+  if (candidateUrl && typeof candidateUrl === 'string') {
+    const trimmed = candidateUrl.trim();
+    if (
+      trimmed &&
+      trimmed !== 'undefined' &&
+      trimmed !== 'null' &&
+      !trimmed.endsWith('/logo.png') &&
+      !trimmed.endsWith('/logo.webp') &&
+      !trimmed.endsWith('/logo.ico')
+    ) {
+      const resolved = resolveImageUrl(trimmed);
+      const absoluteUrl = resolved.startsWith('http')
+        ? resolved
+        : `${siteUrl}${resolved.startsWith('/') ? '' : '/'}${resolved}`;
+      return {
+        url: absoluteUrl,
+        width: 1200,
+        height: 630,
+      };
+    }
+  }
+
+  // Check known page mapping
+  const normalizedKey = (pageKey || slug || '').toLowerCase().replace(/[-_]/g, '');
+  if (normalizedKey) {
+    const foundConfig = Object.entries(SOCIAL_PREVIEW_PAGE_IMAGES).find(([k]) =>
+      k.replace(/[-_]/g, '') === normalizedKey
+    );
+
+    if (foundConfig) {
+      const [, config] = foundConfig;
+      return {
+        url: `${siteUrl}/social-preview/${config.file}`,
+        width: config.width,
+        height: config.height,
+      };
+    }
+  }
+
+  // Default fallback: website logo
+  return {
+    url: `${siteUrl}/logo.png`,
+    width: 512,
+    height: 512,
+  };
 }
 
 /**
@@ -936,9 +1024,10 @@ export function getStandardMetadata({
   
   // Resolve social preview image & dimensions
   const socialConfig = pageKey ? SOCIAL_PREVIEW_PAGE_IMAGES[pageKey] : undefined
-  const imageUrl = ogImage || (socialConfig ? `${siteUrl}/social-preview/${socialConfig.file}` : `${siteUrl}/logo.png`)
-  const imageWidth = ogImageWidth || (socialConfig ? socialConfig.width : 1200)
-  const imageHeight = ogImageHeight || (socialConfig ? socialConfig.height : 630)
+  const defaultSocial = resolveSocialPreview({ pageKey: pageKey as string, candidateUrl: ogImage })
+  const imageUrl = ogImage || (socialConfig ? `${siteUrl}/social-preview/${socialConfig.file}` : defaultSocial.url)
+  const imageWidth = ogImageWidth || (socialConfig ? socialConfig.width : defaultSocial.width)
+  const imageHeight = ogImageHeight || (socialConfig ? socialConfig.height : defaultSocial.height)
 
   return {
     title,

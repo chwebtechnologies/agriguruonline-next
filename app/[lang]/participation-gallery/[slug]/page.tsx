@@ -87,7 +87,7 @@ export async function generateMetadata(
   const rawImageUrl = targetPhoto?.thumbnail || targetPhoto?.image || photos[0]?.thumbnail || photos[0]?.image
   const specificImage = rawImageUrl
     ? (rawImageUrl.startsWith('http') ? rawImageUrl : `${imageBaseUrl}${rawImageUrl}`)
-    : `${siteUrl}/logo.png`
+    : `${siteUrl}/social-preview/photo-gallery.png`
 
   const albumDescriptions: Record<string, string> = {
     en: `View photos and exhibition moments from AgriGuru Online's participation at ${albumTitle}. Featuring ${photos.length} exhibition photos.`,

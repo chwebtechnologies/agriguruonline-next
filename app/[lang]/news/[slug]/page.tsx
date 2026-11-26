@@ -133,7 +133,7 @@ export async function generateMetadata(
   const imagePath = sourceImage?.startsWith('/') ? sourceImage.slice(1) : sourceImage
   const imageUrl = sourceImage?.startsWith('http') 
     ? sourceImage 
-    : (sourceImage ? `${imageBaseUrl}${imagePath}` : `${siteUrl}/logo.png`)
+    : (sourceImage ? `${imageBaseUrl}${imagePath}` : `${siteUrl}/social-preview/news.png`)
   
   const fullTitle = `${title} | AgriGuru Online`
   const publishedTime = toIsoDate(article.posting_date || article.created_at)
@@ -322,15 +322,16 @@ async function NewsDetailContent({ lang, slug }: { lang: string, slug: string })
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
   const imageUrl = article.image.startsWith('http') ? article.image : `${imageBaseUrl}${article.image}`
   
-  const postDateObj = new Date(article.posting_date || article.created_at || Date.now())
-  const formattedDate = !isNaN(postDateObj.getTime())
+  const rawDate = article.posting_date || article.created_at
+  const postDateObj = rawDate ? new Date(rawDate) : null
+  const formattedDate = postDateObj && !isNaN(postDateObj.getTime())
     ? postDateObj.toLocaleDateString(lang === 'ar' ? 'ar-EG' : lang === 'fr' ? 'fr-FR' : 'en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric'
       })
     : ''
-  const formattedTime = !isNaN(postDateObj.getTime())
+  const formattedTime = postDateObj && !isNaN(postDateObj.getTime())
     ? postDateObj.toLocaleTimeString(lang === 'ar' ? 'ar-EG' : lang === 'fr' ? 'fr-FR' : 'en-US', {
         hour: '2-digit',
         minute: '2-digit',
@@ -342,7 +343,8 @@ async function NewsDetailContent({ lang, slug }: { lang: string, slug: string })
   const hasValidUpdate = Boolean(
     updatedDateObj && 
     !isNaN(updatedDateObj.getTime()) && 
-    postDateObj.getTime() &&
+    postDateObj &&
+    !isNaN(postDateObj.getTime()) &&
     updatedDateObj.getTime() > postDateObj.getTime() + 60000
   )
   const formattedUpdatedDate = hasValidUpdate && updatedDateObj

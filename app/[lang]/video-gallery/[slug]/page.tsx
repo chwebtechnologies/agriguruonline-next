@@ -62,7 +62,7 @@ export async function generateMetadata(
   const description = descriptions[lang] || descriptions.en
   const alternates = getAlternates(`video-gallery/${slug}`, lang)
   const siteUrl = getSiteUrl()
-  const imageUrl = `${siteUrl}/logo.png`
+  const imageUrl = `${siteUrl}/social-preview/video-gallery.png`
 
   return {
     title,

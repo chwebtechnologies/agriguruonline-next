@@ -47,7 +47,7 @@ interface MarketedProductCardProps {
 export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP = false, userType, hideInfoIcon = false, hideFlag = false, showViewDetails = false }: MarketedProductCardProps) {
   const imageUrl = product.thumbnail || product.image
     ? ((product.thumbnail || product.image).startsWith('http') ? (product.thumbnail || product.image) : `${imageBaseUrl}${product.thumbnail || product.image}`)
-    : 'https://agriguruonline.com/logo.png'
+    : '/logo.png'
 
   const flagUrl = product.country?.flag ? (product.country.flag.startsWith('http') ? product.country.flag : `${imageBaseUrl}${product.country.flag}`) : null
 

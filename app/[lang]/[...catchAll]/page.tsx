@@ -4,7 +4,7 @@ import DOMPurify from 'isomorphic-dompurify';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { getDictionary } from '@/app/[lang]/dictionaries';
 import { cmsService } from '@/lib/api/cms.service';
-import { getAlternates, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo';
+import { getAlternates, getSafeLanguage, getSiteUrl, serializeJsonLd, resolveSocialPreview } from '@/lib/seo';
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton';
 import { resolveImageUrl } from '@/lib/image-utils';
 import type { CmsContentItem } from '@/types/cms';
@@ -100,31 +100,80 @@ export async function generateMetadata(props: {
     };
   }
 
-  const title = data.title || data.name || 'AgriGuru Online';
-  const fullTitle = `${title} | AgriGuru Online`;
-  const description =
-    data.meta_description || `${title} - Learn more on AgriGuru Online.`;
-  const keywords = data.meta_keywords || `${title.toLowerCase()}, agriguru online`;
+  // Prioritize page title from backend API (page_title -> title -> meta_title -> name)
+  const pageTitle =
+    (data as any).page_title ||
+    data.title ||
+    (data as any).meta_title ||
+    data.name ||
+    'AgriGuru Online';
+
+  const fullTitle = pageTitle.includes('AgriGuru')
+    ? pageTitle
+    : `${pageTitle} | AgriGuru Online`;
+
+  // Prioritize meta description from backend API (meta_description -> meta_desc -> description)
+  const metaDescription =
+    data.meta_description ||
+    (data as any).meta_desc ||
+    (data as any).description ||
+    `${pageTitle} - Learn more on AgriGuru Online.`;
+
+  // Keywords from backend API
+  const keywords =
+    data.meta_keywords ||
+    (data as any).keywords ||
+    `${pageTitle.toLowerCase()}, agriguru online`;
+
   const alternates = getAlternates(slug, lang);
 
-  const firstImage = data.page_description?.find((item) => item.image_url)?.image_url;
-  const imageUrl = firstImage ? resolveImageUrl(firstImage) : `${getSiteUrl()}/logo.png`;
+  // Check top-level image fields first, then section images
+  const backendImage =
+    (data as any).social_image ||
+    (data as any).og_image ||
+    (data as any).social_preview_image ||
+    (data as any).preview_image ||
+    (data as any).meta_image ||
+    (data as any).image_url ||
+    (data as any).image ||
+    (data as any).banner_image ||
+    (data as any).cover_image ||
+    (data as any).thumbnail ||
+    data.page_description?.find((item) => item.image_url || (item as any).image)?.image_url ||
+    (data.page_description?.find((item) => (item as any).image) as any)?.image;
+
+  // Resolve to absolute image URL or fallback to high-resolution logo preview
+  const socialPreview = resolveSocialPreview({
+    candidateUrl: backendImage,
+    slug,
+  });
 
   return {
-    title,
-    description,
+    title: pageTitle,
+    description: metaDescription,
     keywords,
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
+    },
     openGraph: {
       title: fullTitle,
-      description,
+      description: metaDescription,
       url: alternates.canonical,
       siteName: 'AgriGuru Online',
       images: [
         {
-          url: imageUrl,
-          width: 600,
-          height: 400,
-          alt: title,
+          url: socialPreview.url,
+          width: socialPreview.width,
+          height: socialPreview.height,
+          alt: pageTitle,
         },
       ],
       locale: lang,
@@ -133,9 +182,10 @@ export async function generateMetadata(props: {
     twitter: {
       card: 'summary_large_image',
       title: fullTitle,
-      description,
-      images: [imageUrl],
+      description: metaDescription,
+      images: [socialPreview.url],
       site: '@AgriGuruOnline',
+      creator: '@AgriGuruOnline',
     },
     alternates,
   };
@@ -186,7 +236,18 @@ export default async function DynamicCmsCatchAllPage(props: {
 
   const commonDict = (dict as Record<string, any>).common || {};
   const backText = commonDict.back || 'Back';
-  const pageTitle = content.title || content.name || 'AgriGuru Online';
+  const pageTitle =
+    (content as any).page_title ||
+    content.title ||
+    (content as any).meta_title ||
+    content.name ||
+    'AgriGuru Online';
+
+  const metaDescription =
+    content.meta_description ||
+    (content as any).meta_desc ||
+    (content as any).description ||
+    `${pageTitle} - AgriGuru Online`;
 
   const sortedSections = [...(content.page_description || [])].sort(
     (a, b) => (a.index ?? 0) - (b.index ?? 0)
@@ -331,7 +392,7 @@ export default async function DynamicCmsCatchAllPage(props: {
                 {
                   "@type": "ListItem",
                   "position": 2,
-                  "name": content.title || content.name || slug,
+                  "name": pageTitle,
                   "item": `${getSiteUrl()}/${lang}/${slug}`
                 }
               ]
@@ -339,15 +400,17 @@ export default async function DynamicCmsCatchAllPage(props: {
             {
               "@context": "https://schema.org",
               "@type": "WebPage",
-              "name": content.title || content.name || slug,
-              "description": content.meta_description || `${content.title || content.name || slug} - AgriGuru Online`,
+              "name": pageTitle,
+              "description": metaDescription,
               "url": `${getSiteUrl()}/${lang}/${slug}`,
               "publisher": {
                 "@type": "Organization",
                 "name": "AgriGuru Online",
                 "logo": {
                   "@type": "ImageObject",
-                  "url": `${getSiteUrl()}/logo.png`
+                  "url": `${getSiteUrl()}/logo.png`,
+                  "width": 512,
+                  "height": 512
                 }
               }
             }

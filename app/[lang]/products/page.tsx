@@ -39,7 +39,7 @@ export async function generateMetadata(
   const fullTitle = `${title} | AgriGuru Online`
 
   const siteUrl = getSiteUrl()
-  const imageUrl = `${siteUrl}/logo.png`
+  const imageUrl = `${siteUrl}/social-preview/marketed-products.png`
   const alternates = getAlternates(`products`, lang)
 
   return {

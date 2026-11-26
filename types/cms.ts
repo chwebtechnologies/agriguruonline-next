@@ -3,16 +3,22 @@ export interface CmsContentItem {
   type: string;
   header?: string;
   image_url: string;
+  image?: string;
   text_content: string;
   index: number;
 }
 
 export interface CmsPageData {
   id: string;
-  title: string;
-  name: string;
+  title?: string;
+  page_title?: string;
+  meta_title?: string;
+  name?: string;
   meta_keywords?: string;
+  keywords?: string;
   meta_description?: string;
+  meta_desc?: string;
+  description?: string;
   link_type: string;
   page_description: CmsContentItem[];
   url?: string;
@@ -20,6 +26,16 @@ export interface CmsPageData {
   footer_section?: string;
   is_active: boolean;
   slug: string;
+  social_image?: string;
+  og_image?: string;
+  social_preview_image?: string;
+  preview_image?: string;
+  meta_image?: string;
+  image?: string;
+  image_url?: string;
+  banner_image?: string;
+  cover_image?: string;
+  thumbnail?: string;
 }
 
 export interface CmsContentResponse {

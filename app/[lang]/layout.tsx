@@ -74,8 +74,8 @@ export async function generateMetadata(props: {
       images: [
         {
           url: `${getSiteUrl()}/logo.png`,
-          width: 1200,
-          height: 630,
+          width: 512,
+          height: 512,
           alt: 'AgriGuru Online Logo',
         },
       ],

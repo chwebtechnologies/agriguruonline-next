@@ -102,7 +102,7 @@ export async function generateMetadata(
   const rawImage = data?.thumbnail || data?.image
   const imageUrl = rawImage 
     ? (rawImage.startsWith('http') ? rawImage : `${getAssetsUrl()}/${rawImage.replace(/^\/+/, '')}`) 
-    : `${siteUrl}/logo.png`
+    : `${siteUrl}/social-preview/marketed-products.png`
 
   return {
     title,

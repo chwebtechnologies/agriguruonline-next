@@ -92,7 +92,7 @@ export async function generateMetadata(
   const title = titles[lang] || titles.en
   const fullTitle = `${title} | AgriGuru Online`
   const description = descriptions[lang] || descriptions.en
-  const imageUrl = `${siteUrl}/logo.png`
+  const imageUrl = `${siteUrl}/social-preview/marketed-products.png`
 
   return {
     title,

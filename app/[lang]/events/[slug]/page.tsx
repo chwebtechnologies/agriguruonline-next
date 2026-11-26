@@ -92,7 +92,7 @@ export async function generateMetadata(
   const imagePath = sourceImage?.startsWith('/') ? sourceImage.slice(1) : sourceImage
   const imageUrl = sourceImage?.startsWith('http')
     ? sourceImage
-    : (sourceImage ? `${imageBaseUrl}${imagePath}` : `${getSiteUrl()}/logo.png`)
+    : (sourceImage ? `${imageBaseUrl}${imagePath}` : `${getSiteUrl()}/social-preview/events.png`)
 
   const fullTitle = `${title} | AgriGuru Online`
 
