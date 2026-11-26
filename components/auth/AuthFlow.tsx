@@ -171,6 +171,11 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
         sessionStorage.removeItem("ag_auth_step");
       } catch (e) {}
       setStep("EMAIL");
+    } else if (step === "REGISTER") {
+      try {
+        sessionStorage.removeItem("ag_auth_step");
+      } catch (e) {}
+      setStep("EMAIL");
     }
   };
 
@@ -233,7 +238,6 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
       <PageHeader 
         title={getTitle()} 
         backText={commonDict?.back || "Back"} 
-        hideBack={step === "REGISTER"} 
         onBackClick={handlePageHeaderBack}
       />
       <div className="w-full flex flex-col items-center px-4 sm:px-0">

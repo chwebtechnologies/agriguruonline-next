@@ -45,22 +45,23 @@ export default function LoginRequiredBanner({ redirectUrl, dict = {} }: LoginReq
   const pageName = getFriendlyPageName(redirectUrl);
 
   return (
-    <div className="w-full max-w-md mx-auto mb-2 overflow-hidden rounded-lg bg-primary/5 border border-primary/20 shadow-sm animate-in slide-in-from-top-2 fade-in duration-300">
-      <div className="flex items-center gap-3 px-4 py-2">
+    <div className="w-full max-w-md mx-auto mb-2.5 overflow-hidden rounded-xl bg-primary/10 border border-primary/25 shadow-xs transition-all">
+      <div className="flex items-center gap-2.5 px-3.5 py-2.5">
         <div className="flex-shrink-0 text-primary">
           <i className="fa-solid fa-lock text-sm"></i>
         </div>
         
         <div className="flex-1 min-w-0">
-          <p className="text-xs sm:text-sm text-foreground">
-            {dict?.please_sign_in_register || 'Please Sign In / Register to access'} <span className="font-semibold text-primary">{pageName}</span>
+          <p className="text-xs sm:text-[13px] text-foreground leading-snug">
+            {dict?.please_sign_in_register || 'Please Sign In / Register to access'}{' '}
+            <span className="font-semibold text-primary">{pageName}</span>
           </p>
         </div>
         
         <button 
           type="button"
           onClick={() => setDismissed(true)}
-          className="flex-shrink-0 text-foreground opacity-40 hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-foreground/5 cursor-pointer"
+          className="flex-shrink-0 text-foreground/50 hover:text-foreground transition-colors p-1 rounded-md hover:bg-foreground/5 cursor-pointer"
           aria-label={dict?.dismiss_banner || 'Dismiss banner'}
         >
           <i className="fa-solid fa-xmark text-sm"></i>

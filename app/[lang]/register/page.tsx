@@ -26,19 +26,40 @@ interface RegisterPageProps {
   params: Promise<{
     lang: string;
   }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-export default async function RegisterPage(props: RegisterPageProps) {
-  const [{ lang }, cookieStore, validToken] = await Promise.all([
-    props.params,
+/**
+ * Validates and sanitizes the redirectUrl to ensure it is a safe internal relative path
+ * and strictly prevents redirecting back to login or register (preventing infinite loops).
+ */
+function sanitizeRedirectUrl(url: string | undefined): string | undefined {
+  if (!url || typeof url !== "string") return undefined;
+  const trimmed = url.trim();
+  // Must be an internal path starting with a single '/'
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return undefined;
+  // Strictly prevent infinite self-redirect loops
+  if (trimmed.includes("/login") || trimmed.includes("/register")) return undefined;
+  return trimmed;
+}
+
+export default async function RegisterPage({ params, searchParams }: RegisterPageProps) {
+  const [{ lang }, resolvedSearchParams, cookieStore, validToken] = await Promise.all([
+    params,
+    searchParams ? searchParams : Promise.resolve({} as { [key: string]: string | string[] | undefined }),
     cookies(),
     getValidAuthToken(),
   ]);
+
+  const rawRedirectUrl = (resolvedSearchParams?.redirectUrl || resolvedSearchParams?.callbackUrl || resolvedSearchParams?.redirect) as string | undefined;
+  const safeRedirectUrl = sanitizeRedirectUrl(rawRedirectUrl);
 
   if (validToken) {
     const hasStoredPlan = cookieStore.get("selected-plan")?.value;
     if (hasStoredPlan) {
       redirect(`/${lang}/become-member`);
+    } else if (safeRedirectUrl) {
+      redirect(safeRedirectUrl);
     } else {
       redirect(`/${lang}/dashboard`);
     }
@@ -50,7 +71,12 @@ export default async function RegisterPage(props: RegisterPageProps) {
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <AuthFlow lang={lang} dict={dict.auth} commonDict={dict.common} />
+          <AuthFlow
+            lang={lang}
+            redirectUrl={safeRedirectUrl}
+            dict={dict.auth}
+            commonDict={dict.common}
+          />
         </div>
       </div>
     </div>
