@@ -1827,8 +1827,12 @@ export default function ProductChartsClient({
                 </span>
               ))}
             </h2>
-            <button className="w-7 h-7 rounded-full border border-zinc-300 dark:border-zinc-600 flex items-center justify-center">
-              <i className="fa-solid fa-magnifying-glass text-zinc-600 dark:text-zinc-300 text-[13px]"></i>
+            <button 
+              type="button"
+              className="w-8 h-8 rounded-full bg-card border border-border text-foreground flex items-center justify-center transition-transform hover:bg-muted active:scale-95 shadow-xs"
+              aria-label="Search"
+            >
+              <i className="fa-solid fa-magnifying-glass text-[13px]"></i>
             </button>
           </div>
 
