@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { SearchProduct, SearchApiResponse } from '@/types/search'
 import { getAssetsUrl } from '@/lib/api-utils'
 import { tradingService } from '@/lib/api'
+import { searchProductsAction } from '@/app/actions/product'
 import { AgriGuruLogo } from '@/components/layout/HeaderGuest'
 import { MarketedProductCard } from '@/components/marketed-products/MarketedProductCard'
 
@@ -120,16 +121,17 @@ export function HeaderSearch({
       }
     }
 
-    document.addEventListener('pointerdown', handleOutsideInteraction, true)
-    document.addEventListener('mousedown', handleOutsideInteraction, true)
-    document.addEventListener('touchstart', handleOutsideInteraction, true)
-    document.addEventListener('click', handleOutsideInteraction, true)
+    // Use bubbling phase ('false') so click events inside containerRef (like search results) fire first
+    document.addEventListener('pointerdown', handleOutsideInteraction, false)
+    document.addEventListener('mousedown', handleOutsideInteraction, false)
+    document.addEventListener('touchstart', handleOutsideInteraction, false)
+    document.addEventListener('click', handleOutsideInteraction, false)
 
     return () => {
-      document.removeEventListener('pointerdown', handleOutsideInteraction, true)
-      document.removeEventListener('mousedown', handleOutsideInteraction, true)
-      document.removeEventListener('touchstart', handleOutsideInteraction, true)
-      document.removeEventListener('click', handleOutsideInteraction, true)
+      document.removeEventListener('pointerdown', handleOutsideInteraction, false)
+      document.removeEventListener('mousedown', handleOutsideInteraction, false)
+      document.removeEventListener('touchstart', handleOutsideInteraction, false)
+      document.removeEventListener('click', handleOutsideInteraction, false)
     }
   }, [])
 
@@ -171,10 +173,10 @@ export function HeaderSearch({
     }
   }, [initialSearchProducts])
 
-  // Debounced Search API (Starts on 4th keypress / >= 4 chars)
+  // Debounced Search API (Starts on 2nd character / >= 2 chars)
   useEffect(() => {
     const trimmed = query.trim()
-    if (trimmed.length < 4) {
+    if (trimmed.length < 2) {
       setSearchResults([])
       setIsSearching(false)
       return
@@ -190,15 +192,22 @@ export function HeaderSearch({
     setIsSearching(true)
     const timeoutId = setTimeout(async () => {
       try {
-        const json = await tradingService.searchProducts({ isActive: true, query: trimmed, lang });
-        
+        // Try Server Action first to eliminate browser-side CORS/network restriction issues
+        const actionRes = await searchProductsAction({ isActive: true, query: trimmed, lang });
         let prods: SearchProduct[] = []
-        if (json?.data?.products && Array.isArray(json.data.products)) {
-          prods = json.data.products
-        } else if (json?.data && Array.isArray(json.data)) {
-          prods = json.data
-        } else if (Array.isArray(json)) {
-          prods = json
+
+        if (actionRes?.success && Array.isArray(actionRes.products)) {
+          prods = actionRes.products;
+        } else {
+          // Fallback to client-side tradingService if Server Action fails
+          const json = await tradingService.searchProducts({ isActive: true, query: trimmed, lang });
+          if (json?.data?.products && Array.isArray(json.data.products)) {
+            prods = json.data.products
+          } else if (json?.data && Array.isArray(json.data)) {
+            prods = json.data
+          } else if (Array.isArray(json)) {
+            prods = json
+          }
         }
         
         if (prods.length > 0) {
@@ -213,7 +222,7 @@ export function HeaderSearch({
       } finally {
         setIsSearching(false)
       }
-    }, 300)
+    }, 250)
 
     return () => clearTimeout(timeoutId)
   }, [query, lang])
@@ -328,8 +337,8 @@ export function HeaderSearch({
     return { tableData, otherData }
   }
 
-  // Active products to display on mobile: searchResults if query >= 4, else marketedProductsList
-  const mobileDisplayProducts = query.trim().length >= 4 ? searchResults : marketedProductsList
+  // Active products to display on mobile: searchResults if query >= 2, else marketedProductsList
+  const mobileDisplayProducts = query.trim().length >= 2 ? searchResults : marketedProductsList
 
   return (
     <div ref={containerRef} className="relative w-full" dir={isRtl ? 'rtl' : 'ltr'}>
@@ -417,7 +426,7 @@ export function HeaderSearch({
               className="max-h-[85vh] sm:max-h-[500px] overflow-y-auto overscroll-contain pr-3.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               {/* STATE A: Search Results (Grid format matching screenshot) */}
-              {query.trim().length >= 4 ? (
+              {query.trim().length >= 2 ? (
                 <div className="p-3.5 sm:p-4">
                   <div className="flex items-center gap-2 mb-3 text-foreground font-bold text-[14px] sm:text-[15px]">
                     <i className="fa-solid fa-mug-hot text-foreground/80 text-[14px]"></i>
@@ -438,12 +447,19 @@ export function HeaderSearch({
                     <div className="grid grid-cols-4 gap-2.5 animate-in fade-in duration-200">
                       {searchResults.map((product) => {
                         const imageUrl = getProductImageUrl(product)
+                        const productSlug = product.slug || product.id
+                        const productUrl = `/${lang}/product/${encodeURIComponent(productSlug)}`
 
                         return (
-                          <div
+                          <Link
                             key={product.id}
+                            href={productUrl}
                             title={product.name}
-                            onClick={() => handleProductSelect(product)}
+                            onClick={() => {
+                              setIsOpen(false)
+                              setQuery('')
+                              desktopInputRef.current?.blur()
+                            }}
                             className="group flex flex-col items-center cursor-pointer"
                           >
                             <div className="relative w-full aspect-square rounded-xl border border-border/80 overflow-hidden bg-muted/40 shadow-xs group-hover:border-primary/50 group-hover:shadow-sm transition-all">
@@ -460,7 +476,7 @@ export function HeaderSearch({
                             <span className="text-[11px] sm:text-[11.5px] font-medium text-foreground/90 group-hover:text-primary transition-colors text-center line-clamp-2 leading-[13.5px] min-h-[27px] w-full mt-1.5 px-0.5 break-words">
                               {product.name}
                             </span>
-                          </div>
+                          </Link>
                         )
                       })}
                     </div>
@@ -483,16 +499,25 @@ export function HeaderSearch({
 
                     {frequentlySearchedList.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
-                        {frequentlySearchedList.map((product) => (
-                          <button
-                            key={product.id}
-                            type="button"
-                            onClick={() => handleProductSelect(product)}
-                            className="px-3 py-1 rounded-xl bg-muted/80 hover:bg-muted hover:text-primary border border-border/60 text-foreground text-[11.5px] sm:text-[12px] font-medium transition-colors text-left cursor-pointer"
-                          >
-                            {product.name}
-                          </button>
-                        ))}
+                        {frequentlySearchedList.map((product) => {
+                          const productSlug = product.slug || product.id
+                          const productUrl = `/${lang}/product/${encodeURIComponent(productSlug)}`
+
+                          return (
+                            <Link
+                              key={product.id}
+                              href={productUrl}
+                              onClick={() => {
+                                setIsOpen(false)
+                                setQuery('')
+                                desktopInputRef.current?.blur()
+                              }}
+                              className="px-3 py-1 rounded-xl bg-muted/80 hover:bg-muted hover:text-primary border border-border/60 text-foreground text-[11.5px] sm:text-[12px] font-medium transition-colors text-left cursor-pointer"
+                            >
+                              {product.name}
+                            </Link>
+                          )
+                        })}
                       </div>
                     )}
                   </div>
@@ -508,11 +533,19 @@ export function HeaderSearch({
                       <div className="grid grid-cols-4 gap-2">
                         {marketedProductsList.map((product) => {
                           const imageUrl = getProductImageUrl(product)
+                          const productSlug = product.slug || product.id
+                          const productUrl = `/${lang}/product/${encodeURIComponent(productSlug)}`
+
                           return (
-                            <div
+                            <Link
                               key={product.id}
+                              href={productUrl}
                               title={product.name}
-                              onClick={() => handleProductSelect(product)}
+                              onClick={() => {
+                                setIsOpen(false)
+                                setQuery('')
+                                desktopInputRef.current?.blur()
+                              }}
                               className="group flex flex-col items-center cursor-pointer"
                             >
                               <div className="relative w-full aspect-square rounded-xl border border-border/80 overflow-hidden bg-muted/40 shadow-xs group-hover:border-primary/50 group-hover:shadow-sm transition-all">
@@ -529,7 +562,7 @@ export function HeaderSearch({
                               <span className="text-[10.5px] sm:text-[11px] font-medium text-foreground/90 group-hover:text-primary transition-colors text-center line-clamp-2 leading-[13px] min-h-[26px] w-full mt-1 px-0.5 break-words">
                                 {product.name}
                               </span>
-                            </div>
+                            </Link>
                           )
                         })}
                       </div>
@@ -547,11 +580,19 @@ export function HeaderSearch({
                       <div className="grid grid-cols-4 gap-2">
                         {bestSellerList.map((product) => {
                           const imageUrl = getProductImageUrl(product)
+                          const productSlug = product.slug || product.id
+                          const productUrl = `/${lang}/product/${encodeURIComponent(productSlug)}`
+
                           return (
-                            <div
+                            <Link
                               key={product.id}
+                              href={productUrl}
                               title={product.name}
-                              onClick={() => handleProductSelect(product)}
+                              onClick={() => {
+                                setIsOpen(false)
+                                setQuery('')
+                                desktopInputRef.current?.blur()
+                              }}
                               className="group flex flex-col items-center cursor-pointer"
                             >
                               <div className="relative w-full aspect-square rounded-xl border border-border/80 overflow-hidden bg-muted/40 shadow-xs group-hover:border-primary/50 group-hover:shadow-sm transition-all">
@@ -568,7 +609,7 @@ export function HeaderSearch({
                               <span className="text-[10.5px] sm:text-[11px] font-medium text-foreground/90 group-hover:text-primary transition-colors text-center line-clamp-2 leading-[13px] min-h-[26px] w-full mt-1 px-0.5 break-words">
                                 {product.name}
                               </span>
-                            </div>
+                            </Link>
                           )
                         })}
                       </div>
@@ -673,7 +714,7 @@ export function HeaderSearch({
           {/* Mobile Results Body: 2-Column Product Cards reusing MarketedProductCard */}
           <div className="flex-1 overflow-y-auto p-3 sm:p-4 overscroll-contain bg-background">
             <div className="max-w-7xl mx-auto">
-              {isSearching && query.trim().length >= 4 ? (
+              {isSearching && query.trim().length >= 2 ? (
                 /* Loading Skeletons for 2-column cards */
                 <div className="grid grid-cols-2 gap-2 sm:gap-3">
                   {[1, 2, 3, 4].map((n) => (

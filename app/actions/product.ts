@@ -444,3 +444,28 @@ export async function checkFavoriteProductLimit(langCode: string = 'en') {
   }
 }
 
+export async function searchProductsAction(params: {
+  query?: string;
+  lang?: string;
+  limit?: number;
+  isActive?: boolean;
+  categoryId?: string;
+}) {
+  try {
+    const { tradingService } = await import('@/lib/api');
+    const json = await tradingService.searchProducts(params);
+    let prods: any[] = [];
+    if (json?.data?.products && Array.isArray(json.data.products)) {
+      prods = json.data.products;
+    } else if (json?.data && Array.isArray(json.data)) {
+      prods = json.data;
+    } else if (Array.isArray(json)) {
+      prods = json;
+    }
+    return { success: true, products: prods };
+  } catch (error: any) {
+    console.error("Error in searchProductsAction:", error);
+    return { success: false, products: [], error: error?.message || "Search failed" };
+  }
+}
+
