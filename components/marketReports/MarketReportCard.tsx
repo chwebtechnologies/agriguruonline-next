@@ -69,7 +69,7 @@ export default function MarketReportCard({ report, lang, priority = false, dict 
   const handleOpenReport = (e: React.MouseEvent) => {
     e.preventDefault()
     if (!isLoggedIn || !fileUrl) {
-      window.location.href = `/${lang}/login?callbackUrl=/${lang}/market-reports`
+      window.location.href = `/${lang}/login?redirectUrl=/${lang}/market-reports`
       return
     }
     

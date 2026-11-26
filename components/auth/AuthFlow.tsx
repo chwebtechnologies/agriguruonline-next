@@ -159,7 +159,13 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
         sessionStorage.removeItem("ag_auth_step");
         sessionStorage.removeItem("ag_auth_email");
       } catch (e) {}
-      router.push(`/${lang}`);
+
+      // If there is browser history to go back to, navigate back; otherwise fallback to home
+      if (typeof window !== "undefined" && window.history.length > 1) {
+        router.back();
+      } else {
+        router.push(redirectUrl || `/${lang}`);
+      }
     } else if (step === "OTP") {
       try {
         sessionStorage.removeItem("ag_auth_step");

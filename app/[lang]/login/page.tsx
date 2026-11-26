@@ -51,7 +51,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
     getValidAuthToken(),
   ]);
 
-  const rawRedirectUrl = resolvedSearchParams?.redirectUrl as string | undefined;
+  const rawRedirectUrl = (resolvedSearchParams?.redirectUrl || resolvedSearchParams?.callbackUrl) as string | undefined;
   const safeRedirectUrl = sanitizeRedirectUrl(rawRedirectUrl);
 
   // If the user already has a GUARANTEED VALID (non-expired) session, redirect them away
