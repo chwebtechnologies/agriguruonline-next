@@ -8,6 +8,7 @@ import {
   smartDocsService,
   extractSmartDocsArray,
   extractSmartDocsTotal,
+  extractIsSmartDocsEnabled,
   normalizeActionParam,
 } from '@/lib/api/smart-docs.service';
 import { getDictionary } from '@/app/[lang]/dictionaries';
@@ -60,6 +61,7 @@ export default async function SmartDocsPage(props: {
 
   const confirmationsData = extractSmartDocsArray(smartDocsRes);
   const totalRecords = extractSmartDocsTotal(smartDocsRes, confirmationsData.length);
+  const isSmartDocsEnabled = extractIsSmartDocsEnabled(smartDocsRes);
 
   return (
     <div className="bg-background text-foreground transition-theme flex-1 flex flex-col min-h-0 lg:h-full overflow-y-auto lg:overflow-hidden">
@@ -88,6 +90,7 @@ export default async function SmartDocsPage(props: {
               title={pageTitle}
               description={pageDescription}
               addHref={`/${lang}/smart-docs/draft`}
+              isSmartDocsEnabled={isSmartDocsEnabled}
             />
           </div>
         </div>

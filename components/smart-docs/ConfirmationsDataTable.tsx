@@ -16,6 +16,7 @@ import {
   getCurrencySymbol,
 } from '@/lib/api/smart-docs.service';
 import { DeleteConfirmModal } from '@/components/ui/charts/DeleteConfirmModal';
+import { ActionIndicationModal } from '@/components/ui/charts/ActionIndicationModal';
 
 export { sanitizeDocId, extractAllSmartDocIds, extractContractDocId };
 
@@ -150,6 +151,7 @@ export interface ConfirmationsDataTableProps {
   onRowClick?: (row: any) => void;
   onRefresh?: () => void;
   showTopCard?: boolean;
+  isSmartDocsEnabled?: boolean;
 }
 
 // Helper to format dates cleanly
@@ -515,6 +517,7 @@ export function ConfirmationsDataTable({
   initialSearch = '',
   initialSearchLabel = '',
   searchLabel = '',
+  isSmartDocsEnabled = false,
 }: ConfirmationsDataTableProps) {
   const router = useRouter();
   const effectiveTitle = title || dict?.smart_docs?.page_title || 'Confirmations/Quotations';
@@ -526,6 +529,8 @@ export function ConfirmationsDataTable({
   const [serverTotal, setServerTotal] = useState<number | null>(
     typeof totalRecords === 'number' ? totalRecords : null
   );
+  const [hasSmartDocsAccess, setHasSmartDocsAccess] = useState<boolean>(Boolean(isSmartDocsEnabled));
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [pageSize, setPageSize] = useState<number>(initialPageSize || defaultPageSize);
   const [currentPage, setCurrentPage] = useState<number>(initialPage);
   const [selectedAction, setSelectedAction] = useState<string>(() => normalizeActionParam(action || 'All'));
@@ -774,6 +779,9 @@ export function ConfirmationsDataTable({
           setServerTotal(typeof res.total === 'number' ? res.total : res.data.length);
           setCurrentPage(targetPage);
           setPageSize(targetLimit);
+          if (typeof res.is_smart_docs_enabled === 'boolean') {
+            setHasSmartDocsAccess(res.is_smart_docs_enabled);
+          }
         }
       } catch (error) {
         console.error('[ConfirmationsDataTable] fetchSmartDocs error:', error);
@@ -919,6 +927,12 @@ export function ConfirmationsDataTable({
       }
     }
   }, [data, totalRecords]);
+
+  useEffect(() => {
+    if (typeof isSmartDocsEnabled === 'boolean') {
+      setHasSmartDocsAccess(isSmartDocsEnabled);
+    }
+  }, [isSmartDocsEnabled]);
 
   // Sync action prop if changed externally
   useEffect(() => {
@@ -1964,9 +1978,19 @@ export function ConfirmationsDataTable({
     }
   };
 
-  const handleAddClick = () => {
+  const handleAddClick = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (!hasSmartDocsAccess) {
+      setIsUpgradeModalOpen(true);
+      return;
+    }
     if (onAddConfirmation) {
       onAddConfirmation();
+    } else if (effectiveAddHref) {
+      router.push(effectiveAddHref);
     }
   };
 
@@ -1991,24 +2015,14 @@ export function ConfirmationsDataTable({
 
           {/* Action Button: Add Confirmation */}
           <div className="flex items-center gap-2 shrink-0">
-            {effectiveAddHref ? (
-              <Link
-                href={effectiveAddHref}
-                className="h-8 sm:h-8.5 px-3.5 rounded-md bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold text-xs transition-all inline-flex items-center gap-2 shadow-xs active:scale-95 shrink-0"
-              >
-                <i className="fa-solid fa-plus text-xs"></i>
-                <span>{effectiveAddButtonLabel}</span>
-              </Link>
-            ) : (
-              <button
-                type="button"
-                onClick={handleAddClick}
-                className="h-8 sm:h-8.5 px-3.5 rounded-md bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold text-xs transition-all inline-flex items-center gap-2 shadow-xs active:scale-95 shrink-0 cursor-pointer"
-              >
-                <i className="fa-solid fa-plus text-xs"></i>
-                <span>{effectiveAddButtonLabel}</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleAddClick}
+              className="h-8 sm:h-8.5 px-3.5 rounded-md bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold text-xs transition-all inline-flex items-center gap-2 shadow-xs active:scale-95 shrink-0 cursor-pointer"
+            >
+              <i className="fa-solid fa-plus text-xs"></i>
+              <span>{effectiveAddButtonLabel}</span>
+            </button>
           </div>
         </div>
       )}
@@ -2268,24 +2282,14 @@ export function ConfirmationsDataTable({
             )}
 
             {/* Add Confirmation Button in Table Toolbar */}
-            {effectiveAddHref ? (
-              <Link
-                href={effectiveAddHref}
-                className="h-8 sm:h-8.5 px-3 sm:px-3.5 rounded-md bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold text-xs transition-all inline-flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0"
-              >
-                <i className="fa-solid fa-plus text-xs"></i>
-                <span>{effectiveAddButtonLabel}</span>
-              </Link>
-            ) : (
-              <button
-                type="button"
-                onClick={handleAddClick}
-                className="h-8 sm:h-8.5 px-3 sm:px-3.5 rounded-md bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold text-xs transition-all inline-flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0 cursor-pointer"
-              >
-                <i className="fa-solid fa-plus text-xs"></i>
-                <span>{effectiveAddButtonLabel}</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleAddClick}
+              className="h-8 sm:h-8.5 px-3 sm:px-3.5 rounded-md bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold text-xs transition-all inline-flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0 cursor-pointer"
+            >
+              <i className="fa-solid fa-plus text-xs"></i>
+              <span>{effectiveAddButtonLabel}</span>
+            </button>
           </div>
         </div>
 
@@ -2472,14 +2476,6 @@ export function ConfirmationsDataTable({
                           <i className="fa-solid fa-xmark text-xs"></i>
                           <span>{dict?.smart_docs?.clear_search || 'Clear Search'}</span>
                         </button>
-                      ) : effectiveAddHref ? (
-                        <Link
-                          href={effectiveAddHref}
-                          className="mt-1 px-4 py-2 rounded-md bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold text-xs transition-all inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
-                        >
-                          <i className="fa-solid fa-plus text-xs"></i>
-                          <span>{effectiveAddButtonLabel}</span>
-                        </Link>
                       ) : (
                         <button
                           type="button"
@@ -2639,6 +2635,23 @@ export function ConfirmationsDataTable({
         description={deleteModalDescription}
         confirmText={dict?.smart_docs?.yes_delete || 'Yes, Delete'}
         cancelText={dict?.smart_docs?.cancel || dict?.common?.cancel || 'Cancel'}
+      />
+
+      {/* Upgrade Required Modal */}
+      <ActionIndicationModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        onConfirm={() => {
+          setIsUpgradeModalOpen(false);
+          router.push(`/${lang}/membership`);
+        }}
+        title="Upgrade Required"
+        description="Smart Docs is not included in your Current plan. Please Upgrade your plan to access this feature."
+        indicationText="Upgrade Now"
+        secondaryActionText="Cancel"
+        onSecondaryAction={() => setIsUpgradeModalOpen(false)}
+        type="warning"
+        icon="fa-solid fa-lock"
       />
     </div>
   );

@@ -29,6 +29,7 @@ import {
   smartDocsService,
   extractSmartDocsArray,
   extractSmartDocsTotal,
+  extractIsSmartDocsEnabled,
   normalizeActionParam,
   extractStepperList,
   type StepperDocumentItem,
@@ -163,6 +164,7 @@ export interface GetSmartDocsActionResult {
   page: number;
   limit: number;
   error?: string;
+  is_smart_docs_enabled?: boolean;
 }
 
 export async function getSmartDocsListAction(
@@ -185,6 +187,7 @@ export async function getSmartDocsListAction(
         total: 0,
         page,
         limit,
+        is_smart_docs_enabled: false,
       };
     }
 
@@ -209,11 +212,13 @@ export async function getSmartDocsListAction(
         total: 0,
         page,
         limit,
+        is_smart_docs_enabled: false,
       };
     }
 
     const dataArray = extractSmartDocsArray(rawRes);
     const totalCount = extractSmartDocsTotal(rawRes, dataArray.length);
+    const isSmartDocsEnabled = extractIsSmartDocsEnabled(rawRes);
 
     return {
       success: Boolean(rawRes.success || rawRes.status || rawRes.data),
@@ -222,6 +227,7 @@ export async function getSmartDocsListAction(
       total: totalCount,
       page,
       limit,
+      is_smart_docs_enabled: isSmartDocsEnabled,
     };
   } catch (error: any) {
     console.error("[getSmartDocsListAction] Error:", error);
@@ -232,6 +238,7 @@ export async function getSmartDocsListAction(
       total: 0,
       page: params.page ?? 1,
       limit: params.limit ?? 25,
+      is_smart_docs_enabled: false,
     };
   }
 }

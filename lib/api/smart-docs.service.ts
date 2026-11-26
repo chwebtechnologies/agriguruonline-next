@@ -596,6 +596,38 @@ export function extractSmartDocsTotal(data: any, fallbackLength: number = 0): nu
 }
 
 /**
+ * Extracts is_smart_docs_enabled flag from the Smart Docs listing API response.
+ * Handles boolean, string ("true", "1"), number (1), and checks common nested paths.
+ */
+export function extractIsSmartDocsEnabled(data: any): boolean {
+  if (!data) return false;
+  const d = data.data ?? data;
+
+  const candidateValues = [
+    data?.is_smart_docs_enabled,
+    data?.is_smart_doc_enabled,
+    data?.smart_docs_enabled,
+    d?.is_smart_docs_enabled,
+    d?.is_smart_doc_enabled,
+    d?.smart_docs_enabled,
+    data?.data?.is_smart_docs_enabled,
+    data?.data?.is_smart_doc_enabled,
+    data?.meta?.is_smart_docs_enabled,
+    d?.meta?.is_smart_docs_enabled,
+    data?.pagination?.is_smart_docs_enabled,
+    d?.pagination?.is_smart_docs_enabled,
+  ];
+
+  for (const val of candidateValues) {
+    if (val === true || val === 1 || val === 'true' || val === '1') {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
  * Safely clones a FormData object to ensure fresh stream instances across multi-candidate retries.
  */
 function cloneFormDataPayload(source: any): any {
