@@ -540,7 +540,7 @@ export default function ProductsDataTable({
   const totalPages = Math.ceil(totalCount / pageSize) || 1;
 
   return (
-    <div className="w-full bg-card border border-border rounded-xl shadow-xs overflow-hidden flex flex-col h-auto max-h-full relative z-10">
+    <div className="w-full bg-card border border-border rounded-xl shadow-xs overflow-hidden flex flex-col flex-1 min-h-0 relative z-10">
       {/* Table Controls Bar - Matching ConfirmationsDataTable exactly */}
       <div className="px-3 sm:px-3.5 py-2 sm:py-2.5 border-b border-border bg-card flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2 sm:gap-2.5 shrink-0 relative z-20">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2.5 flex-wrap">

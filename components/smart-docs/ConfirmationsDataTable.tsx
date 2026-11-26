@@ -2028,7 +2028,7 @@ export function ConfirmationsDataTable({
       )}
 
       {/* Main DataTable Container */}
-      <div className="w-full bg-card border border-border rounded-xl shadow-xs overflow-hidden flex flex-col h-auto max-h-full relative z-10">
+      <div className="w-full bg-card border border-border rounded-xl shadow-xs overflow-hidden flex flex-col flex-1 min-h-0 relative z-10">
         {/* Table Controls Bar (Search + Action Filter + Add Confirmation Action) */}
         <div className="px-3 sm:px-3.5 py-2 sm:py-2.5 border-b border-border bg-card flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2 sm:gap-2.5 shrink-0 relative z-20">
           {/* Left: Action Filter Dropdown (First) + Search Column Dropdown (Second) + Search Box */}

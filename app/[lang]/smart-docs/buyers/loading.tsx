@@ -13,7 +13,7 @@ export default function BuyersLoading() {
           </div>
 
           {/* Table Container Skeleton */}
-          <div className="w-full bg-card border border-border rounded-xl shadow-xs overflow-hidden flex flex-col animate-pulse h-auto max-h-full">
+          <div className="w-full bg-card border border-border rounded-xl shadow-xs overflow-hidden flex flex-col animate-pulse flex-1 min-h-0">
             {/* Search & Actions bar */}
             <div className="px-3 sm:px-3.5 py-2 sm:py-2.5 border-b border-border flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-2.5">
               <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap w-full sm:w-auto">
