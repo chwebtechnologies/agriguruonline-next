@@ -2,7 +2,8 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { getCountryCallingCode, parsePhoneNumber, type Country } from "react-phone-number-input";
-import { AsYouType } from "libphonenumber-js";
+import { AsYouType, getExampleNumber } from "libphonenumber-js";
+import examples from "libphonenumber-js/examples.mobile.json";
 import SearchableCountrySelect from "./SearchableCountrySelect";
 import { getDefaultUserCountry } from "@/lib/country";
 
@@ -119,15 +120,19 @@ export default function SearchablePhoneInput({
     }
   }, [nationalDigits, country]);
 
-  // Dynamic placeholder for current country
+  // Dynamic placeholder for current country based on standard mobile phone format
   const dynamicPlaceholder = useMemo(() => {
     if (placeholder) return placeholder;
-    try {
-      const sample = new AsYouType(country).input("501234567");
-      return sample || "Enter mobile number";
-    } catch {
-      return "Enter mobile number";
+    if (country) {
+      try {
+        const example = getExampleNumber(country, examples);
+        if (example?.nationalNumber) {
+          const formatted = new AsYouType(country).input(example.nationalNumber);
+          if (formatted) return formatted;
+        }
+      } catch {}
     }
+    return "Enter phone number";
   }, [country, placeholder]);
 
   // Update country from dropdown selection
