@@ -121,7 +121,13 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
   const businessRef = useRef<HTMLDivElement>(null);
 
   const [businessAddress, setBusinessAddress] = useState(profileData?.business_address || profileData?.address || "");
-  const [altNumber, setAltNumber] = useState(profileData?.alternate_mobile_no || profileData?.alternate_phone || "");
+  const [altNumber, setAltNumber] = useState(() => {
+    return getE164Phone(
+      profileData?.other_country_code,
+      profileData?.other_numer || profileData?.other_number,
+      profileData?.alternate_mobile_no || profileData?.alternate_phone
+    );
+  });
   const [altEmail, setAltEmail] = useState(profileData?.other_email || profileData?.alternate_email || "");
   const [website, setWebsite] = useState(profileData?.website || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -189,7 +195,11 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
       return [];
     })(),
     businessAddress: profileData?.business_address || profileData?.address || "",
-    altNumber: profileData?.alternate_mobile_no || profileData?.alternate_phone || "",
+    altNumber: getE164Phone(
+      profileData?.other_country_code,
+      profileData?.other_numer || profileData?.other_number,
+      profileData?.alternate_mobile_no || profileData?.alternate_phone
+    ),
     altEmail: profileData?.other_email || profileData?.alternate_email || "",
     website: profileData?.website || ""
   });
@@ -215,7 +225,11 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
     const newPhone = getE164Phone(profileData?.country_code, profileData?.mobile_no, profileData?.phone);
     const newCompany = profileData?.company_name || profileData?.business_name || "";
     const newAddress = profileData?.business_address || profileData?.address || "";
-    const newAltNumber = profileData?.alternate_mobile_no || profileData?.alternate_phone || "";
+    const newAltNumber = getE164Phone(
+      profileData?.other_country_code,
+      profileData?.other_numer || profileData?.other_number,
+      profileData?.alternate_mobile_no || profileData?.alternate_phone
+    );
     const newAltEmail = profileData?.other_email || profileData?.alternate_email || "";
     const newWebsite = profileData?.website || "";
 
@@ -359,6 +373,13 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
       const selectedCountryObj = countries.find(c => c.iso2?.toUpperCase() === country?.toUpperCase());
       const selectedCountryId = selectedCountryObj?.id || profileData?.country_id || "";
 
+      let altParsed: any = null;
+      if (altNumber) {
+        try {
+          altParsed = parsePhoneNumber(altNumber);
+        } catch {}
+      }
+
       const payload: Record<string, any> = {
         first_name: firstName,
         last_name: lastName,
@@ -372,6 +393,20 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
         registration_type: profileData?.registration_type || "",
         registration_number: profileData?.registration_number || "",
       };
+
+      if (altNumber && altNumber.trim()) {
+        const otherCountryCode = altParsed ? `+${altParsed.countryCallingCode}` : "";
+        const otherNum = altParsed ? altParsed.nationalNumber : altNumber.trim();
+        payload.other_country_code = otherCountryCode;
+        payload.other_numer = otherNum;
+        payload.other_number = otherNum;
+        payload.alternate_mobile_no = altNumber;
+      } else {
+        payload.other_country_code = null;
+        payload.other_numer = null;
+        payload.other_number = null;
+        payload.alternate_mobile_no = null;
+      }
 
       if (businessAddress.trim()) {
         payload.business_address = businessAddress.trim();
@@ -413,17 +448,17 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-2 lg:gap-6">
         
       {/* Basic Details Group */}
-      <div ref={personalRef} className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
-        <div onClick={togglePersonal} className="px-4 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between cursor-pointer lg:pointer-events-none list-none lg:border-b lg:border-foreground/5 select-none bg-foreground/[0.02] rounded-xl lg:rounded-b-none transition-colors">
+      <div ref={personalRef} className="group bg-card border border-border shadow-xs rounded-2xl flex flex-col overflow-hidden">
+        <div onClick={togglePersonal} className="px-4 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between cursor-pointer lg:pointer-events-none list-none lg:border-b lg:border-border select-none bg-muted/30 rounded-2xl lg:rounded-b-none transition-colors">
             <div className="flex items-center gap-3 sm:gap-4">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-brand-blue/10 text-brand-blue flex items-center justify-center">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-brand-blue/10 text-brand-blue flex items-center justify-center shadow-2xs">
                 <i className="fa-regular fa-user text-[14px] sm:text-base"></i>
               </div>
               <h3 className="text-base sm:text-lg font-bold text-foreground">
                 Basic Details
               </h3>
             </div>
-            <i className={`fa-solid fa-chevron-down lg:!hidden transition-transform duration-300 text-foreground/50 ${isPersonalOpen ? 'rotate-180' : ''}`}></i>
+            <i className={`fa-solid fa-chevron-down lg:!hidden transition-transform duration-300 text-muted-foreground ${isPersonalOpen ? 'rotate-180' : ''}`}></i>
           </div>
           
           <div className={`${isPersonalOpen ? 'block' : 'hidden'} lg:!block p-5 sm:p-6 animate-in slide-in-from-top-2 duration-300`}>
@@ -432,9 +467,11 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
             {/* Form Fields Column */}
             <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 w-full">
               <div className="flex flex-col gap-1.5 md:col-span-2">
-                <label className={`text-sm font-semibold pl-0.5 ${errors.fullName ? 'text-red-500' : 'text-foreground/90'}`}>Full Name <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <i className={`fa-regular fa-id-card absolute left-3.5 top-1/2 -translate-y-1/2 ${errors.fullName ? 'text-red-500/70' : 'text-foreground/30'}`}></i>
+                <label className={`text-xs font-bold uppercase tracking-wider pl-0.5 ${errors.fullName ? 'text-red-500' : 'text-foreground/80'}`}>Full Name <span className="text-red-500">*</span></label>
+                <div className="relative group">
+                  <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center justify-center transition-colors ${errors.fullName ? 'text-red-500' : 'text-muted-foreground group-focus-within:text-brand-blue'}`}>
+                    <i className="fa-regular fa-id-card text-[15px]"></i>
+                  </div>
                   <input 
                     type="text" 
                     value={fullName}
@@ -442,29 +479,35 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                       setFullName(e.target.value);
                       if (errors.fullName) setErrors(prev => ({ ...prev, fullName: "" }));
                     }}
-                    className={`w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.fullName ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-brand-blue focus:ring-brand-blue/50'} rounded-xl focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm ${errors.fullName ? 'text-red-500 placeholder-red-300' : 'text-foreground'}`}
+                    className={`w-full pl-10 pr-4 h-[48px] bg-background hover:bg-muted/30 border ${errors.fullName ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20' : 'border-border/80 hover:border-border focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20'} rounded-xl focus:bg-background focus:outline-none transition-all font-medium text-sm shadow-xs ${errors.fullName ? 'text-red-500 placeholder-red-300' : 'text-foreground placeholder:text-muted-foreground/50'}`}
                   />
                 </div>
                 {errors.fullName && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.fullName}</p>}
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-foreground/90 pl-0.5 flex justify-between">
-                  Email Address <span className="text-[10px] uppercase tracking-wider text-foreground/40 bg-foreground/5 px-2 py-0.5 rounded-md font-bold">Read-only</span>
+                <label className="text-xs font-bold uppercase tracking-wider text-foreground/80 pl-0.5 flex justify-between items-center">
+                  <span>Email Address</span>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/90 border border-border/70 px-2.5 py-0.5 rounded-full font-bold select-none flex items-center gap-1 shadow-2xs">
+                    <i className="fa-solid fa-lock text-[8px] opacity-70"></i>Read-only
+                  </span>
                 </label>
-                <div className="relative opacity-70">
-                  <i className="fa-regular fa-envelope absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/40"></i>
+                <div className="relative">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center justify-center text-muted-foreground/60">
+                    <i className="fa-regular fa-envelope text-[15px]"></i>
+                  </div>
                   <input 
                     type="email" 
                     value={email}
                     readOnly
-                    className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/5 border border-foreground/10 rounded-xl text-foreground/70 cursor-not-allowed focus:outline-none font-medium text-sm"
+                    tabIndex={-1}
+                    className="w-full pl-10 pr-4 h-[48px] bg-muted/40 border border-dashed border-border/80 rounded-xl text-muted-foreground/90 cursor-not-allowed focus:outline-none font-medium text-sm select-all"
                   />
                 </div>
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className={`text-sm font-semibold pl-0.5 ${errors.phone ? 'text-red-500' : 'text-foreground/90'}`}>Mobile Number <span className="text-red-500">*</span></label>
+                <label className={`text-xs font-bold uppercase tracking-wider pl-0.5 ${errors.phone ? 'text-red-500' : 'text-foreground/80'}`}>Mobile Number <span className="text-red-500">*</span></label>
                 <div className={errors.phone ? 'border border-red-500 rounded-xl focus-within:ring-2 focus-within:ring-red-500/20' : ''}>
                   <SearchablePhoneInput
                     defaultCountry={getDefaultUserCountry()}
@@ -479,7 +522,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className={`text-sm font-semibold pl-0.5 ${errors.altNumber ? 'text-red-500' : 'text-foreground/90'}`}>Alternate Number <span className={`font-normal text-xs ${errors.altNumber ? 'text-red-500/60' : 'text-foreground/40'}`}>(Optional)</span></label>
+                <label className={`text-xs font-bold uppercase tracking-wider pl-0.5 ${errors.altNumber ? 'text-red-500' : 'text-foreground/80'}`}>Alternate Number <span className={`font-normal lowercase tracking-normal text-xs ${errors.altNumber ? 'text-red-500/60' : 'text-muted-foreground/70'}`}>(optional)</span></label>
                 <div className={errors.altNumber ? 'border border-red-500 rounded-xl focus-within:ring-2 focus-within:ring-red-500/20' : ''}>
                   <SearchablePhoneInput
                     defaultCountry={getDefaultUserCountry()}
@@ -494,9 +537,11 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className={`text-sm font-semibold pl-0.5 ${errors.altEmail ? 'text-red-500' : 'text-foreground/90'}`}>Alternate Email <span className={`font-normal text-xs ${errors.altEmail ? 'text-red-500/60' : 'text-foreground/40'}`}>(Optional)</span></label>
-                <div className="relative">
-                  <i className={`fa-regular fa-envelope absolute left-3.5 top-1/2 -translate-y-1/2 ${errors.altEmail ? 'text-red-500/70' : 'text-foreground/30'}`}></i>
+                <label className={`text-xs font-bold uppercase tracking-wider pl-0.5 ${errors.altEmail ? 'text-red-500' : 'text-foreground/80'}`}>Alternate Email <span className={`font-normal lowercase tracking-normal text-xs ${errors.altEmail ? 'text-red-500/60' : 'text-muted-foreground/70'}`}>(optional)</span></label>
+                <div className="relative group">
+                  <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center justify-center transition-colors ${errors.altEmail ? 'text-red-500' : 'text-muted-foreground group-focus-within:text-brand-blue'}`}>
+                    <i className="fa-regular fa-envelope text-[15px]"></i>
+                  </div>
                   <input 
                     type="email" 
                     value={altEmail}
@@ -504,7 +549,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                       setAltEmail(e.target.value);
                       if (errors.altEmail) setErrors(prev => ({ ...prev, altEmail: "" }));
                     }}
-                    className={`w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.altEmail ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-brand-blue focus:ring-brand-blue/50'} rounded-xl focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm ${errors.altEmail ? 'text-red-500 placeholder-red-300' : 'text-foreground'}`}
+                    className={`w-full pl-10 pr-4 h-[48px] bg-background hover:bg-muted/30 border ${errors.altEmail ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20' : 'border-border/80 hover:border-border focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20'} rounded-xl focus:bg-background focus:outline-none transition-all font-medium text-sm shadow-xs ${errors.altEmail ? 'text-red-500 placeholder-red-300' : 'text-foreground placeholder:text-muted-foreground/50'}`}
                     placeholder={common.alternate_email || "alternate@example.com"}
                   />
                 </div>
@@ -523,26 +568,28 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
       </div>
 
       {/* Business Details Group */}
-      <div ref={businessRef} className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
-        <div onClick={toggleBusiness} className="px-4 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between cursor-pointer lg:pointer-events-none list-none lg:border-b lg:border-foreground/5 select-none bg-foreground/[0.02] rounded-xl lg:rounded-b-none transition-colors">
+      <div ref={businessRef} className="group bg-card border border-border shadow-xs rounded-2xl flex flex-col overflow-hidden">
+        <div onClick={toggleBusiness} className="px-4 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between cursor-pointer lg:pointer-events-none list-none lg:border-b lg:border-border select-none bg-muted/30 rounded-2xl lg:rounded-b-none transition-colors">
             <div className="flex items-center gap-3 sm:gap-4">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-brand-blue/10 text-brand-blue flex items-center justify-center">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-brand-blue/10 text-brand-blue flex items-center justify-center shadow-2xs">
                 <i className="fa-solid fa-briefcase text-[14px] sm:text-base"></i>
               </div>
               <h3 className="text-base sm:text-lg font-bold text-foreground">
                 Business Details
               </h3>
             </div>
-            <i className={`fa-solid fa-chevron-down lg:!hidden transition-transform duration-300 text-foreground/50 ${isBusinessOpen ? 'rotate-180' : ''}`}></i>
+            <i className={`fa-solid fa-chevron-down lg:!hidden transition-transform duration-300 text-muted-foreground ${isBusinessOpen ? 'rotate-180' : ''}`}></i>
           </div>
           
           <div className={`${isBusinessOpen ? 'block' : 'hidden'} lg:!block p-5 sm:p-6 animate-in slide-in-from-top-2 duration-300`}>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
             <div className="flex flex-col gap-1.5">
-              <label className={`text-sm font-semibold pl-0.5 ${errors.companyName ? 'text-red-500' : 'text-foreground/90'}`}>Company Name <span className="text-red-500">*</span></label>
-              <div className="relative">
-                <i className={`fa-regular fa-building absolute left-3.5 top-1/2 -translate-y-1/2 ${errors.companyName ? 'text-red-500/70' : 'text-foreground/30'}`}></i>
+              <label className={`text-xs font-bold uppercase tracking-wider pl-0.5 ${errors.companyName ? 'text-red-500' : 'text-foreground/80'}`}>Company Name <span className="text-red-500">*</span></label>
+              <div className="relative group">
+                <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center justify-center transition-colors ${errors.companyName ? 'text-red-500' : 'text-muted-foreground group-focus-within:text-brand-blue'}`}>
+                  <i className="fa-regular fa-building text-[15px]"></i>
+                </div>
                 <input 
                   type="text" 
                   value={companyName}
@@ -550,14 +597,14 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                     setCompanyName(e.target.value);
                     if (errors.companyName) setErrors(prev => ({ ...prev, companyName: "" }));
                   }}
-                  className={`w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.companyName ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-brand-blue focus:ring-brand-blue/50'} rounded-xl focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm ${errors.companyName ? 'text-red-500 placeholder-red-300' : 'text-foreground'}`}
+                  className={`w-full pl-10 pr-4 h-[48px] bg-background hover:bg-muted/30 border ${errors.companyName ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20' : 'border-border/80 hover:border-border focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20'} rounded-xl focus:bg-background focus:outline-none transition-all font-medium text-sm shadow-xs ${errors.companyName ? 'text-red-500 placeholder-red-300' : 'text-foreground placeholder:text-muted-foreground/50'}`}
                 />
               </div>
               {errors.companyName && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.companyName}</p>}
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-foreground/90 pl-0.5">Country <span className="text-red-500">*</span></label>
+              <label className="text-xs font-bold uppercase tracking-wider text-foreground/80 pl-0.5">Country <span className="text-red-500">*</span></label>
               <SearchableCountrySelect
                 value={country}
                 onChange={(val) => setCountry(val || "AE")}
@@ -566,10 +613,10 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
             </div>
 
             <div className="flex flex-col gap-1.5 relative md:col-span-2" ref={categoryRef}>
-              <label className={`text-sm font-semibold pl-0.5 ${errors.categories ? 'text-red-500' : 'text-foreground/90'}`}>Categories <span className="text-red-500">*</span></label>
+              <label className={`text-xs font-bold uppercase tracking-wider pl-0.5 ${errors.categories ? 'text-red-500' : 'text-foreground/80'}`}>Categories <span className="text-red-500">*</span></label>
               <div 
                 onClick={() => setIsCategoryOpen(!isCategoryOpen)}
-                className={`w-full px-3.5 min-h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.categories ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-brand-blue focus:ring-brand-blue/50'} rounded-xl flex items-center justify-between cursor-pointer focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm`}
+                className={`w-full px-3.5 min-h-[48px] bg-background hover:bg-muted/30 border ${errors.categories ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20' : 'border-border/80 hover:border-border focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20'} rounded-xl flex items-center justify-between cursor-pointer focus:bg-background focus:outline-none transition-all font-medium text-sm shadow-xs`}
                 tabIndex={0}
               >
                 <div className="flex flex-wrap gap-1.5 py-1.5">
@@ -586,12 +633,12 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                       }
                       const catName = foundOption?.name || origName || catId;
                       return (
-                        <span key={catId} className="px-2.5 py-1 bg-brand-blue/10 text-brand-blue border border-brand-blue/20 rounded-md text-sm flex items-center gap-1.5 shadow-sm">
+                        <span key={catId} className="px-2.5 py-1 bg-brand-blue/10 text-brand-blue border border-brand-blue/20 rounded-md text-sm flex items-center gap-1.5 shadow-2xs font-semibold">
                           {catName}
                           <button 
                             type="button"
                             onClick={(e) => { e.stopPropagation(); toggleCategory(catId); }}
-                            className="text-brand-blue/50 hover:text-brand-blue transition-colors"
+                            className="text-brand-blue/60 hover:text-brand-blue transition-colors"
                           >
                             <i className="fa-solid fa-xmark text-xs"></i>
                           </button>
@@ -599,23 +646,23 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                       );
                     })
                   ) : (
-                    <span className="text-foreground/40 flex items-center gap-2">
-                      <i className="fa-solid fa-tags text-foreground/30"></i> Select categories...
+                    <span className="text-muted-foreground/60 flex items-center gap-2">
+                      <i className="fa-solid fa-tags text-muted-foreground/40"></i> Select categories...
                     </span>
                   )}
                 </div>
-                <i className="fa-solid fa-chevron-down text-xs text-foreground/40 shrink-0 ml-2"></i>
+                <i className="fa-solid fa-chevron-down text-xs text-muted-foreground/60 shrink-0 ml-2"></i>
               </div>
               
               {isCategoryOpen && (
-                <div className="absolute top-full mt-1 left-0 w-full bg-background border border-foreground/10 rounded-xl shadow-xl z-20 max-h-60 flex flex-col animate-in fade-in zoom-in-95 duration-100">
-                  <div className="p-2 border-b border-foreground/5 shrink-0">
+                <div className="absolute top-full mt-1.5 left-0 w-full bg-background border border-border rounded-xl shadow-xl z-20 max-h-60 flex flex-col animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
+                  <div className="p-2 border-b border-border/60 shrink-0 bg-muted/20">
                     <input 
                       type="text" 
                       placeholder={common.search_categories || "Search categories..."} 
                       value={categorySearch}
                       onChange={(e) => setCategorySearch(e.target.value)}
-                      className="w-full px-3 py-2 bg-foreground/5 border border-transparent rounded-lg text-sm focus:outline-none focus:border-brand-blue/30 focus:bg-background transition-colors"
+                      className="w-full px-3 py-2 bg-background border border-border/70 rounded-lg text-sm focus:outline-none focus:border-brand-blue focus:ring-1 focus:ring-brand-blue transition-colors placeholder:text-muted-foreground/50 text-foreground"
                       onClick={(e) => e.stopPropagation()}
                     />
                   </div>
@@ -624,7 +671,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                       <div 
                         key={cat.id} 
                         onClick={() => toggleCategory(cat.id)}
-                        className="px-3 py-2 text-sm rounded-lg cursor-pointer hover:bg-foreground/5 transition-colors flex items-center justify-between"
+                        className="px-3 py-2 text-sm rounded-lg cursor-pointer hover:bg-muted/60 transition-colors flex items-center justify-between"
                       >
                         <span className={selectedCategories.includes(cat.id) ? "font-semibold text-foreground" : "text-foreground/80"}>{cat.name}</span>
                         {selectedCategories.includes(cat.id) && <i className="fa-solid fa-check text-brand-blue"></i>}
@@ -637,38 +684,48 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
             </div>
 
             <div className="flex flex-col gap-1.5 md:col-span-2">
-              <label className="text-sm font-semibold text-foreground/90 pl-0.5">Business Address <span className="text-foreground/40 font-normal text-xs">(Optional)</span></label>
-              <div className="relative">
-                <i className="fa-solid fa-location-dot absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/30"></i>
+              <label className="text-xs font-bold uppercase tracking-wider text-foreground/80 pl-0.5">Business Address <span className="text-muted-foreground/70 lowercase tracking-normal font-normal text-xs">(optional)</span></label>
+              <div className="relative group">
+                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center justify-center text-muted-foreground group-focus-within:text-brand-blue transition-colors">
+                  <i className="fa-solid fa-location-dot text-[15px]"></i>
+                </div>
                 <input 
                   type="text"
                   value={businessAddress}
                   onChange={(e) => setBusinessAddress(e.target.value)}
-                  className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue transition-all font-medium text-sm text-foreground"
+                  className="w-full pl-10 pr-4 h-[48px] bg-background hover:bg-muted/30 border border-border/80 hover:border-border rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all font-medium text-sm text-foreground shadow-xs placeholder:text-muted-foreground/50"
                   placeholder={common.address_placeholder || "Building, Street, City"}
                 />
               </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-foreground/90 pl-0.5 flex justify-between">
-                User Type <span className="text-[10px] uppercase tracking-wider text-foreground/40 bg-foreground/5 px-2 py-0.5 rounded-md font-bold">Read-only</span>
+              <label className="text-xs font-bold uppercase tracking-wider text-foreground/80 pl-0.5 flex justify-between items-center">
+                <span>User Type</span>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/90 border border-border/70 px-2.5 py-0.5 rounded-full font-bold select-none flex items-center gap-1 shadow-2xs">
+                  <i className="fa-solid fa-lock text-[8px] opacity-70"></i>Read-only
+                </span>
               </label>
-              <div className="relative opacity-70">
-                <i className="fa-solid fa-user-tag absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/40"></i>
+              <div className="relative">
+                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center justify-center text-muted-foreground/60">
+                  <i className="fa-solid fa-user-tag text-[15px]"></i>
+                </div>
                 <input 
                   type="text" 
                   value={userType}
                   readOnly
-                  className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/5 border border-foreground/10 rounded-xl text-foreground/70 cursor-not-allowed focus:outline-none font-medium text-sm"
+                  tabIndex={-1}
+                  className="w-full pl-10 pr-4 h-[48px] bg-muted/40 border border-dashed border-border/80 rounded-xl text-muted-foreground/90 cursor-not-allowed focus:outline-none font-medium text-sm select-all"
                 />
               </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className={`text-sm font-semibold pl-0.5 ${errors.website ? 'text-red-500' : 'text-foreground/90'}`}>Website <span className={`font-normal text-xs ${errors.website ? 'text-red-500/60' : 'text-foreground/40'}`}>(Optional)</span></label>
-              <div className="relative">
-                <i className={`fa-solid fa-link absolute left-3.5 top-1/2 -translate-y-1/2 ${errors.website ? 'text-red-500/70' : 'text-foreground/30'}`}></i>
+              <label className={`text-xs font-bold uppercase tracking-wider pl-0.5 ${errors.website ? 'text-red-500' : 'text-foreground/80'}`}>Website <span className={`font-normal lowercase tracking-normal text-xs ${errors.website ? 'text-red-500/60' : 'text-muted-foreground/70'}`}>(optional)</span></label>
+              <div className="relative group">
+                <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center justify-center transition-colors ${errors.website ? 'text-red-500' : 'text-muted-foreground group-focus-within:text-brand-blue'}`}>
+                  <i className="fa-solid fa-link text-[15px]"></i>
+                </div>
                 <input 
                   type="url" 
                   value={website}
@@ -676,7 +733,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                     setWebsite(e.target.value);
                     if (errors.website) setErrors(prev => ({ ...prev, website: "" }));
                   }}
-                  className={`w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.website ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-brand-blue focus:ring-brand-blue/50'} rounded-xl focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm ${errors.website ? 'text-red-500 placeholder-red-300' : 'text-foreground'}`}
+                  className={`w-full pl-10 pr-4 h-[48px] bg-background hover:bg-muted/30 border ${errors.website ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20' : 'border-border/80 hover:border-border focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20'} rounded-xl focus:bg-background focus:outline-none transition-all font-medium text-sm shadow-xs ${errors.website ? 'text-red-500 placeholder-red-300' : 'text-foreground placeholder:text-muted-foreground/50'}`}
                   placeholder={common.website_placeholder || "https://www.example.com"}
                 />
               </div>

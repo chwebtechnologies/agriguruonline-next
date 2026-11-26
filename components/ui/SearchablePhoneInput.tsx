@@ -230,9 +230,9 @@ export default function SearchablePhoneInput({
 
   return (
     <div
-      className={`flex items-center w-full px-3.5 h-12 bg-background border border-border/80 hover:border-border rounded-xl shadow-sm focus-within:bg-background focus-within:ring-2 focus-within:ring-brand-blue/20 focus-within:border-brand-blue transition-all font-medium ${
-        className || ""
-      }`}
+      className={`flex items-center w-full px-3.5 h-[48px] bg-background hover:bg-muted/30 border border-border/80 hover:border-border rounded-xl shadow-xs focus-within:bg-background focus-within:ring-2 focus-within:ring-brand-blue/20 focus-within:border-brand-blue transition-all font-medium ${
+        disabled ? "opacity-60 bg-muted/40 cursor-not-allowed hover:bg-muted/40" : ""
+      } ${className || ""}`}
     >
       {/* Searchable Country Select Dropdown */}
       <SearchableCountrySelect

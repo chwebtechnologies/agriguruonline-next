@@ -243,8 +243,8 @@ export default function SearchableCountrySelect({
         onKeyDown={handleKeyDown}
         className={`flex items-center justify-between hover:opacity-90 transition-all focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed select-none group ${
           !showDialCode
-            ? `w-full px-3.5 h-12 bg-background border border-border/80 hover:border-border rounded-xl text-foreground font-medium text-sm focus:bg-background focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue shadow-sm ${isOpen ? "bg-background ring-2 ring-brand-blue/20 border-brand-blue" : ""}`
-            : "gap-2 pr-3 py-1 border-r border-foreground/15 mr-3 text-foreground"
+            ? `w-full px-3.5 h-[48px] bg-background hover:bg-muted/30 border border-border/80 hover:border-border rounded-xl text-foreground font-medium text-sm focus:bg-background focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue shadow-xs transition-all ${isOpen ? "bg-background ring-2 ring-brand-blue/20 border-brand-blue" : ""}`
+            : "gap-2 pr-3 py-1 border-r border-border mr-3 text-foreground"
         }`}
       >
         <span className="flex items-center gap-2 truncate">

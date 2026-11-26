@@ -387,10 +387,10 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
   const isExpired = statusLower === 'expired';
 
   return (
-    <div ref={kycRef} className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
-      <div onClick={toggleKyc} className="px-4 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between gap-3 bg-foreground/[0.02] cursor-pointer lg:pointer-events-none list-none rounded-xl lg:rounded-b-none lg:border-b lg:border-foreground/5 transition-colors select-none">
+    <div ref={kycRef} className="group bg-card border border-border shadow-xs rounded-2xl flex flex-col overflow-hidden">
+      <div onClick={toggleKyc} className="px-4 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between gap-3 bg-muted/30 cursor-pointer lg:pointer-events-none list-none rounded-2xl lg:rounded-b-none lg:border-b lg:border-border transition-colors select-none">
         <div className="flex items-center gap-3 sm:gap-4">
-          <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0 ${
+          <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${
             isApproved ? 'bg-status-approved-bg text-status-approved-text' :
             isRejected ? 'bg-status-rejected-bg text-status-rejected-text' :
             isExpired ? 'bg-status-rejected-bg text-status-rejected-text' :
@@ -437,7 +437,7 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
                     setSelectedTypeId(e.target.value);
                     selectedTypeIdRef.current = e.target.value;
                   }}
-                  className="w-full px-3.5 py-2.5 bg-background border border-foreground/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-blue transition-all appearance-none text-sm font-medium text-foreground disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-foreground/[0.02]"
+                  className="w-full h-[48px] px-3.5 bg-background border border-border/80 hover:border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all appearance-none text-sm font-medium text-foreground disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-muted/40 shadow-xs"
                 >
                   <option value="" disabled>-- Select a document --</option>
                   {dropdownOptions.map(opt => (
