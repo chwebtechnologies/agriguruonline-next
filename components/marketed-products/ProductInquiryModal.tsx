@@ -518,7 +518,7 @@ export function ProductInquiryModal({
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 py-6 overflow-y-auto overscroll-contain"
+      className="fixed inset-0 z-[1000001] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 py-6 overflow-y-auto overscroll-contain"
       role="dialog"
       aria-modal="true"
       onClick={onClose}

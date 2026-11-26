@@ -17,7 +17,7 @@ import { FlagIcon } from '@/components/ui/FlagIcon';
 import { ProductInquiryModal } from '@/components/marketed-products/ProductInquiryModal';
 import { ChartProductInquiryModal } from '@/components/marketed-products/ChartProductInquiryModal';
 import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus, fetchFavoriteProductDetails, checkFavoriteProductLimit } from '@/app/actions/product';
-import { WATCHLIST_REFRESH_EVENT, WATCHLIST_SCROLL_KEY, scrollToMarketWatchlist } from '@/lib/watchlist-utils';
+import { WATCHLIST_REFRESH_EVENT, WATCHLIST_SCROLL_KEY, scrollToMarketWatchlist, openHeaderSearch } from '@/lib/watchlist-utils';
 import { useScrollLock } from '@/lib/scroll-lock';
 import { prefetchPriceHistory } from '@/components/product-charts/MobileCommodityChart';
 
@@ -1829,7 +1829,11 @@ export default function ProductChartsClient({
             </h2>
             <button 
               type="button"
-              className="w-8 h-8 rounded-full bg-card border border-border text-foreground flex items-center justify-center transition-transform hover:bg-muted active:scale-95 shadow-xs"
+              onClick={() => {
+                setShowMobileAddForm(false);
+                openHeaderSearch();
+              }}
+              className="w-8 h-8 rounded-full bg-card border border-border text-foreground flex items-center justify-center transition-transform hover:bg-muted active:scale-95 shadow-xs cursor-pointer"
               aria-label="Search"
             >
               <i className="fa-solid fa-magnifying-glass text-[13px]"></i>

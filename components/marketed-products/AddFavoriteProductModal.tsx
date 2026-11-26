@@ -591,7 +591,7 @@ export function AddFavoriteProductModal({
   return createPortal(
     <>
       <div 
-        className="fixed inset-0 z-[9999] flex flex-col sm:items-center sm:justify-center bg-background sm:bg-black/80 sm:backdrop-blur-xs p-0 sm:p-4 overflow-y-auto overscroll-contain"
+        className="fixed inset-0 z-[1000001] flex flex-col sm:items-center sm:justify-center bg-background sm:bg-black/80 sm:backdrop-blur-xs p-0 sm:p-4 overflow-y-auto overscroll-contain"
         role="dialog"
         aria-modal="true"
         onClick={(e) => {

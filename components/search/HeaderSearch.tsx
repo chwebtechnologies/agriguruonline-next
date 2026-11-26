@@ -11,6 +11,7 @@ import { tradingService } from '@/lib/api'
 import { searchProductsAction } from '@/app/actions/product'
 import { AgriGuruLogo } from '@/components/layout/HeaderGuest'
 import { MarketedProductCard } from '@/components/marketed-products/MarketedProductCard'
+import { OPEN_HEADER_SEARCH_EVENT } from '@/lib/watchlist-utils'
 
 interface HeaderSearchProps {
   placeholder?: string
@@ -112,9 +113,57 @@ export function HeaderSearch({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [selectedSpecsProduct, isMobileSearchOpen])
 
-  // Comprehensive outside click / touch / blur handler to immediately clear search query on desktop
+  // Auto-focus mobile search input when mobile search view opens
+  useEffect(() => {
+    if (isMobileSearchOpen) {
+      // Immediate focus during user gesture context so iOS / Android virtual keyboard pops up reliably
+      mobileInputRef.current?.focus()
+
+      // Follow-up frames in case portal DOM rendering has a slight delay
+      const rAF = requestAnimationFrame(() => {
+        mobileInputRef.current?.focus()
+      })
+      const timer = setTimeout(() => {
+        mobileInputRef.current?.focus()
+      }, 60)
+
+      return () => {
+        cancelAnimationFrame(rAF)
+        clearTimeout(timer)
+      }
+    }
+  }, [isMobileSearchOpen])
+
+  // Listen for programmatic open events (e.g. from Add Product modal on mobile)
+  useEffect(() => {
+    const handleOpenEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ query?: string }>
+      if (customEvent.detail?.query) {
+        setQuery(customEvent.detail.query)
+      }
+      if (window.innerWidth < 1024) {
+        // Immediate focus call before state update ensures user interaction event chain is preserved
+        mobileInputRef.current?.focus()
+        setIsMobileSearchOpen(true)
+        setTimeout(() => mobileInputRef.current?.focus(), 50)
+      } else {
+        setIsOpen(true)
+        setTimeout(() => desktopInputRef.current?.focus(), 50)
+      }
+    }
+
+    window.addEventListener(OPEN_HEADER_SEARCH_EVENT, handleOpenEvent)
+    return () => window.removeEventListener(OPEN_HEADER_SEARCH_EVENT, handleOpenEvent)
+  }, [])
+
+  // Comprehensive outside click / touch / blur handler to immediately clear search query on desktop only
   useEffect(() => {
     const handleOutsideInteraction = (e: Event) => {
+      // If mobile full-screen search is open, DO NOT clear query or close on window touches/scrolls
+      if (isMobileSearchOpen) {
+        return
+      }
+
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false)
         setQuery('')
@@ -133,7 +182,7 @@ export function HeaderSearch({
       document.removeEventListener('touchstart', handleOutsideInteraction, false)
       document.removeEventListener('click', handleOutsideInteraction, false)
     }
-  }, [])
+  }, [isMobileSearchOpen])
 
   const [fetchError, setFetchError] = useState<string | null>(null)
 
@@ -692,6 +741,7 @@ export function HeaderSearch({
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={placeholder}
                 autoComplete="off"
+                autoFocus
                 className="w-full h-10 rounded-lg sm:rounded-xl border border-border bg-muted/80 pl-9 rtl:pl-8 pr-9 rtl:pr-9 text-xs sm:text-[13.5px] font-medium text-foreground placeholder:text-muted-foreground focus:bg-card focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200 shadow-2xs [&::-webkit-search-cancel-button]:hidden"
               />
 
@@ -740,10 +790,12 @@ export function HeaderSearch({
                       product={product as any}
                       lang={lang}
                       common={{
-                        buy: 'Buy',
-                        sell: 'Sell',
-                        addProduct: 'Add Product',
-                        viewDetails: 'View Details',
+                        buy: dict?.buy || 'Buy',
+                        sell: dict?.sell || 'Sell',
+                        addProduct: dict?.add_product || 'Add Product',
+                        viewDetails: dict?.view_details || 'View Details',
+                        only_buyer_can_buy: dict?.only_buyer_can_buy,
+                        only_seller_can_sell: dict?.only_seller_can_sell,
                       }}
                       imageBaseUrl={imageBaseUrl}
                       isLCP={index === 0}

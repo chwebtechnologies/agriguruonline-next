@@ -57,7 +57,7 @@ export function MarketedProductCardClient({
 
   const specsModal = showSpecs && mounted && typeof document !== 'undefined' ? createPortal(
     <div 
-      className={`fixed inset-0 z-[9990] flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-4 overflow-hidden overscroll-contain transition-opacity duration-200 ${isSubModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+      className={`fixed inset-0 z-[1000000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-4 overflow-hidden overscroll-contain transition-opacity duration-200 ${isSubModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
       onClick={() => setShowSpecs(false)}
       role="dialog"
       aria-modal="true"

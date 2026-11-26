@@ -5,6 +5,19 @@
 export const WATCHLIST_SCROLL_KEY = 'agriguru:scroll_to_watchlist';
 export const WATCHLIST_REFRESH_EVENT = 'agriguru:refresh-watchlist';
 export const WATCHLIST_SCROLL_EVENT = 'agriguru:scroll-watchlist';
+export const OPEN_HEADER_SEARCH_EVENT = 'agriguru:open-header-search';
+
+/**
+ * Triggers the header search modal/view across desktop and mobile.
+ */
+export function openHeaderSearch(initialQuery?: string): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent(OPEN_HEADER_SEARCH_EVENT, {
+      detail: { query: initialQuery || '' }
+    })
+  );
+}
 
 /**
  * Checks if the current pathname is the homepage for the given language.

@@ -76,6 +76,7 @@ interface HeaderAuthProps {
       }
     }
     common?: any
+    membership?: any
   }
   activeLang: string
   categories?: Array<{ name: string; href: string }>
