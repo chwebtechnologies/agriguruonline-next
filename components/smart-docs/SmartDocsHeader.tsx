@@ -440,22 +440,57 @@ export function SmartDocsHeader({
                             </div>
                           ) : notificationsData.length > 0 ? (
                             <div className="flex flex-col space-y-2">
-                              {notificationsData.map((item, idx) => (
-                                <div
-                                  key={item.id || idx}
-                                  className="p-2.5 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <h4 className="text-xs font-bold text-foreground">{item.title || 'Notification'}</h4>
-                                    <span className="text-[10px] text-muted-foreground">
-                                      {item.created_at ? new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                    </span>
+                              {notificationsData.map((item, idx) => {
+                                const handleItemClick = () => {
+                                  const link = item.url || item.meta_data?.redirect_link;
+                                  const typeStr = (item.type || '').toUpperCase();
+                                  const ntStr = (item.meta_data?.notification_type || '').toUpperCase();
+                                  const titleStr = (item.title || item.heading || '').toUpperCase();
+                                  const msgStr = (item.message || item.description || '').toUpperCase();
+
+                                  const isMembership = 
+                                    typeStr.includes('MEMBERSHIP') || 
+                                    ntStr.includes('MEMBERSHIP') || 
+                                    titleStr.includes('MEMBERSHIP') || 
+                                    msgStr.includes('MEMBERSHIP');
+
+                                  if (isMembership) {
+                                    router.push(`/${activeLang}/profile`);
+                                  } else if (link) {
+                                    try {
+                                      const urlObj = new URL(link);
+                                      if (urlObj.hostname.includes('agriguruonline.cloud') || urlObj.hostname.includes('agriguruonline.com')) {
+                                        let pathname = urlObj.pathname;
+                                        router.push(`/${activeLang}${pathname}${urlObj.search}`);
+                                      } else {
+                                        window.location.href = link;
+                                      }
+                                    } catch (e) {
+                                      let cleanLink = link.startsWith('/') ? link : '/' + link;
+                                      router.push(`/${activeLang}${cleanLink}`);
+                                    }
+                                  }
+                                  setIsNotificationsOpen(false);
+                                };
+
+                                return (
+                                  <div
+                                    key={item.id || idx}
+                                    onClick={handleItemClick}
+                                    className="p-2.5 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors cursor-pointer"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <h4 className="text-xs font-bold text-foreground">{item.title || 'Notification'}</h4>
+                                      <span className="text-[10px] text-muted-foreground">
+                                        {item.created_at ? new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
+                                      {item.message || item.description || ''}
+                                    </p>
                                   </div>
-                                  <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
-                                    {item.message || item.description || ''}
-                                  </p>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           ) : (
                             <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">

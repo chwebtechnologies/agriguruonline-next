@@ -833,6 +833,9 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                                     const nt = (notificationType || '').toUpperCase();
                                     const t = (type || '').toUpperCase();
                                     
+                                    if (t.includes('MEMBERSHIP') || nt.includes('MEMBERSHIP') || title.toUpperCase().includes('MEMBERSHIP') || message.toUpperCase().includes('MEMBERSHIP')) {
+                                      return dict?.membership?.view_plans || 'View Plans';
+                                    }
                                     if (nt.includes('INQUIRY') || nt.includes('OFFER') || nt.includes('NEGOTIATION') || nt.includes('ASSIGN')) {
                                       return 'Review Updates';
                                     }
@@ -853,16 +856,31 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                                   
                                   const handleNotificationClick = () => {
                                     const link = item.url || item.meta_data?.redirect_link;
-                                    if (link) {
+                                    const typeStr = (item.type || '').toUpperCase();
+                                    const ntStr = (notificationType || '').toUpperCase();
+                                    const titleStr = (title || '').toUpperCase();
+                                    const msgStr = (message || '').toUpperCase();
+
+                                    const isMembershipNotif = 
+                                      typeStr.includes('MEMBERSHIP') || 
+                                      ntStr.includes('MEMBERSHIP') || 
+                                      titleStr.includes('MEMBERSHIP') || 
+                                      msgStr.includes('MEMBERSHIP');
+
+                                    if (isMembershipNotif) {
+                                      router.push(`/${activeLang}/profile`);
+                                    } else if (link) {
                                       try {
                                         const urlObj = new URL(link);
-                                        if (urlObj.hostname.includes('agriguruonline.cloud')) {
-                                          router.push(`/${activeLang}${urlObj.pathname}${urlObj.search}`);
+                                        if (urlObj.hostname.includes('agriguruonline.cloud') || urlObj.hostname.includes('agriguruonline.com')) {
+                                          let pathname = urlObj.pathname;
+                                          router.push(`/${activeLang}${pathname}${urlObj.search}`);
                                         } else {
                                           window.location.href = link;
                                         }
                                       } catch (e) {
-                                        router.push(`/${activeLang}${link.startsWith('/') ? link : '/' + link}`);
+                                        let cleanLink = link.startsWith('/') ? link : '/' + link;
+                                        router.push(`/${activeLang}${cleanLink}`);
                                       }
                                     }
                                     setIsNotificationsOpen(false);
