@@ -36,9 +36,9 @@ export function ShareButton({
     e.preventDefault()
     e.stopPropagation()
     
+    // Only pass title and url (exclude text so social platforms treat it as a URL link attachment rather than plain text)
     const shareData = {
       title: title || 'AgriGuru Online',
-      text: title || '',
       url: absoluteUrl
     }
 
@@ -109,7 +109,7 @@ export function ShareButton({
   const defaultClasses = "inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 min-w-[32px] min-h-[32px] rounded-full bg-transparent hover:bg-muted text-foreground hover:text-brand-blue transition-colors cursor-pointer"
 
   const shareLinks = {
-    whatsapp: `https://api.whatsapp.com/send?text=${encodeURIComponent(title + " " + absoluteUrl)}`,
+    whatsapp: `https://api.whatsapp.com/send?text=${encodeURIComponent(absoluteUrl)}`,
     facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(absoluteUrl)}`,
     twitter: `https://twitter.com/intent/tweet?url=${encodeURIComponent(absoluteUrl)}&text=${encodeURIComponent(title)}`,
     linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(absoluteUrl)}`
