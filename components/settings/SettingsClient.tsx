@@ -454,15 +454,28 @@ export function SettingsClient({
             </a>
           </div>
 
-          {/* Legal Links */}
+          {/* Quick Links & Policies */}
           <div className="bg-card border border-border/70 rounded-2xl overflow-hidden">
             <div className="px-5 py-3.5 border-b border-border/50 flex items-center justify-between">
-              <span className="text-sm font-semibold text-foreground">Policies</span>
+              <span className="text-sm font-semibold text-foreground">Policies &amp; Account</span>
               <Link href={`/${lang}/contact-us`} className="text-xs text-primary hover:underline font-medium">
                 Contact Us
               </Link>
             </div>
             <div>
+              {/* Payment / Transaction History - for logged-in users */}
+              {isAuth && (
+                <Link
+                  href={`/${lang}/profile/payment-history`}
+                  className="flex items-center justify-between px-5 py-3 hover:bg-muted/60 border-b border-border/40 transition-colors group"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <i className="fa-solid fa-clock-rotate-left text-[11px] text-muted-foreground w-4 text-center shrink-0" />
+                    <span className="text-xs text-foreground truncate">Transaction History</span>
+                  </div>
+                  <i className="fa-solid fa-chevron-right text-[9px] text-muted-foreground/50 group-hover:text-primary shrink-0" />
+                </Link>
+              )}
               {legalLinks.map((item, idx) => (
                 <Link
                   key={idx}
