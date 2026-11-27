@@ -499,9 +499,10 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                   <input 
                     type="email" 
                     value={email}
+                    disabled
                     readOnly
                     tabIndex={-1}
-                    className="w-full pl-10 pr-4 h-[48px] bg-muted/40 border border-dashed border-border/80 rounded-xl text-muted-foreground/90 cursor-not-allowed focus:outline-none font-medium text-sm select-all"
+                    className="w-full pl-10 pr-4 h-[48px] bg-muted/40 border border-dashed border-border/80 rounded-xl text-muted-foreground/90 cursor-not-allowed focus:outline-none font-medium text-sm select-none pointer-events-none"
                   />
                 </div>
               </div>
@@ -713,9 +714,10 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                 <input 
                   type="text" 
                   value={userType}
+                  disabled
                   readOnly
                   tabIndex={-1}
-                  className="w-full pl-10 pr-4 h-[48px] bg-muted/40 border border-dashed border-border/80 rounded-xl text-muted-foreground/90 cursor-not-allowed focus:outline-none font-medium text-sm select-all"
+                  className="w-full pl-10 pr-4 h-[48px] bg-muted/40 border border-dashed border-border/80 rounded-xl text-muted-foreground/90 cursor-not-allowed focus:outline-none font-medium text-sm select-none pointer-events-none"
                 />
               </div>
             </div>
