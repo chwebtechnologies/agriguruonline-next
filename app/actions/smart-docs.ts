@@ -70,6 +70,8 @@ import {
   extractApiValidationErrors,
   convertDataUrlToBlob,
   formDataToContractJson,
+  extractSpecificationFromItem,
+  parsePackingBagWeightKg,
 } from "@/lib/api/smart-docs.service";
 
 /**
@@ -798,7 +800,81 @@ export async function getSmartDocsProductDetailsAction(
       token
     );
 
-    if (!rawRes) {
+    let details: SmartDocsProductDetailsResult | null = null;
+    if (rawRes) {
+      details = extractProductDetailsData(rawRes, productId.trim());
+    }
+
+    // Enhance / Fallback with smartDocsService.getProductById if details is null or missing key fields (specification, hsn, country)
+    if (!details || !details.specification || !details.hsn || !details.country) {
+      try {
+        const prodRes = await smartDocsService.getProductById(
+          productId.trim(),
+          { lang: safeLang, source: params.source || "web" },
+          token
+        );
+        if (prodRes) {
+          const singleProd = extractProductDetailData(prodRes, productId.trim());
+          if (singleProd) {
+            const specFromProd =
+              singleProd.specification ||
+              singleProd.specifications ||
+              singleProd.spec ||
+              singleProd.quality_specification ||
+              extractSpecificationFromItem(singleProd.raw || singleProd) ||
+              "";
+            const hsnFromProd = singleProd.hsn || singleProd.hsn_code || "";
+            const countryFromProd = singleProd.country || singleProd.country_name || singleProd.origin_country || "";
+
+            if (!details) {
+              details = {
+                productId: productId.trim(),
+                hsn: hsnFromProd,
+                hsnCode: hsnFromProd,
+                country: countryFromProd,
+                specification: specFromProd,
+                packingTypes: Array.isArray(singleProd.packings)
+                  ? singleProd.packings.map((pk: any) => ({
+                      value: pk.id || pk.value,
+                      label: pk.title || pk.label || pk.name,
+                      bagWeightKg: parsePackingBagWeightKg(pk.title || pk.quantity),
+                    }))
+                  : [],
+                loadingPorts: [],
+                destinationPorts: [],
+                raw: singleProd.raw || singleProd,
+              };
+            } else {
+              if (!details.specification && specFromProd) {
+                details.specification = specFromProd;
+              }
+              if (!details.hsn && hsnFromProd) {
+                details.hsn = hsnFromProd;
+                details.hsnCode = hsnFromProd;
+              }
+              if (!details.country && countryFromProd) {
+                details.country = countryFromProd;
+              }
+              if (
+                (!details.packingTypes || details.packingTypes.length === 0) &&
+                Array.isArray(singleProd.packings) &&
+                singleProd.packings.length > 0
+              ) {
+                details.packingTypes = singleProd.packings.map((pk: any) => ({
+                  value: pk.id || pk.value,
+                  label: pk.title || pk.label || pk.name,
+                  bagWeightKg: parsePackingBagWeightKg(pk.title || pk.quantity),
+                }));
+              }
+            }
+          }
+        }
+      } catch (fbErr) {
+        console.warn("[getSmartDocsProductDetailsAction] getProductById fallback error:", fbErr);
+      }
+    }
+
+    if (!details) {
       return {
         success: false,
         error: "Failed to fetch product details",
@@ -806,10 +882,8 @@ export async function getSmartDocsProductDetailsAction(
       };
     }
 
-    const details = extractProductDetailsData(rawRes, productId.trim());
-
     return {
-      success: Boolean(rawRes?.success ?? true),
+      success: true,
       data: details,
       message: rawRes?.message,
     };

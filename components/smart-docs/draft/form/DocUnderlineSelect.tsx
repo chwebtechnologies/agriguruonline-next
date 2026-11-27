@@ -50,11 +50,13 @@ export interface DocUnderlineSelectProps {
   onAddNew?: () => void;
   allowCustom?: boolean;
   align?: 'left' | 'center' | 'right';
+  displayValue?: string;
 }
 
 export function DocUnderlineSelect({
   options = [],
   value,
+  displayValue,
   onChange,
   placeholder = 'Select an option',
   disabled = false,
@@ -408,17 +410,26 @@ export function DocUnderlineSelect({
           }
 
           const displayText = (() => {
+            const hasDisplayVal = Boolean(displayValue && typeof displayValue === 'string' && displayValue.trim() && !isRawDbId(displayValue.trim()));
+            if (hasDisplayVal && (!selectedOption || isRawDbId(selectedOption.label))) {
+              lastKnownLabelRef.current[String(value)] = displayValue!.trim();
+              return displayValue!.trim();
+            }
             if (selectedOption && selectedOption.label && selectedOption.label !== '[object Object]') {
               if (isRawDbId(selectedOption.label)) {
-                const subOrName = selectedOption.subLabel || (selectedOption as any).name || (selectedOption as any).title;
+                const subOrName = selectedOption.subLabel || (selectedOption as any).name || (selectedOption as any).title || (hasDisplayVal ? displayValue!.trim() : '');
                 if (subOrName && typeof subOrName === 'string' && subOrName.trim() && !isRawDbId(subOrName.trim())) {
                   lastKnownLabelRef.current[String(value)] = subOrName.trim();
                   return subOrName.trim();
                 }
-                return lastKnownLabelRef.current[String(value)] || selectedOption.label;
+                return lastKnownLabelRef.current[String(value)] || (hasDisplayVal ? displayValue!.trim() : '') || selectedOption.label;
               }
               lastKnownLabelRef.current[String(value)] = selectedOption.label;
               return selectedOption.label;
+            }
+            if (hasDisplayVal) {
+              lastKnownLabelRef.current[String(value)] = displayValue!.trim();
+              return displayValue!.trim();
             }
             if (lastKnownLabelRef.current[String(value)]) {
               return lastKnownLabelRef.current[String(value)];
@@ -439,7 +450,7 @@ export function DocUnderlineSelect({
                 return 'Vessel';
               }
               if (isRawDbId(cleanVal) || (!cleanVal.includes(' ') && cleanVal.length >= 14)) {
-                return lastKnownLabelRef.current[cleanVal] || cleanVal;
+                return (hasDisplayVal ? displayValue!.trim() : '') || lastKnownLabelRef.current[cleanVal] || cleanVal;
               }
               return cleanVal;
             }
@@ -534,7 +545,7 @@ export function DocUnderlineSelect({
             ref={listRef}
             role="listbox"
             tabIndex={-1}
-            className="max-h-56 overflow-y-auto overscroll-contain py-1 text-xs"
+            className="max-h-56 overflow-y-auto overscroll-contain py-1 text-xs custom-scrollbar dropdown-scrollbar [scrollbar-gutter:stable]"
           >
             {allowCustom && search.trim() && !exactMatch && (
               <li
@@ -621,24 +632,26 @@ export function DocUnderlineSelect({
                 );
               })
             )}
+          </ul>
 
-            {canShowAddNew && (
-              <li
-                role="button"
+          {/* Add New Option Footer - completely separate from scroll list to avoid overlap/bleed-through */}
+          {canShowAddNew && (
+            <div className="border-t border-border bg-card p-1 shrink-0 relative z-10 shadow-xs">
+              <button
+                type="button"
                 tabIndex={0}
                 onClick={(e) => {
                   e.stopPropagation();
                   closeDropdown();
                   onAddNew?.();
                 }}
-                onMouseEnter={() => setHighlightedIndex(-1)}
-                className="px-3 py-2 cursor-pointer flex items-center gap-2 text-primary font-semibold hover:bg-primary/10 transition-colors border-t border-border/70 mt-1 sticky bottom-0 bg-card select-none"
+                className="w-full px-3 py-2 cursor-pointer flex items-center gap-2 text-primary font-semibold hover:bg-primary/10 active:bg-primary/20 rounded-md transition-colors select-none text-left text-xs"
               >
-                <i className="fa-solid fa-plus text-xs" />
-                <span>{addNewLabel}</span>
-              </li>
-            )}
-          </ul>
+                <i className="fa-solid fa-plus text-xs shrink-0" />
+                <span className="truncate">{addNewLabel}</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

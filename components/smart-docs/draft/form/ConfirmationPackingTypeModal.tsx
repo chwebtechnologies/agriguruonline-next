@@ -19,7 +19,7 @@ export interface ConfirmationPackingTypeModalProps {
   initialData?: ConfirmationPackingTypeData | null;
   mode: 'add' | 'edit';
   onClose: () => void;
-  onSuccess: (savedData: any, title: string) => void;
+  onSuccess: (savedData: any, title: string, fullData?: any) => void;
   onSaveAction: (payload: {
     product_id: string;
     title: string;
@@ -208,7 +208,7 @@ export default function ConfirmationPackingTypeModal({
         toast.success(
           res.message || (mode === 'edit' ? 'Packing type updated successfully' : 'Packing type added successfully')
         );
-        onSuccess(res.data ?? res, trimmedTitle);
+        onSuccess(res.data ?? res, trimmedTitle, payload);
         onClose();
       } else {
         toast.error(res?.message || 'Unable to save packing type');

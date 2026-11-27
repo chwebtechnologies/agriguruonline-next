@@ -60,6 +60,7 @@ import {
   extractSellerDetailData,
   extractProductDetailData,
   extractPaymentTermDetailData,
+  type SmartDocsProductDetailsResult,
 } from '@/lib/api/smart-docs.service';
 import SellerManageModal from '@/components/smart-docs/SellerManageModal';
 import BuyerManageModal from '@/components/smart-docs/BuyerManageModal';
@@ -1476,12 +1477,20 @@ export function ConfirmationDocumentForm({
     const base = packingOptions || [];
     const raw = initialData?.packing_type || initialData?.packing_type_id || initialData?.packing;
     const pId = toCleanId(raw);
-    const pLabel = toCleanLabel(raw);
+    const pLabel = toCleanLabel(
+      (typeof initialData?.packing_type === 'object' ? initialData?.packing_type?.title || initialData?.packing_type?.name : '') ||
+      initialData?.packing_title ||
+      initialData?.packing_type_title ||
+      initialData?.packing_type_name ||
+      (typeof initialData?.packing === 'string' && !isRawDbId(initialData?.packing) ? initialData?.packing : '') ||
+      raw
+    );
     if ((pId || pLabel) && !base.some((p) => toCleanId(p.value) === (pId || pLabel) || toCleanLabel(p.label).toLowerCase() === (pLabel || pId).toLowerCase())) {
       const bagWeightKg = parsePackingBagWeightKg(raw || pLabel || pId);
       return [{
         value: pId || pLabel,
         label: pLabel || pId,
+        id: pId || undefined,
         bagWeightKg: bagWeightKg !== null ? bagWeightKg : undefined,
       }, ...base];
     }
@@ -1788,6 +1797,73 @@ export function ConfirmationDocumentForm({
     return result || explicit || compName || fallbackName;
   };
 
+  // Helper to extract the most comprehensive multi-line details between user formData and server response
+  const resolvePartyDetailsFromSave = (formData: any, resData: any, compName: string): string => {
+    const formDetails = formatPartyInstructionDetails(formData, compName);
+    const resDetails = formatPartyInstructionDetails(resData, compName);
+
+    // Prefer whichever contains multiple lines (company name + street/locality/contacts)
+    if (formDetails && formDetails.includes('\n')) return formDetails;
+    if (resDetails && resDetails.includes('\n')) return resDetails;
+    if (formDetails && formDetails.trim().toLowerCase() !== compName.trim().toLowerCase()) return formDetails;
+    if (resDetails && resDetails.trim().toLowerCase() !== compName.trim().toLowerCase()) return resDetails;
+    return formDetails || resDetails || compName;
+  };
+
+  // Helper to resolve party instruction text when selecting from dropdown
+  const resolvePartyInstructionText = (party: any): string => {
+    if (!party) return '';
+    const label = party.label || party.name || party.company_name || '';
+
+    // Collect candidates
+    const candidates = [
+      party.instructionText,
+      party.details,
+      party.instruction,
+      party.subLabel,
+    ].filter((c): c is string => typeof c === 'string' && c.trim().length > 0);
+
+    let best = candidates.find((c) => c.includes('\n') && c.trim().toLowerCase() !== label.trim().toLowerCase()) || '';
+
+    if (!best) {
+      const raw = party.raw || party;
+      const street = raw.address || raw.street || raw.address_line;
+      const city = raw.city;
+      const state = raw.state;
+      const country = typeof raw.country === 'object' ? raw.country?.name : raw.country;
+      const zip = raw.zip_code || raw.zipcode || raw.postal_code;
+      const locality = [city, state, country, zip].filter(Boolean).join(', ');
+
+      const lines: string[] = [];
+      if (label) lines.push(label);
+      if (street) {
+        if (label && String(street).toLowerCase().startsWith(label.toLowerCase())) {
+          lines[0] = String(street);
+        } else {
+          lines.push(String(street));
+        }
+      }
+      if (locality) lines.push(locality);
+      if (lines.length > 1) {
+        best = lines.join('\n');
+      }
+    }
+
+    if (!best) {
+      best = candidates.find((c) => c.trim().toLowerCase() !== label.trim().toLowerCase()) || '';
+    }
+
+    if (!best) {
+      best = candidates[0] || label;
+    }
+
+    if (label && best && !best.toLowerCase().includes(label.toLowerCase())) {
+      best = `${label}\n${best}`;
+    }
+
+    return best.trim();
+  };
+
   const handleSaveSellerBusiness = async (formData: any) => {
     markDirty();
     try {
@@ -1803,13 +1879,11 @@ export function ConfirmationDocumentForm({
             res.data?.company_name ||
             editingSeller?.company_name ||
             '';
-          const fullDetails =
-            formatPartyInstructionDetails(res.data, compName) ||
-            formatPartyInstructionDetails(formData, compName) ||
-            compName;
+          const fullDetails = resolvePartyDetailsFromSave(formData, res.data, compName);
           const subLabelSnippet =
             (typeof formData?.get === 'function' ? formData.get('address') : formData?.address) ||
             res.data?.address ||
+            (fullDetails.includes('\n') ? fullDetails.split('\n')[1] : '') ||
             compName;
 
           const newFormatted: FormOptionItem = {
@@ -1838,7 +1912,30 @@ export function ConfirmationDocumentForm({
           getSmartDocsInstructionsAction({ lang })
             .then((refreshed) => {
               if (refreshed.success && refreshed.sellers.length > 0) {
-                setInternalSellers(refreshed.sellers);
+                setInternalSellers((prev) => {
+                  const incomingMap = new Map(refreshed.sellers.map((s) => [toCleanId(s.value || s.id), s]));
+                  return prev.map((item) => {
+                    const match = incomingMap.get(toCleanId(item.value || item.id));
+                    if (match) {
+                      return {
+                        ...match,
+                        instructionText: (match.instructionText && match.instructionText.includes('\n'))
+                          ? match.instructionText
+                          : item.instructionText || match.instructionText,
+                      };
+                    }
+                    return item;
+                  });
+                });
+                const currentUpdated = refreshed.sellers.find((s) => toCleanId(s.value || s.id) === toCleanId(id));
+                if (currentUpdated && currentUpdated.instructionText && currentUpdated.instructionText.includes('\n')) {
+                  setSellerInstruction((prevInst) => {
+                    if (!prevInst || !prevInst.includes('\n') || prevInst.trim().toLowerCase() === compName.trim().toLowerCase()) {
+                      return currentUpdated.instructionText;
+                    }
+                    return prevInst;
+                  });
+                }
               }
             })
             .catch(() => {});
@@ -1856,13 +1953,11 @@ export function ConfirmationDocumentForm({
             (typeof formData?.get === 'function' ? formData.get('company_name') : formData?.company_name) ||
             res.data?.company_name ||
             '';
-          const fullDetails =
-            formatPartyInstructionDetails(res.data, compName) ||
-            formatPartyInstructionDetails(formData, compName) ||
-            compName;
+          const fullDetails = resolvePartyDetailsFromSave(formData, res.data, compName);
           const subLabelSnippet =
             (typeof formData?.get === 'function' ? formData.get('address') : formData?.address) ||
             res.data?.address ||
+            (fullDetails.includes('\n') ? fullDetails.split('\n')[1] : '') ||
             compName;
 
           const newFormatted: FormOptionItem = {
@@ -1883,7 +1978,30 @@ export function ConfirmationDocumentForm({
           getSmartDocsInstructionsAction({ lang })
             .then((refreshed) => {
               if (refreshed.success && refreshed.sellers.length > 0) {
-                setInternalSellers(refreshed.sellers);
+                setInternalSellers((prev) => {
+                  const incomingMap = new Map(refreshed.sellers.map((s) => [toCleanId(s.value || s.id), s]));
+                  return prev.map((item) => {
+                    const match = incomingMap.get(toCleanId(item.value || item.id));
+                    if (match) {
+                      return {
+                        ...match,
+                        instructionText: (match.instructionText && match.instructionText.includes('\n'))
+                          ? match.instructionText
+                          : item.instructionText || match.instructionText,
+                      };
+                    }
+                    return item;
+                  });
+                });
+                const currentUpdated = refreshed.sellers.find((s) => toCleanId(s.value || s.id) === toCleanId(newId));
+                if (currentUpdated && currentUpdated.instructionText && currentUpdated.instructionText.includes('\n')) {
+                  setSellerInstruction((prevInst) => {
+                    if (!prevInst || !prevInst.includes('\n') || prevInst.trim().toLowerCase() === compName.trim().toLowerCase()) {
+                      return currentUpdated.instructionText;
+                    }
+                    return prevInst;
+                  });
+                }
               }
             })
             .catch(() => {});
@@ -1946,13 +2064,11 @@ export function ConfirmationDocumentForm({
             res.data?.company_name ||
             editingBuyer?.company_name ||
             '';
-          const fullDetails =
-            formatPartyInstructionDetails(res.data, compName) ||
-            formatPartyInstructionDetails(formData, compName) ||
-            compName;
+          const fullDetails = resolvePartyDetailsFromSave(formData, res.data, compName);
           const subLabelSnippet =
             (typeof formData?.get === 'function' ? formData.get('address') : formData?.address) ||
             res.data?.address ||
+            (fullDetails.includes('\n') ? fullDetails.split('\n')[1] : '') ||
             compName;
 
           const newFormatted: FormOptionItem = {
@@ -1981,7 +2097,30 @@ export function ConfirmationDocumentForm({
           getSmartDocsInstructionsAction({ lang })
             .then((refreshed) => {
               if (refreshed.success && refreshed.buyers.length > 0) {
-                setInternalBuyers(refreshed.buyers);
+                setInternalBuyers((prev) => {
+                  const incomingMap = new Map(refreshed.buyers.map((b) => [toCleanId(b.value || b.id), b]));
+                  return prev.map((item) => {
+                    const match = incomingMap.get(toCleanId(item.value || item.id));
+                    if (match) {
+                      return {
+                        ...match,
+                        instructionText: (match.instructionText && match.instructionText.includes('\n'))
+                          ? match.instructionText
+                          : item.instructionText || match.instructionText,
+                      };
+                    }
+                    return item;
+                  });
+                });
+                const currentUpdated = refreshed.buyers.find((b) => toCleanId(b.value || b.id) === toCleanId(id));
+                if (currentUpdated && currentUpdated.instructionText && currentUpdated.instructionText.includes('\n')) {
+                  setBuyerInstruction((prevInst) => {
+                    if (!prevInst || !prevInst.includes('\n') || prevInst.trim().toLowerCase() === compName.trim().toLowerCase()) {
+                      return currentUpdated.instructionText;
+                    }
+                    return prevInst;
+                  });
+                }
               }
             })
             .catch(() => {});
@@ -1999,13 +2138,11 @@ export function ConfirmationDocumentForm({
             (typeof formData?.get === 'function' ? formData.get('company_name') : formData?.company_name) ||
             res.data?.company_name ||
             '';
-          const fullDetails =
-            formatPartyInstructionDetails(res.data, compName) ||
-            formatPartyInstructionDetails(formData, compName) ||
-            compName;
+          const fullDetails = resolvePartyDetailsFromSave(formData, res.data, compName);
           const subLabelSnippet =
             (typeof formData?.get === 'function' ? formData.get('address') : formData?.address) ||
             res.data?.address ||
+            (fullDetails.includes('\n') ? fullDetails.split('\n')[1] : '') ||
             compName;
 
           const newFormatted: FormOptionItem = {
@@ -2026,7 +2163,30 @@ export function ConfirmationDocumentForm({
           getSmartDocsInstructionsAction({ lang })
             .then((refreshed) => {
               if (refreshed.success && refreshed.buyers.length > 0) {
-                setInternalBuyers(refreshed.buyers);
+                setInternalBuyers((prev) => {
+                  const incomingMap = new Map(refreshed.buyers.map((b) => [toCleanId(b.value || b.id), b]));
+                  return prev.map((item) => {
+                    const match = incomingMap.get(toCleanId(item.value || item.id));
+                    if (match) {
+                      return {
+                        ...match,
+                        instructionText: (match.instructionText && match.instructionText.includes('\n'))
+                          ? match.instructionText
+                          : item.instructionText || match.instructionText,
+                      };
+                    }
+                    return item;
+                  });
+                });
+                const currentUpdated = refreshed.buyers.find((b) => toCleanId(b.value || b.id) === toCleanId(newId));
+                if (currentUpdated && currentUpdated.instructionText && currentUpdated.instructionText.includes('\n')) {
+                  setBuyerInstruction((prevInst) => {
+                    if (!prevInst || !prevInst.includes('\n') || prevInst.trim().toLowerCase() === compName.trim().toLowerCase()) {
+                      return currentUpdated.instructionText;
+                    }
+                    return prevInst;
+                  });
+                }
               }
             })
             .catch(() => {});
@@ -2233,10 +2393,18 @@ export function ConfirmationDocumentForm({
         // Auto-select the newly added / edited product & populate HSN & Country
         setProductId(prodId);
         setHsnCode(cleanHsn);
+        hsnCodeRef.current = cleanHsn;
         setProductCountry(cleanCountry);
-        if (savedProd.spec || savedProd.specifications) {
-          setSpecification(savedProd.spec || savedProd.specifications);
-        }
+        productCountryRef.current = cleanCountry;
+        const newSpec =
+          savedProd.spec ||
+          savedProd.specifications ||
+          savedProd.specification ||
+          savedProd.quality_specification ||
+          extractSpecificationFromItem(savedProd) ||
+          '';
+        setSpecification(newSpec);
+        specificationRef.current = newSpec;
 
         setErrors((prev) => ({ ...prev, productId: '' }));
         setIsProductModalOpen(false);
@@ -2272,12 +2440,19 @@ export function ConfirmationDocumentForm({
     if (!packId) return;
 
     const list = packingList || packingOptions || [];
-    const found = list.find((p) => toCleanId(p.value) === packId) || opt;
+    const found = list.find((p) => toCleanId(p.value || p.id) === packId || p.label === opt?.label) || opt;
+    const cleanInitialTitle =
+      found?.title ||
+      found?.name ||
+      (found?.label ? String(found.label).replace(/\s*\(\d+[\d.]*\s*KG\)$/i, '') : '') ||
+      opt?.label ||
+      '';
     const initialFallback = {
       id: packId,
-      title: found?.label || opt?.label || '',
-      quantity: found?.bagWeightKg || 50,
-      unit_type: 'SOLID',
+      title: cleanInitialTitle,
+      quantity: found?.bagWeightKg || found?.quantity || 50,
+      unit_type: found?.unit_type || found?.unitType || 'SOLID',
+      conversion_factor: found?.conversion_factor || found?.conversionFactor || 1,
     };
 
     let finalPacking = initialFallback;
@@ -2308,18 +2483,127 @@ export function ConfirmationDocumentForm({
     }
   };
 
-  const handlePackingModalSuccess = (savedData: any, savedTitle: string) => {
+  const handlePackingModalSuccess = (savedData: any, savedTitle: string, fullData?: any) => {
     markDirty();
-    const packingId =
-      savedData?.id ||
-      savedData?._id ||
-      savedData?.packing_type_id ||
-      editingPacking?.id ||
-      savedTitle;
 
-    fetchAndApplyProductDetails(productId);
+    const dataObj =
+      (savedData?.data && typeof savedData.data === 'object' ? savedData.data : savedData) || {};
+
+    const rawId =
+      dataObj?.id ||
+      dataObj?._id ||
+      dataObj?.packing_type_id ||
+      dataObj?.packing_id ||
+      (dataObj?.packing_type && typeof dataObj.packing_type === 'object'
+        ? dataObj.packing_type.id || dataObj.packing_type._id
+        : undefined) ||
+      fullData?.id ||
+      editingPacking?.id ||
+      (typeof savedData === 'string' && savedData && savedData !== '[object Object]' ? savedData : '') ||
+      '';
+
+    const packingId = rawId ? toCleanId(rawId) : savedTitle;
+
+    const rawTitle =
+      dataObj?.title ||
+      dataObj?.name ||
+      dataObj?.packing_name ||
+      dataObj?.packing_type_name ||
+      fullData?.title ||
+      savedTitle ||
+      editingPacking?.title ||
+      '';
+
+    const rawQty =
+      dataObj?.quantity ??
+      dataObj?.qty ??
+      dataObj?.weight ??
+      dataObj?.bagWeightKg ??
+      dataObj?.bag_weight_kg ??
+      fullData?.quantity ??
+      editingPacking?.quantity;
+
+    const numQty =
+      rawQty !== undefined && rawQty !== null && rawQty !== ''
+        ? typeof rawQty === 'number'
+          ? rawQty
+          : parseFloat(String(rawQty).replace(/[^\d.]/g, ''))
+        : undefined;
+
+    const validQty = numQty !== undefined && !isNaN(numQty) && numQty > 0 ? numQty : undefined;
+
+    let displayLabel = rawTitle.trim();
+    if (!displayLabel || displayLabel === '[object Object]') {
+      displayLabel = validQty ? `${validQty} KG Bags` : 'Standard Bags';
+    } else if (validQty && !displayLabel.toLowerCase().includes(String(validQty))) {
+      displayLabel = `${displayLabel} (${validQty} KG)`;
+    }
+
+    const unitType =
+      dataObj?.unit_type ||
+      dataObj?.unitType ||
+      fullData?.unit_type ||
+      editingPacking?.unit_type ||
+      'SOLID';
+
+    const conversionFactor =
+      dataObj?.conversion_factor ??
+      dataObj?.conversionFactor ??
+      fullData?.conversion_factor ??
+      editingPacking?.conversion_factor ??
+      1;
+
+    const bagWeightKg =
+      validQty ||
+      (typeof dataObj?.bagWeightKg === 'number' ? dataObj.bagWeightKg : undefined) ||
+      parsePackingBagWeightKg(displayLabel) ||
+      50;
+
+    const newOption: FormOptionItem = {
+      value: packingId,
+      label: displayLabel,
+      title: rawTitle || displayLabel,
+      name: rawTitle || displayLabel,
+      id: packingId,
+      quantity: validQty,
+      bagWeightKg,
+      unit_type: unitType,
+      conversion_factor: conversionFactor,
+      raw: dataObj,
+    };
+
+    // 1. Immediately update internalPackingOptions so the dropdown has this option right away
+    setInternalPackingOptions((prev) => {
+      const filtered = prev.filter(
+        (p) =>
+          toCleanId(p.value || p.id) !== toCleanId(packingId) &&
+          toCleanLabel(p.label).toLowerCase() !== displayLabel.toLowerCase()
+      );
+      return [newOption, ...filtered];
+    });
+
+    // 2. Immediately update the productDetails cache so it knows about this packing type
+    if (productId && productDetailsCacheRef.current[productId]) {
+      const cached = productDetailsCacheRef.current[productId];
+      const cachedPackings = Array.isArray(cached.packingTypes) ? cached.packingTypes : [];
+      const updatedPackings = [
+        newOption,
+        ...cachedPackings.filter((p: any) => toCleanId(p.value || p.id) !== toCleanId(packingId)),
+      ];
+      productDetailsCacheRef.current[productId] = {
+        ...cached,
+        packingTypes: updatedPackings,
+      };
+    }
+
+    // 3. Set selected packing to the new packing ID
     setPacking(packingId);
     setErrors((prev) => ({ ...prev, packing: '' }));
+
+    // 4. In background, refresh product details from server bypassing cache
+    if (productId) {
+      fetchAndApplyProductDetails(productId, false, true);
+    }
   };
 
   // Client-side self-heal: if paymentTerms is empty on mount, fetch via server action
@@ -2592,13 +2876,7 @@ export function ConfirmationDocumentForm({
       (s) => String(s.value) === String(val) || String(s.id) === String(val) || String(s.label) === String(val)
     );
     if (selected) {
-      const textToFill =
-        selected.instructionText ||
-        selected.subLabel ||
-        selected.details ||
-        selected.instruction ||
-        selected.label ||
-        '';
+      const textToFill = resolvePartyInstructionText(selected);
       if (textToFill) {
         setSellerInstruction(textToFill);
       }
@@ -2615,13 +2893,7 @@ export function ConfirmationDocumentForm({
       (b) => String(b.value) === String(val) || String(b.id) === String(val) || String(b.label) === String(val)
     );
     if (selected) {
-      const textToFill =
-        selected.instructionText ||
-        selected.subLabel ||
-        selected.details ||
-        selected.instruction ||
-        selected.label ||
-        '';
+      const textToFill = resolvePartyInstructionText(selected);
       if (textToFill) {
         setBuyerInstruction(textToFill);
       }
@@ -2637,25 +2909,41 @@ export function ConfirmationDocumentForm({
   specificationRef.current = specification;
 
   const fetchAndApplyProductDetails = useCallback(
-    async (targetProdId: string, forceOverwrite = false) => {
+    async (targetProdId: string, forceOverwrite = false, forceRefresh = false) => {
       if (!targetProdId || !targetProdId.trim()) return;
       const cleanId = targetProdId.trim();
 
-      // Check cache first
-      if (productDetailsCacheRef.current[cleanId]) {
+      // Check cache first (only if not forceRefresh)
+      if (!forceRefresh && productDetailsCacheRef.current[cleanId]) {
         const cached = productDetailsCacheRef.current[cleanId];
-        if (forceOverwrite || !hsnCodeRef.current) {
+        if (forceOverwrite) {
           if (cached.hsnCode || cached.hsn) {
+            const h = normalizeHsnString(cached.hsnCode || cached.hsn);
+            setHsnCode(h);
+            hsnCodeRef.current = h;
+          }
+          if (cached.country) {
+            const c = normalizeCountryString(cached.country);
+            setProductCountry(c);
+            productCountryRef.current = c;
+          }
+          const specVal =
+            cached.specification ||
+            cached.specifications ||
+            cached.spec ||
+            cached.quality_specification ||
+            extractSpecificationFromItem(cached.raw || cached) ||
+            '';
+          setSpecification(specVal);
+          specificationRef.current = specVal;
+        } else {
+          if (!hsnCodeRef.current && (cached.hsnCode || cached.hsn)) {
             setHsnCode(normalizeHsnString(cached.hsnCode || cached.hsn));
           }
-        }
-        if (forceOverwrite || !productCountryRef.current) {
-          if (cached.country) {
+          if (!productCountryRef.current && cached.country) {
             setProductCountry(normalizeCountryString(cached.country));
           }
-        }
-        if (forceOverwrite || !specificationRef.current) {
-          if (cached.specification) {
+          if (!specificationRef.current && cached.specification) {
             setSpecification(cached.specification);
           }
         }
@@ -2696,9 +2984,66 @@ export function ConfirmationDocumentForm({
       }
       setIsLoadingProductDetails(true);
       try {
+        let details: SmartDocsProductDetailsResult | null = null;
         const res = await getSmartDocsProductDetailsAction(cleanId, { lang });
         if (res.success && res.data) {
-          const d = res.data;
+          details = res.data;
+        }
+
+        // Direct client fallback to getProductByIdAction if details missing or specification is empty
+        if (!details || !details.specification) {
+          try {
+            const singleRes = await getProductByIdAction(cleanId, { lang });
+            if (singleRes?.success && singleRes.data) {
+              const sp = singleRes.data;
+              const extractedSpec =
+                sp.specification ||
+                sp.specifications ||
+                sp.spec ||
+                sp.quality_specification ||
+                extractSpecificationFromItem(sp.raw || sp) ||
+                '';
+              const extractedHsn = sp.hsn || sp.hsn_code || '';
+              const extractedCountry = sp.country || sp.country_name || sp.origin_country || '';
+
+              if (!details) {
+                details = {
+                  productId: cleanId,
+                  hsn: extractedHsn,
+                  hsnCode: extractedHsn,
+                  country: extractedCountry,
+                  specification: extractedSpec,
+                  packingTypes: Array.isArray(sp.packings)
+                    ? sp.packings.map((pk: any) => ({
+                        value: pk.id || pk.value,
+                        label: pk.title || pk.label || pk.name,
+                        bagWeightKg: parsePackingBagWeightKg(pk.title || pk.quantity),
+                      }))
+                    : [],
+                  loadingPorts: [],
+                  destinationPorts: [],
+                  raw: sp.raw || sp,
+                };
+              } else {
+                if (extractedSpec && !details.specification) {
+                  details.specification = extractedSpec;
+                }
+                if (extractedHsn && !details.hsn) {
+                  details.hsn = extractedHsn;
+                  details.hsnCode = extractedHsn;
+                }
+                if (extractedCountry && !details.country) {
+                  details.country = extractedCountry;
+                }
+              }
+            }
+          } catch (e) {
+            // fallback error ignored
+          }
+        }
+
+        if (details) {
+          const d = details;
           productDetailsCacheRef.current[cleanId] = d;
 
           // If the user already switched to another product while this request was in-flight, discard
@@ -2706,21 +3051,39 @@ export function ConfirmationDocumentForm({
             return;
           }
 
-          if (forceOverwrite || !hsnCodeRef.current) {
+          if (forceOverwrite) {
             if (d.hsnCode || d.hsn) {
+              const h = normalizeHsnString(d.hsnCode || d.hsn);
+              setHsnCode(h);
+              hsnCodeRef.current = h;
+            }
+            if (d.country) {
+              const c = normalizeCountryString(d.country);
+              setProductCountry(c);
+              productCountryRef.current = c;
+            }
+            const specVal =
+              d.specification ||
+              (d as any).specifications ||
+              (d as any).spec ||
+              (d as any).quality_specification ||
+              extractSpecificationFromItem(d.raw || d) ||
+              '';
+            setSpecification(specVal);
+            specificationRef.current = specVal;
+          } else {
+            if (!hsnCodeRef.current && (d.hsnCode || d.hsn)) {
               setHsnCode(normalizeHsnString(d.hsnCode || d.hsn));
             }
-          }
-          if (forceOverwrite || !productCountryRef.current) {
-            if (d.country) {
+            if (!productCountryRef.current && d.country) {
               setProductCountry(normalizeCountryString(d.country));
             }
-          }
-          if (forceOverwrite || !specificationRef.current) {
-            if (d.specification) {
+            if (!specificationRef.current && d.specification) {
               setSpecification(d.specification);
+              specificationRef.current = d.specification;
             }
           }
+
           if (d.packingTypes && d.packingTypes.length > 0) {
             setInternalPackingOptions((prev) => {
               const incomingIds = new Set(d.packingTypes.map((p: any) => toCleanId(p.value || p.id)));
@@ -2762,6 +3125,16 @@ export function ConfirmationDocumentForm({
     currentProductIdRef.current = prodId;
     setErrors((prev) => ({ ...prev, productId: '' }));
 
+    const cleanProdId = toCleanId(prodId);
+    const found = productsList.find(
+      (p: any) =>
+        (cleanProdId && toCleanId(p.value || p.id || p._id) === cleanProdId) ||
+        String(p.value) === String(prodId) ||
+        String(p.id) === String(prodId) ||
+        String(p._id) === String(prodId) ||
+        String(p.label).trim().toLowerCase() === String(prodId).trim().toLowerCase()
+    );
+
     if (isDifferent) {
       setLoadingPort('');
       setDestinationPort('');
@@ -2774,23 +3147,18 @@ export function ConfirmationDocumentForm({
         loadingPort: '',
         destinationPort: '',
         packing: '',
+        specification: '',
       }));
     }
 
-    const found = productsList.find(
-      (p: any) =>
-        String(p.value) === String(prodId) ||
-        String(p.id) === String(prodId) ||
-        String(p._id) === String(prodId) ||
-        String(p.label) === String(prodId)
-    );
     if (found) {
       const resolvedHsn =
         normalizeHsnString(found.hsn || found.hsn_code || found.hsn_sac_code) ||
         extractHsnCodeFromItem(found) ||
         extractHsnCodeFromItem(found.raw) ||
         extractHsnCodeFromItem(found.details) ||
-        extractHsnCodeFromItem(found.product);
+        extractHsnCodeFromItem(found.product) ||
+        '';
 
       const resolvedCountry = normalizeCountryString(
         found.country ||
@@ -2798,54 +3166,96 @@ export function ConfirmationDocumentForm({
         found.origin ||
         found.country_name ||
         (found.raw && (found.raw.country || found.raw.origin_country || found.raw.country_name)) ||
-        (found.details && (found.details.country || found.details.origin_country))
+        (found.details && (found.details.country || found.details.origin_country)) ||
+        ''
       );
 
       const resolvedSpec =
         (typeof found.spec === 'string' && found.spec ? found.spec : '') ||
         (typeof found.specification === 'string' && found.specification ? found.specification : '') ||
         (typeof found.quality_specification === 'string' && found.quality_specification ? found.quality_specification : '') ||
+        (typeof found.specifications === 'string' && found.specifications ? found.specifications : '') ||
         extractSpecificationFromItem(found) ||
         extractSpecificationFromItem(found.raw) ||
         extractSpecificationFromItem(found.details) ||
-        extractSpecificationFromItem(found.product);
+        extractSpecificationFromItem(found.product) ||
+        '';
 
-      if (resolvedHsn) setHsnCode(resolvedHsn);
-      if (resolvedCountry) setProductCountry(resolvedCountry);
-      if (resolvedSpec) setSpecification(resolvedSpec);
+      if (resolvedHsn) {
+        setHsnCode(resolvedHsn);
+        hsnCodeRef.current = resolvedHsn;
+      } else if (isDifferent) {
+        setHsnCode('');
+        hsnCodeRef.current = '';
+      }
 
-      const targetId = String(found.id || found._id || found.value || prodId);
+      if (resolvedCountry) {
+        setProductCountry(resolvedCountry);
+        productCountryRef.current = resolvedCountry;
+      } else if (isDifferent) {
+        setProductCountry('');
+        productCountryRef.current = '';
+      }
+
+      // Update specification immediately from found item, or clear old specification if user switched product
+      if (resolvedSpec) {
+        setSpecification(resolvedSpec);
+        specificationRef.current = resolvedSpec;
+      } else if (isDifferent) {
+        setSpecification('');
+        specificationRef.current = '';
+      }
+
+      const targetId = toCleanId(found._id || found.id || found.product_id || found.value || prodId) || String(prodId);
       fetchAndApplyProductDetails(targetId, true);
     } else {
       setHsnCode('');
+      hsnCodeRef.current = '';
       setProductCountry('');
+      productCountryRef.current = '';
       setSpecification('');
+      specificationRef.current = '';
       setInternalPackingOptions([]);
       setInternalLoadingPorts([]);
       setInternalDestinationPorts([]);
       if (prodId) {
-        fetchAndApplyProductDetails(prodId, true);
+        const cleanId = toCleanId(prodId) || String(prodId);
+        fetchAndApplyProductDetails(cleanId, true);
       }
     }
   };
 
   // If initialData has sellerId / buyerId without instructions, auto-fill once lists are available
   useEffect(() => {
-    if (sellerId && !sellerInstruction && sellersList.length > 0) {
-      const found = sellersList.find((s) => s.value === sellerId);
+    if (sellerId && sellersList.length > 0) {
+      const found = sellersList.find((s) => s.value === sellerId || s.id === sellerId);
       if (found) {
-        const textToFill = found.instructionText || found.subLabel || found.details || found.instruction || '';
-        if (textToFill) setSellerInstruction(textToFill);
+        const textToFill = resolvePartyInstructionText(found);
+        if (textToFill) {
+          if (!sellerInstruction) {
+            setSellerInstruction(textToFill);
+          } else if ((!sellerInstruction.includes('\n') || sellerInstruction.trim().toLowerCase() === String(found.label || '').trim().toLowerCase()) && textToFill.includes('\n')) {
+            // Auto-upgrade single-line company name to full address details if available
+            setSellerInstruction(textToFill);
+          }
+        }
       }
     }
   }, [sellerId, sellerInstruction, sellersList]);
 
   useEffect(() => {
-    if (buyerId && !buyerInstruction && buyersList.length > 0) {
-      const found = buyersList.find((b) => b.value === buyerId);
+    if (buyerId && buyersList.length > 0) {
+      const found = buyersList.find((b) => b.value === buyerId || b.id === buyerId);
       if (found) {
-        const textToFill = found.instructionText || found.subLabel || found.details || found.instruction || '';
-        if (textToFill) setBuyerInstruction(textToFill);
+        const textToFill = resolvePartyInstructionText(found);
+        if (textToFill) {
+          if (!buyerInstruction) {
+            setBuyerInstruction(textToFill);
+          } else if ((!buyerInstruction.includes('\n') || buyerInstruction.trim().toLowerCase() === String(found.label || '').trim().toLowerCase()) && textToFill.includes('\n')) {
+            // Auto-upgrade single-line company name to full address details if available
+            setBuyerInstruction(textToFill);
+          }
+        }
       }
     }
   }, [buyerId, buyerInstruction, buyersList]);
@@ -2886,13 +3296,18 @@ export function ConfirmationDocumentForm({
             (typeof found.spec === 'string' && found.spec ? found.spec : '') ||
             (typeof found.specification === 'string' && found.specification ? found.specification : '') ||
             (typeof found.quality_specification === 'string' && found.quality_specification ? found.quality_specification : '') ||
+            (typeof found.specifications === 'string' && found.specifications ? found.specifications : '') ||
             extractSpecificationFromItem(found) ||
             extractSpecificationFromItem(found.raw) ||
             extractSpecificationFromItem(found.details) ||
-            extractSpecificationFromItem(found.product);
-          if (s) setSpecification(s);
+            extractSpecificationFromItem(found.product) ||
+            '';
+          if (s) {
+            setSpecification(s);
+            specificationRef.current = s;
+          }
         }
-        const targetId = String(found.id || found._id || found.value || productId);
+        const targetId = toCleanId(found._id || found.id || found.product_id || found.value || productId) || String(productId);
         if (!productDetailsCacheRef.current[targetId]) {
           fetchAndApplyProductDetails(targetId, false);
         }
@@ -3150,8 +3565,16 @@ export function ConfirmationDocumentForm({
       }
 
       const rawPack = d.packing_type || d.packing_type_id || d.packing || d.packingType;
-      const packId = toCleanId(rawPack);
-      const packLabel = toCleanLabel(rawPack);
+      const packId = toCleanId(d.packing_type_id || d.packing_type || d.packing || d.packingType);
+      const packLabel = toCleanLabel(
+        (typeof d.packing_type === 'object' ? d.packing_type?.title || d.packing_type?.name : '') ||
+        d.packing_title ||
+        d.packing_type_title ||
+        d.packing_type_name ||
+        (typeof d.packing === 'string' && !isRawDbId(d.packing) ? d.packing : '') ||
+        (typeof d.packingType === 'string' && !isRawDbId(d.packingType) ? d.packingType : '') ||
+        d.packing
+      );
       const effectivePackVal = packId || packLabel;
       if (effectivePackVal) {
         setPacking(effectivePackVal);
@@ -3159,7 +3582,7 @@ export function ConfirmationDocumentForm({
           setInternalPackingOptions((prev) => {
             const exists = prev.some(
               (p) =>
-                toCleanId(p.value) === effectivePackVal ||
+                toCleanId(p.value || p.id) === effectivePackVal ||
                 toCleanLabel(p.label).toLowerCase() === packLabel.toLowerCase()
             );
             if (!exists) {
@@ -3167,6 +3590,7 @@ export function ConfirmationDocumentForm({
                 {
                   value: effectivePackVal,
                   label: packLabel,
+                  id: packId || undefined,
                   bagWeightKg:
                     (typeof rawPack === 'object' && (rawPack.bagWeightKg || rawPack.weight || rawPack.bag_weight_kg)
                       ? rawPack.bagWeightKg || rawPack.weight || rawPack.bag_weight_kg
@@ -4661,6 +5085,13 @@ export function ConfirmationDocumentForm({
                 id="field-packing"
                 options={isProductSelected ? packingList : []}
                 value={isProductSelected ? packing : ''}
+                displayValue={
+                  packingList.find(
+                    (p) =>
+                      toCleanId(p.value || p.id) === toCleanId(packing) ||
+                      toCleanLabel(p.label).toLowerCase() === toCleanLabel(packing).toLowerCase()
+                  )?.label || (packing && !isRawDbId(packing) ? packing : undefined)
+                }
                 onChange={(val) => {
                   markDirty();
                   setPacking(val);

@@ -133,7 +133,11 @@ export function InstructionManageModal({
       return;
     }
 
-    const trimmedInstruction = instructionText.trim() || trimmedName;
+    const trimmedInstruction = instructionText.trim();
+    const fullInstruction =
+      trimmedInstruction && !trimmedInstruction.toLowerCase().includes(trimmedName.toLowerCase())
+        ? `${trimmedName}\n${trimmedInstruction}`
+        : trimmedInstruction || trimmedName;
 
     const id =
       mode === 'edit' && party?.value
@@ -143,7 +147,7 @@ export function InstructionManageModal({
     onSave({
       id,
       label: trimmedName,
-      instructionText: trimmedInstruction,
+      instructionText: fullInstruction,
     });
 
     onClose();

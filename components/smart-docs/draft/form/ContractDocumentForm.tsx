@@ -54,6 +54,7 @@ import {
   getWorkflowSubmitButtonInfo,
   getWorkflowSubmitToastMessage,
   isSameWorkflowStep,
+  extractSpecificationFromItem,
 } from '@/lib/api/smart-docs.service';
 import type { FormOptionItem } from './ConfirmationDocumentForm';
 import { normalizeCountryString, normalizeHsnString, deduplicateValidationMessage } from './ConfirmationDocumentForm';
@@ -3803,11 +3804,15 @@ export function ContractDocumentForm({
 
   const handleSaveInstruction = (savedData: { id: string; label: string; instructionText: string }) => {
     markDirty();
+    let fullText = savedData.instructionText.trim();
+    if (savedData.label && !fullText.toLowerCase().includes(savedData.label.toLowerCase())) {
+      fullText = `${savedData.label}\n${fullText}`;
+    }
     const formattedItem: FormOptionItem = {
       value: savedData.id,
       label: savedData.label,
       subLabel: savedData.instructionText,
-      instructionText: savedData.instructionText,
+      instructionText: fullText,
     };
 
     if (instructionModalPartyType === 'seller') {
@@ -3823,7 +3828,7 @@ export function ContractDocumentForm({
         return [formattedItem, ...prev];
       });
       setSellerId(savedData.id);
-      setSellerInstruction(savedData.instructionText);
+      setSellerInstruction(fullText);
       setErrors((prev) => ({ ...prev, sellerId: '' }));
     } else {
       setInternalBuyers((prev) => {
@@ -3838,7 +3843,7 @@ export function ContractDocumentForm({
         return [formattedItem, ...prev];
       });
       setBuyerId(savedData.id);
-      setBuyerInstruction(savedData.instructionText);
+      setBuyerInstruction(fullText);
       setErrors((prev) => ({ ...prev, buyerId: '' }));
     }
   };
@@ -3885,14 +3890,21 @@ export function ContractDocumentForm({
       // Check cache first
       if (productDetailsCacheRef.current[cleanId]) {
         const cached = productDetailsCacheRef.current[cleanId];
-        if (forceOverwrite || !hsnCodeRef.current) {
+        if (forceOverwrite) {
           if (cached.hsnCode || cached.hsn) setHsnCode(cached.hsnCode || cached.hsn);
-        }
-        if (forceOverwrite || !productCountryRef.current) {
           if (cached.country) setProductCountry(cached.country);
-        }
-        if (forceOverwrite || !specificationRef.current) {
-          if (cached.specification) setSpecification(cached.specification);
+          const specVal =
+            cached.specification ||
+            cached.specifications ||
+            cached.spec ||
+            extractSpecificationFromItem(cached.raw || cached) ||
+            '';
+          setSpecification(specVal);
+          specificationRef.current = specVal;
+        } else {
+          if (!hsnCodeRef.current && (cached.hsnCode || cached.hsn)) setHsnCode(cached.hsnCode || cached.hsn);
+          if (!productCountryRef.current && cached.country) setProductCountry(cached.country);
+          if (!specificationRef.current && cached.specification) setSpecification(cached.specification);
         }
         if (cached.packingTypes && Array.isArray(cached.packingTypes)) {
           setInternalPackingOptions(cached.packingTypes);
@@ -3922,14 +3934,21 @@ export function ContractDocumentForm({
           // Discard if user already switched product
           if (currentProductIdRef.current !== cleanId) return;
 
-          if (forceOverwrite || !hsnCodeRef.current) {
+          if (forceOverwrite) {
             if (d.hsnCode || (d as any).hsn) setHsnCode(d.hsnCode || (d as any).hsn);
-          }
-          if (forceOverwrite || !productCountryRef.current) {
             if (d.country) setProductCountry(d.country);
-          }
-          if (forceOverwrite || !specificationRef.current) {
-            if (d.specification) setSpecification(d.specification);
+            const specVal =
+              d.specification ||
+              (d as any).specifications ||
+              (d as any).spec ||
+              extractSpecificationFromItem(d.raw || d) ||
+              '';
+            setSpecification(specVal);
+            specificationRef.current = specVal;
+          } else {
+            if (!hsnCodeRef.current && (d.hsnCode || (d as any).hsn)) setHsnCode(d.hsnCode || (d as any).hsn);
+            if (!productCountryRef.current && d.country) setProductCountry(d.country);
+            if (!specificationRef.current && d.specification) setSpecification(d.specification);
           }
 
           if (d.loadingPorts && Array.isArray(d.loadingPorts)) {
@@ -3998,27 +4017,96 @@ export function ContractDocumentForm({
     if (found) {
       if (found.hsn) setHsnCode(found.hsn);
       if (found.country) setProductCountry(found.country);
-      if (found.spec) setSpecification(found.spec);
+      const specVal =
+        found.spec ||
+        found.specification ||
+        found.specifications ||
+        found.quality_specification ||
+        extractSpecificationFromItem(found) ||
+        '';
+      if (specVal) {
+        setSpecification(specVal);
+        specificationRef.current = specVal;
+      } else if (isDifferent) {
+        setSpecification('');
+        specificationRef.current = '';
+      }
+    } else if (isDifferent) {
+      setSpecification('');
+      specificationRef.current = '';
     }
 
     if (val && val.trim()) {
-      fetchAndApplyProductDetails(val, true);
+      const targetId = toCleanId(found?._id || found?.id || found?.product_id || found?.value || val) || String(val);
+      fetchAndApplyProductDetails(targetId, true);
     }
+  };
+
+  const resolvePartyInstructionText = (party: any): string => {
+    if (!party) return '';
+    const label = party.label || party.name || party.company_name || '';
+
+    const candidates = [
+      party.instructionText,
+      party.details,
+      party.instruction,
+      party.subLabel,
+      party.address,
+    ].filter((c): c is string => typeof c === 'string' && c.trim().length > 0);
+
+    let best = candidates.find((c) => c.includes('\n') && c.trim().toLowerCase() !== label.trim().toLowerCase()) || '';
+
+    if (!best) {
+      const raw = party.raw || party;
+      const street = raw.address || raw.street || raw.address_line;
+      const city = raw.city;
+      const state = raw.state;
+      const country = typeof raw.country === 'object' ? raw.country?.name : raw.country;
+      const zip = raw.zip_code || raw.zipcode || raw.postal_code;
+      const locality = [city, state, country, zip].filter(Boolean).join(', ');
+
+      const lines: string[] = [];
+      if (label) lines.push(label);
+      if (street) {
+        if (label && String(street).toLowerCase().startsWith(label.toLowerCase())) {
+          lines[0] = String(street);
+        } else {
+          lines.push(String(street));
+        }
+      }
+      if (locality) lines.push(locality);
+      if (lines.length > 1) {
+        best = lines.join('\n');
+      }
+    }
+
+    if (!best) {
+      best = candidates.find((c) => c.trim().toLowerCase() !== label.trim().toLowerCase()) || '';
+    }
+
+    if (!best) {
+      best = candidates[0] || label;
+    }
+
+    if (label && best && !best.toLowerCase().includes(label.toLowerCase())) {
+      best = `${label}\n${best}`;
+    }
+
+    return best.trim();
   };
 
   const handleSellerChange = (val: string) => {
     markDirty();
     setSellerId(val);
     setErrors((prev) => ({ ...prev, sellerId: '' }));
-    const selected = internalSellers.find(
+    const selected = (sellersList.length > 0 ? sellersList : internalSellers).find(
       (s) => String(s.value) === String(val) || String(s.id) === String(val) || String(s.label) === String(val)
     );
     if (selected) {
-      const addressParts = [
-        selected.label || selected.name || '',
-        selected.address || selected.instructionText || selected.details || '',
-      ].filter(Boolean);
-      setSellerInstruction(addressParts.join('\n'));
+      const textToFill = resolvePartyInstructionText(selected);
+      if (textToFill) {
+        setSellerInstruction(textToFill);
+      }
     }
   };
 
@@ -4026,17 +4114,49 @@ export function ContractDocumentForm({
     markDirty();
     setBuyerId(val);
     setErrors((prev) => ({ ...prev, buyerId: '' }));
-    const selected = internalBuyers.find(
+    const selected = (buyersList.length > 0 ? buyersList : internalBuyers).find(
       (b) => String(b.value) === String(val) || String(b.id) === String(val) || String(b.label) === String(val)
     );
     if (selected) {
-      const addressParts = [
-        selected.label || selected.name || '',
-        selected.address || selected.instructionText || selected.details || '',
-      ].filter(Boolean);
-      setBuyerInstruction(addressParts.join('\n'));
+      const textToFill = resolvePartyInstructionText(selected);
+      if (textToFill) {
+        setBuyerInstruction(textToFill);
+      }
     }
   };
+
+  // If initialData has sellerId / buyerId without instructions, auto-fill once lists are available
+  useEffect(() => {
+    if (sellerId && sellersList.length > 0) {
+      const found = sellersList.find((s) => s.value === sellerId || s.id === sellerId);
+      if (found) {
+        const textToFill = resolvePartyInstructionText(found);
+        if (textToFill) {
+          if (!sellerInstruction) {
+            setSellerInstruction(textToFill);
+          } else if ((!sellerInstruction.includes('\n') || sellerInstruction.trim().toLowerCase() === String(found.label || '').trim().toLowerCase()) && textToFill.includes('\n')) {
+            setSellerInstruction(textToFill);
+          }
+        }
+      }
+    }
+  }, [sellerId, sellerInstruction, sellersList]);
+
+  useEffect(() => {
+    if (buyerId && buyersList.length > 0) {
+      const found = buyersList.find((b) => b.value === buyerId || b.id === buyerId);
+      if (found) {
+        const textToFill = resolvePartyInstructionText(found);
+        if (textToFill) {
+          if (!buyerInstruction) {
+            setBuyerInstruction(textToFill);
+          } else if ((!buyerInstruction.includes('\n') || buyerInstruction.trim().toLowerCase() === String(found.label || '').trim().toLowerCase()) && textToFill.includes('\n')) {
+            setBuyerInstruction(textToFill);
+          }
+        }
+      }
+    }
+  }, [buyerId, buyerInstruction, buyersList]);
 
   // Handle Currency selection and resolve currency ID
   const handleCurrencyChange = useCallback((val: string) => {

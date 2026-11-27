@@ -17648,6 +17648,7 @@ export function extractProductsData(data: any): SmartDocsProductOption[] {
       country, // guaranteed string
       spec,
       specification: spec,
+      specifications: spec,
       quality_specification: spec,
       raw: item,
     };
@@ -19334,14 +19335,11 @@ export function extractProductDetailData(raw: any, fallbackId: string = ''): any
   }
 
   // Extract Specification
-  let spec = '';
-  const specCandidates = [p.specification, p.spec, p.description, p.product_specification];
-  for (const sc of specCandidates) {
-    if (typeof sc === 'string' && sc.trim()) {
-      spec = sc.trim();
-      break;
-    }
-  }
+  const spec =
+    extractSpecificationFromItem(p) ||
+    extractSpecificationFromItem(candidate) ||
+    extractSpecificationFromItem(root) ||
+    '';
 
   // Extract Unit Type (solid | liquid) accurately without false positive overrides
   const isLiquidFlag =
@@ -19537,6 +19535,7 @@ export function extractProductDetailData(raw: any, fallbackId: string = ''): any
     spec,
     specification: spec,
     specifications: spec,
+    quality_specification: spec,
     unit_type: unitType,
     unitType,
     packings: parsedPackings,
