@@ -319,8 +319,8 @@ export default function DashboardClient({
             <div className="text-sm font-medium text-muted-foreground">
               Active Contracts
             </div>
-            <Link href={`/${lang}/dashboard/contracts`} className="mt-3 flex items-center text-[13px] font-medium text-cyan-600 dark:text-cyan-500 hover:opacity-80 transition-colors w-fit relative z-10">
-              View Details <i className="fa-solid fa-arrow-right ml-1"></i>
+            <Link href="#" className="mt-3 flex items-center text-[13px] font-medium text-cyan-600 dark:text-cyan-500 hover:opacity-80 transition-colors w-fit relative z-10">
+              Coming Soon <i className="fa-solid fa-hourglass-start ml-1"></i>
             </Link>
           </div>
         </div>
