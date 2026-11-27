@@ -1055,7 +1055,20 @@ export default function FreightChartClient({
             )}
           </button>
           
+          {/* Center Action (Disclaimer Icon & Desktop Actions) */}
           <div className="flex items-center justify-center gap-2 sm:gap-4 relative px-1 sm:px-2 shrink-0">
+            {/* Desktop Add Freight Button - Left of Exclamation if View All is on Right */}
+            <button
+              type="button"
+              onClick={() => setShowMobileAddForm(true)}
+              className="hidden lg:inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-brand-green hover:bg-brand-green-hover text-white font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap cursor-pointer active:scale-[0.98]"
+            >
+              <span className="flex items-center justify-center gap-1.5 leading-none">
+                <i className="fa-solid fa-plus text-xs"></i>
+                <span>Add Freight</span>
+              </span>
+            </button>
+
             <button
               type="button"
               onClick={handleDisclaimerClick}
@@ -1069,7 +1082,7 @@ export default function FreightChartClient({
             {isHomePage && addedFreights.length > 4 && (
               <button 
                 onClick={() => router.push(`/${lang}/freight-charts`)}
-                className="hidden xl:inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap"
+                className="hidden lg:inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap"
               >
                 View All
               </button>
@@ -1266,114 +1279,136 @@ export default function FreightChartClient({
         })()}
       />
 
-      {/* Full-Screen Mobile Add Freight Form (Matching Product Charts) */}
+      {/* Responsive Add Freight Form Modal */}
       {showMobileAddForm && (
-        <div className="fixed inset-0 z-[700] bg-background flex flex-col animate-in slide-in-from-bottom-2 overscroll-contain">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-            <button
-              type="button"
-              onClick={() => setShowMobileAddForm(false)}
-              className="w-8 h-8 rounded-full bg-card border border-border text-foreground flex items-center justify-center transition-transform hover:bg-muted active:scale-95 shadow-xs cursor-pointer"
-            >
-              <i className="fa-solid fa-chevron-left text-[13px] pr-0.5"></i>
-            </button>
-            <h2 className="text-[19px] font-bold">
-              {'Add Freight'.split(' ').map((word, index, arr) => (
-                <span key={index}>
-                  <span className="bg-[image:var(--ag-gradient-heading)] bg-clip-text text-transparent">
-                    {word}
+        <div 
+          className="fixed inset-0 z-[700] flex flex-col lg:items-center lg:justify-center bg-background lg:bg-black/60 lg:backdrop-blur-xs p-0 lg:p-4 overscroll-contain"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowMobileAddForm(false);
+          }}
+        >
+          <div className="bg-background lg:bg-card w-full h-full lg:h-auto lg:max-h-[90vh] lg:max-w-[500px] lg:rounded-2xl lg:shadow-2xl lg:border lg:border-border flex flex-col my-0 lg:my-auto animate-in slide-in-from-bottom-2 lg:slide-in-from-bottom-0 lg:zoom-in-95 duration-200 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 sm:px-5 sm:py-3.5 border-b border-border shrink-0 bg-background lg:bg-card">
+              {/* Mobile Back Button */}
+              <button
+                type="button"
+                onClick={() => setShowMobileAddForm(false)}
+                className="lg:hidden w-8 h-8 rounded-full bg-card border border-border text-foreground flex items-center justify-center transition-transform hover:bg-muted active:scale-95 shadow-xs cursor-pointer"
+                aria-label="Back"
+              >
+                <i className="fa-solid fa-chevron-left text-[13px] pr-0.5"></i>
+              </button>
+
+              <h2 className="text-[17px] sm:text-[19px] font-bold">
+                {'Add Freight'.split(' ').map((word, index, arr) => (
+                  <span key={index}>
+                    <span className="bg-[image:var(--ag-gradient-heading)] bg-clip-text text-transparent">
+                      {word}
+                    </span>
+                    {index < arr.length - 1 && ' '}
                   </span>
-                  {index < arr.length - 1 && ' '}
-                </span>
-              ))}
-            </h2>
-            <div className="w-8 h-8"></div>
-          </div>
+                ))}
+              </h2>
 
-          {/* Form Fields */}
-          <div id="mobile-add-freight-scroll-container" className="flex-1 overflow-y-auto relative bg-background scroll-smooth scroll-pb-32">
-            <div className="px-5 pt-3 pb-8 space-y-4 min-h-full flex flex-col">
-              <div className="flex-1 space-y-4">
-                {/* 1. Ship by */}
-                <div>
-                  <label className="block text-foreground font-semibold mb-1.5 text-[14px]">Ship by</label>
-                  <div className="mobile-add-select">
-                    <SearchableSelect
-                      id="mobile-shipby"
-                      value={selectedShipBy}
-                      onChange={handleShipBySelect}
-                      options={shippingContainers}
-                      placeholder={common.select_ship_by || "Select Ship By"}
-                      variant="mobile"
-                    />
-                  </div>
-                </div>
+              {/* Mobile Placeholder to balance title */}
+              <div className="lg:hidden w-8 h-8"></div>
 
-                {/* 2. Loading Port */}
-                <div>
-                  <label className="block text-foreground font-semibold mb-1.5 text-[14px]">Loading Port (POL)</label>
-                  <div className="mobile-add-select">
-                    <SearchableSelect
-                      id="mobile-pol"
-                      value={selectedPOL}
-                      onChange={handlePOLSelect}
-                      options={loadingPorts}
-                      placeholder={!selectedShipBy ? "Select Loading Port" : polLoading ? "Loading..." : loadingPorts.length === 0 ? "No Ports Found" : "Select Loading Port"}
-                      disabled={!selectedShipBy || polLoading}
-                      loading={polLoading}
-                      variant="mobile"
-                    />
-                  </div>
-                </div>
-
-                {/* 3. Destination Port */}
-                <div>
-                  <label className="block text-foreground font-semibold mb-1.5 text-[14px]">Destination Port (POD)</label>
-                  <div className="mobile-add-select">
-                    <SearchableSelect
-                      id="mobile-pod"
-                      value={selectedPOD}
-                      onChange={handlePODSelect}
-                      options={destinationPorts}
-                      placeholder={!selectedPOL ? "Select Destination Port" : podLoading ? "Loading..." : destinationPorts.length === 0 ? "No Destination Ports" : "Select Destination Port"}
-                      disabled={!selectedPOL || podLoading}
-                      loading={podLoading}
-                      variant="mobile"
-                    />
-                  </div>
-                </div>
-
-                {/* Notes card when all are selected */}
-                {selectedShipBy && selectedPOL && selectedPOD && (
-                  <div id="mobile-add-freight-note" className="mt-4 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/30">
-                    <div className="flex items-start gap-3">
-                      <i className="fa-solid fa-circle-info text-blue-500 mt-1"></i>
-                      <div className="space-y-1 text-sm">
-                        <div className="font-semibold text-foreground/80">Ocean Freight Details:</div>
-                        <div className="text-foreground/80">Rate type: USD/PMT</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+              {/* Desktop Close Button */}
+              <button 
+                type="button"
+                onClick={() => setShowMobileAddForm(false)}
+                className="hidden lg:flex w-8 h-8 rounded-full bg-muted hover:bg-muted-foreground/20 text-foreground items-center justify-center transition-colors cursor-pointer"
+                aria-label="Close"
+              >
+                <i className="fa-solid fa-xmark text-sm sm:text-base"></i>
+              </button>
             </div>
 
-            {/* Sticky Add Button */}
-            <div className="sticky bottom-0 left-0 w-full px-6 py-4 border-t border-border bg-background z-40 pb-safe shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)]">
-              <div className="flex justify-center">
-                <ChartAddButton
-                  onClick={async () => {
-                    await handleAddFreight();
-                    if (isAddFreightEnabled) {
-                      setShowMobileAddForm(false);
-                    }
-                  }}
-                  disabled={!isAddFreightEnabled}
-                  loading={isAdding}
-                  label="Add Freight"
-                  variant="mobile-overlay"
-                />
+            {/* Form Fields */}
+            <div id="mobile-add-freight-scroll-container" className="flex-1 overflow-y-auto relative bg-background lg:bg-card scroll-smooth scroll-pb-32 lg:scroll-pb-10 custom-scrollbar">
+              <div className="px-5 pt-3 pb-8 lg:pb-6 space-y-4 min-h-full flex flex-col">
+                <div className="flex-1 space-y-4">
+                  {/* 1. Ship by */}
+                  <div>
+                    <label className="block text-foreground font-semibold mb-1.5 text-[14px]">Ship by</label>
+                    <div className="mobile-add-select">
+                      <SearchableSelect
+                        id="mobile-shipby"
+                        value={selectedShipBy}
+                        onChange={handleShipBySelect}
+                        options={shippingContainers}
+                        placeholder={common.select_ship_by || "Select Ship By"}
+                        variant="mobile"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 2. Loading Port */}
+                  <div>
+                    <label className="block text-foreground font-semibold mb-1.5 text-[14px]">Loading Port (POL)</label>
+                    <div className="mobile-add-select">
+                      <SearchableSelect
+                        id="mobile-pol"
+                        value={selectedPOL}
+                        onChange={handlePOLSelect}
+                        options={loadingPorts}
+                        placeholder={!selectedShipBy ? "Select Loading Port" : polLoading ? "Loading..." : loadingPorts.length === 0 ? "No Ports Found" : "Select Loading Port"}
+                        disabled={!selectedShipBy || polLoading}
+                        loading={polLoading}
+                        variant="mobile"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 3. Destination Port */}
+                  <div>
+                    <label className="block text-foreground font-semibold mb-1.5 text-[14px]">Destination Port (POD)</label>
+                    <div className="mobile-add-select">
+                      <SearchableSelect
+                        id="mobile-pod"
+                        value={selectedPOD}
+                        onChange={handlePODSelect}
+                        options={destinationPorts}
+                        placeholder={!selectedPOL ? "Select Destination Port" : podLoading ? "Loading..." : destinationPorts.length === 0 ? "No Destination Ports" : "Select Destination Port"}
+                        disabled={!selectedPOL || podLoading}
+                        loading={podLoading}
+                        variant="mobile"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Notes card when all are selected */}
+                  {selectedShipBy && selectedPOL && selectedPOD && (
+                    <div id="mobile-add-freight-note" className="mt-4 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/30">
+                      <div className="flex items-start gap-3">
+                        <i className="fa-solid fa-circle-info text-blue-500 mt-1"></i>
+                        <div className="space-y-1 text-sm">
+                          <div className="font-semibold text-foreground/80">Ocean Freight Details:</div>
+                          <div className="text-foreground/80">Rate type: USD/PMT</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Sticky Add Button */}
+              <div className="sticky bottom-0 left-0 w-full px-6 py-4 border-t border-border bg-background lg:bg-card z-40 pb-safe shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)]">
+                <div className="flex justify-center">
+                  <ChartAddButton
+                    onClick={async () => {
+                      await handleAddFreight();
+                      if (isAddFreightEnabled) {
+                        setShowMobileAddForm(false);
+                      }
+                    }}
+                    disabled={!isAddFreightEnabled}
+                    loading={isAdding}
+                    label="Add Freight"
+                    variant="mobile-overlay"
+                  />
+                </div>
               </div>
             </div>
           </div>

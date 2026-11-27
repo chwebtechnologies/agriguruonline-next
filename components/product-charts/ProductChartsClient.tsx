@@ -1647,8 +1647,28 @@ export default function ProductChartsClient({
              <i className="fa-solid fa-arrow-right text-[10px] sm:text-xs shrink-0 hidden min-[360px]:inline-block"></i>
           </button>
 
-          {/* Center Action (Disclaimer Icon) */}
+          {/* Center Action (Disclaimer Icon & Desktop Actions) */}
           <div className="flex items-center justify-center gap-2 sm:gap-4 relative px-1 sm:px-2 shrink-0">
+            {/* Desktop Add Product Button - Left of Exclamation if View All is on Right */}
+            <button 
+              type="button"
+              onClick={handleOpenMobileAdd}
+              disabled={isCheckingLimit}
+              className="hidden lg:inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-brand-green hover:bg-brand-green-hover text-white font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap cursor-pointer active:scale-[0.98] disabled:opacity-70 disabled:pointer-events-none"
+            >
+              {isCheckingLimit ? (
+                <span className="flex items-center justify-center gap-1.5 leading-none">
+                  <i className="fa-solid fa-circle-notch fa-spin text-xs"></i>
+                  <span>{common?.adding || 'Checking...'}</span>
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-1.5 leading-none">
+                  <i className="fa-solid fa-plus text-xs"></i>
+                  <span>Add Product</span>
+                </span>
+              )}
+            </button>
+
             <button 
               type="button"
               onClick={handleDisclaimerClick} 
@@ -1806,44 +1826,66 @@ export default function ProductChartsClient({
         })()}
       />
 
-      {/* Full Screen Mobile Add Product Form */}
+      {/* Responsive Add Product Form Modal */}
       {showMobileAddForm && (
-        <div className="fixed inset-0 z-[700] bg-background flex flex-col animate-in slide-in-from-bottom-2 overscroll-contain">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
-            <button 
-              onClick={() => setShowMobileAddForm(false)}
-              className="w-8 h-8 rounded-full bg-card border border-border text-foreground flex items-center justify-center transition-transform hover:bg-muted active:scale-95 shadow-xs"
-            >
-              <i className="fa-solid fa-chevron-left text-[13px] pr-0.5"></i>
-            </button>
-            <h2 className="text-[19px] font-bold">
-              {'Add Product'.split(' ').map((word, index, arr) => (
-                <span key={index}>
-                  <span className="bg-[image:var(--ag-gradient-heading)] bg-clip-text text-transparent">
-                    {word}
-                  </span>
-                  {index < arr.length - 1 && ' '}
-                </span>
-              ))}
-            </h2>
-            <button 
-              type="button"
-              onClick={() => {
-                setShowMobileAddForm(false);
-                openHeaderSearch();
-              }}
-              className="w-8 h-8 rounded-full bg-card border border-border text-foreground flex items-center justify-center transition-transform hover:bg-muted active:scale-95 shadow-xs cursor-pointer"
-              aria-label="Search"
-            >
-              <i className="fa-solid fa-magnifying-glass text-[13px]"></i>
-            </button>
-          </div>
+        <div 
+          className="fixed inset-0 z-[700] flex flex-col lg:items-center lg:justify-center bg-background lg:bg-black/60 lg:backdrop-blur-xs p-0 lg:p-4 overscroll-contain"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowMobileAddForm(false);
+          }}
+        >
+          <div className="bg-background lg:bg-card w-full h-full lg:h-auto lg:max-h-[90vh] lg:max-w-[500px] lg:rounded-2xl lg:shadow-2xl lg:border lg:border-border flex flex-col my-0 lg:my-auto animate-in slide-in-from-bottom-2 lg:slide-in-from-bottom-0 lg:zoom-in-95 duration-200 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 sm:px-5 sm:py-3.5 border-b border-border shrink-0 bg-background lg:bg-card">
+              {/* Mobile back button */}
+              <button 
+                type="button"
+                onClick={() => setShowMobileAddForm(false)}
+                className="lg:hidden w-8 h-8 rounded-full bg-card border border-border text-foreground flex items-center justify-center transition-transform hover:bg-muted active:scale-95 shadow-xs cursor-pointer"
+                aria-label="Back"
+              >
+                <i className="fa-solid fa-chevron-left text-[13px] pr-0.5"></i>
+              </button>
 
-          {/* Form Fields */}
-          <div id="mobile-add-form-scroll-container" className="flex-1 overflow-y-auto relative bg-background scroll-smooth scroll-pb-32">
-            <div className="px-5 pt-3 pb-8 space-y-4 min-h-full flex flex-col">
-              <div className="flex-1 space-y-4">
+              <h2 className="text-[17px] sm:text-[19px] font-bold">
+                {'Add Product'.split(' ').map((word, index, arr) => (
+                  <span key={index}>
+                    <span className="bg-[image:var(--ag-gradient-heading)] bg-clip-text text-transparent">
+                      {word}
+                    </span>
+                    {index < arr.length - 1 && ' '}
+                  </span>
+                ))}
+              </h2>
+
+              {/* Mobile Search Button */}
+              <button 
+                type="button"
+                onClick={() => {
+                  setShowMobileAddForm(false);
+                  openHeaderSearch();
+                }}
+                className="lg:hidden w-8 h-8 rounded-full bg-card border border-border text-foreground flex items-center justify-center transition-transform hover:bg-muted active:scale-95 shadow-xs cursor-pointer"
+                aria-label="Search"
+              >
+                <i className="fa-solid fa-magnifying-glass text-[13px]"></i>
+              </button>
+
+              {/* Desktop Close Button */}
+              <button 
+                type="button"
+                onClick={() => setShowMobileAddForm(false)}
+                className="hidden lg:flex w-8 h-8 rounded-full bg-muted hover:bg-muted-foreground/20 text-foreground items-center justify-center transition-colors cursor-pointer"
+                aria-label="Close"
+              >
+                <i className="fa-solid fa-xmark text-sm sm:text-base"></i>
+              </button>
+            </div>
+
+            {/* Form Fields */}
+            <div id="mobile-add-form-scroll-container" className="flex-1 overflow-y-auto relative bg-background lg:bg-card scroll-smooth scroll-pb-32 lg:scroll-pb-10 custom-scrollbar">
+              <div className="px-5 pt-3 pb-8 lg:pb-6 space-y-4 min-h-full flex flex-col">
+                <div className="flex-1 space-y-4">
                 {/* Category */}
                 <div>
                   <label className="block text-foreground font-semibold mb-1.5 text-[14px]">Category</label>
@@ -1965,7 +2007,7 @@ export default function ProductChartsClient({
             </div>
             
             {/* Sticky Add Button */}
-            <div className="sticky bottom-0 left-0 w-full px-6 py-4 border-t border-zinc-100 dark:border-zinc-800 bg-background z-40 pb-safe shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)]">
+            <div className="sticky bottom-0 left-0 w-full px-6 py-4 border-t border-border bg-background lg:bg-card z-40 pb-safe shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)]">
               <div className="flex justify-center">
                 <ChartAddButton
                   onClick={async () => {
@@ -1981,6 +2023,7 @@ export default function ProductChartsClient({
                 />
               </div>
             </div>
+          </div>
           </div>
           
           <style dangerouslySetInnerHTML={{__html: `

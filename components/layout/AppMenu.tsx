@@ -150,8 +150,8 @@ export function AppMenu({
     ],
     [
       { label: inquiriesLabel, icon: 'fa-solid fa-comments', href: inquiriesHref, iconBg: 'bg-indigo-500' },
-      { label: dict?.header?.product_charts || 'Product Charts', icon: 'fa-solid fa-chart-line', href: `/${lang}/product-charts`, iconBg: 'bg-orange-500' },
-      { label: dict?.header?.freight_charts || 'Freight Charts', icon: 'fa-solid fa-chart-area', href: `/${lang}/freight-charts`, iconBg: 'bg-amber-500' },
+      { label: dict?.header?.product_charts || 'Product Price', icon: 'fa-solid fa-chart-line', href: `/${lang}/product-charts`, iconBg: 'bg-orange-500' },
+      { label: dict?.header?.freight_charts || 'Freight Rate', icon: 'fa-solid fa-chart-area', href: `/${lang}/freight-charts`, iconBg: 'bg-amber-500' },
     ],
     [
       { label: dict?.header?.alerts || 'Alerts Setups', icon: 'fa-solid fa-bell', href: `/${lang}/alerts-setups`, iconBg: 'bg-rose-500' },

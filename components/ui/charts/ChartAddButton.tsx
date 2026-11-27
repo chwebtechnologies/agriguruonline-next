@@ -56,10 +56,10 @@ export function ChartAddButton({
         type="button"
         onClick={onClick}
         disabled={disabled || loading}
-        className={`w-[200px] h-12 rounded-lg text-white font-semibold text-[16px] shadow-sm transition-all flex items-center justify-center ${
+        className={`w-[200px] h-12 rounded-lg text-white font-semibold text-[16px] shadow-sm transition-all flex items-center justify-center bg-brand-green ${
           disabled || loading
-            ? 'opacity-40 cursor-not-allowed shadow-none bg-muted text-muted-foreground'
-            : 'bg-primary-gradient hover:opacity-95 active:scale-95 cursor-pointer shadow-md hover:shadow-lg'
+            ? 'opacity-50 cursor-not-allowed shadow-none'
+            : 'hover:bg-brand-green-hover active:scale-95 cursor-pointer shadow-md hover:shadow-lg'
         } ${className}`}
       >
         {loading ? (
@@ -80,10 +80,10 @@ export function ChartAddButton({
         type="button"
         onClick={onClick}
         disabled={disabled || loading}
-        className={`w-full h-[45px] rounded-lg bg-primary-gradient text-white text-sm font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all whitespace-nowrap px-2 min-w-0 ${
+        className={`w-full h-[45px] rounded-lg bg-brand-green text-white text-sm font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all whitespace-nowrap px-2 min-w-0 ${
           disabled || loading
-            ? 'opacity-40 cursor-not-allowed shadow-none'
-            : 'opacity-100 hover:opacity-95 hover:shadow-md cursor-pointer active:scale-[0.98]'
+            ? 'opacity-50 cursor-not-allowed shadow-none'
+            : 'opacity-100 hover:bg-brand-green-hover hover:shadow-md cursor-pointer active:scale-[0.98]'
         }`}
       >
         {loading ? (
