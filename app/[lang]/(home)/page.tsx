@@ -21,6 +21,7 @@ import WatchlistScrollHandler from '@/components/home/WatchlistScrollHandler'
 import { cookies } from 'next/headers'
 import { getUserProfile } from '@/lib/user-data'
 import { getValidAuthToken } from '@/lib/auth-token'
+import { isUserMember } from '@/lib/membership-status'
 import { Suspense } from 'react'
 
 function OrganizationSchema({ lang }: { lang: string }) {
@@ -148,11 +149,14 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
         else userType = normUT || normR || null;
 
         // Check membership:
-        const planName = String(u.membership?.plan_name || '').toLowerCase();
-        const isRegularUser = normUT === 'regular' || normR === 'regular' || planName === 'regular' || planName === 'guest';
-        // A user is a member if they have an active plan or valid trader status that is not regular/guest
-        if ((u.membership && planName && planName !== 'guest' && planName !== 'regular') || ((userType === 'buyer' || userType === 'seller') && !isRegularUser)) {
+        if (isUserMember(u)) {
           isMember = true;
+        } else {
+          const planName = String(u.membership?.plan_name || '').toLowerCase();
+          const isRegularUser = normUT === 'regular' || normR === 'regular' || planName === 'regular' || planName === 'guest';
+          if ((userType === 'buyer' || userType === 'seller') && !isRegularUser) {
+            isMember = true;
+          }
         }
       }
     }
@@ -165,10 +169,14 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
         if (rawType.includes('buyer')) userType = 'buyer';
         else if (rawType.includes('seller')) userType = 'seller';
 
-        const planName = String(u.membership?.plan_name || '').toLowerCase();
-        const isRegularUser = rawType.includes('regular') || planName === 'regular' || planName === 'guest';
-        if ((u.membership && planName && planName !== 'guest' && planName !== 'regular') || ((userType === 'buyer' || userType === 'seller') && !isRegularUser)) {
+        if (isUserMember(u)) {
           isMember = true;
+        } else {
+          const planName = String(u.membership?.plan_name || '').toLowerCase();
+          const isRegularUser = rawType.includes('regular') || planName === 'regular' || planName === 'guest';
+          if ((userType === 'buyer' || userType === 'seller') && !isRegularUser) {
+            isMember = true;
+          }
         }
       }
     }

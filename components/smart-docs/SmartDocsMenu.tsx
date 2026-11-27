@@ -8,6 +8,7 @@ import { logoutUser } from '@/app/actions/auth';
 import { useScrollLock } from '@/lib/scroll-lock';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import BecomeMemberModal from '@/components/membership/BecomeMemberModal';
+import { isRegularAccount, isUserMember } from '@/lib/membership-status';
 
 interface MenuItem {
   label: string;
@@ -139,23 +140,8 @@ export function SmartDocsMenu({
     return String(typeData).toLowerCase();
   };
 
-  const isRegular =
-    getNormalizedType(profile?.user_type) === 'regular' ||
-    (typeof profile?.user_type === 'object' && profile?.user_type?.name?.toLowerCase() === 'regular') ||
-    profile?.role?.name?.toLowerCase() === 'regular' ||
-    profile?.membership?.plan_name?.toLowerCase() === 'guest' ||
-    profile?.membership?.plan_name?.toLowerCase() === 'regular';
-
-  const planName = String(profile?.membership?.plan_name || profile?.membership?.name || '').toLowerCase();
-  const hasActivePlan = Boolean(
-    profile?.membership &&
-    planName &&
-    planName !== 'guest' &&
-    planName !== 'regular' &&
-    planName !== 'null' &&
-    planName !== 'undefined'
-  );
-  const isMember = hasActivePlan && !isRegular;
+  const isMember = isUserMember(profile);
+  const isRegular = isRegularAccount(profile);
 
   // Smart Docs Dedicated Menu Structure
   // Group 1: Core Navigation (My Docs, Dashboard, Marketplace)

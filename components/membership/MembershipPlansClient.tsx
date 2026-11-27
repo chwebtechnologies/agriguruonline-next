@@ -4,7 +4,7 @@ import React, { useState, useRef, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import type { MembershipPlan, InitiateUpgradeResponse } from '@/lib/api/user.service';
-import { isRegularAccount, isMembershipExpired } from '@/lib/membership-status';
+import { isRegularAccount, isMembershipExpired, isUserMember, getActiveMembershipPlanName } from '@/lib/membership-status';
 import { saveStoredPlanSelection } from '@/lib/membership-storage';
 import { initiateUpgradeAction } from '@/app/actions/membership';
 import PlanCard from './PlanCard';
@@ -29,6 +29,7 @@ export default function MembershipPlansClient({
   const notice = searchParams?.get('notice');
   const [isPending, startTransition] = useTransition();
 
+  const isMember = isUserMember(userProfile);
   const isRegular = isRegularAccount(userProfile);
   const isExpired = isMembershipExpired(userProfile);
   const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null);
@@ -92,15 +93,11 @@ export default function MembershipPlansClient({
     silverPlan?.yearly_trial_days || silverPlan?.monthly_trial_days || 90;
 
   // Determine current active plan name of the logged in user
-  const userCurrentPlanName = (
-    userProfile?.membership?.plan_name ||
-    userProfile?.plan_name ||
-    ''
-  ).toLowerCase();
+  const userCurrentPlanName = getActiveMembershipPlanName(userProfile).toLowerCase();
 
-  // Free trial eligibility: Without login users (guests) OR logged-in users who are specifically eligible
+  // Free trial eligibility: Guests OR registered non-members (who have not purchased any plan)
   const isUserTrialEligible =
-    !userProfile || Boolean(userProfile?.is_free_trial_applicable);
+    !isMember && (!userProfile || Boolean(userProfile?.is_free_trial_applicable !== false));
   const showTrialBanner = isUserTrialEligible && silverTrialDays > 0;
 
   const handleSelectPlan = (plan: MembershipPlan) => {
@@ -243,7 +240,7 @@ export default function MembershipPlansClient({
               userCurrentPlanName.includes(plan.plan_name.toLowerCase());
 
             const userHasOtherMembership =
-              Boolean(userProfile && !isRegular && !isExpired && !!userCurrentPlanName && !isCurrentPlan);
+              Boolean(userProfile && isMember && !isCurrentPlan);
 
             const planTrialDays =
               billingInterval === 'yearly' ? plan.yearly_trial_days : plan.monthly_trial_days;
@@ -304,7 +301,7 @@ export default function MembershipPlansClient({
             userCurrentPlanName.includes(plan.plan_name.toLowerCase());
 
           const userHasOtherMembership =
-            Boolean(userProfile && !isRegular && !isExpired && !!userCurrentPlanName && !isCurrentPlan);
+            Boolean(userProfile && isMember && !isCurrentPlan);
 
           const planTrialDays =
             billingInterval === 'yearly' ? plan.yearly_trial_days : plan.monthly_trial_days;

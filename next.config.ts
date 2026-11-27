@@ -334,7 +334,7 @@ const nextConfig: NextConfig = {
       {
         // Only apply 1-year immutable caching to static media/font assets (NOT blanket .css/.js so /sw.js and non-hashed assets never get stuck stale).
         // Next.js automatically sets immutable Cache-Control on content-hashed /_next/static/* CSS & JS bundles in production.
-        source: '/(.*).(webp|jpg|png|svg|ico|woff2|woff|ttf)',
+        source: '/(.*).(webp|jpg|jpeg|png|svg|ico|woff2|woff|ttf)',
         headers: [
           {
             key: 'Cache-Control',
@@ -384,6 +384,21 @@ const nextConfig: NextConfig = {
       {
         source: '/photo-gallery',
         destination: '/en/participation-gallery',
+        permanent: true,
+      },
+      {
+        source: '/:lang/download-app',
+        destination: '/:lang/download-application',
+        permanent: true,
+      },
+      {
+        source: '/download-app',
+        destination: '/en/download-application',
+        permanent: true,
+      },
+      {
+        source: '/download-application',
+        destination: '/en/download-application',
         permanent: true,
       },
     ];

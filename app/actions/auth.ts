@@ -97,6 +97,13 @@ export async function createSession(accessToken: string, refreshToken: string | 
     effectiveType = normalizedUserType || normalizedRole || "business user";
   }
 
+  const rawMembership = user?.membership || user?.membership_plan || (user?.plan_name ? {
+    plan_name: user.plan_name,
+    plan_type: user.plan_type,
+    status: user.membership_status || user.status || 'ACTIVE',
+    membership_expiry_date: user.membership_expiry_date || user.expiry_date,
+  } : null);
+
   // Sanitize user object for client-side storage
   const safeUser = {
     id: user?.id || user?._id || user?.customer_id || "",
@@ -110,7 +117,10 @@ export async function createSession(accessToken: string, refreshToken: string | 
     role: rawRole || "Business User",
     user_type: effectiveType,
     is_kyc_verified: user?.is_kyc_verified ?? false,
-    membership: user?.membership || null,
+    plan_name: user?.plan_name || rawMembership?.plan_name || "",
+    plan_type: user?.plan_type || rawMembership?.plan_type || "",
+    membership_expiry_date: user?.membership_expiry_date || rawMembership?.membership_expiry_date || "",
+    membership: rawMembership || null,
   };
 
   // Non-HttpOnly cookie for non-sensitive user info (optional, if client needs it)

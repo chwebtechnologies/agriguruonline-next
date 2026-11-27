@@ -35,6 +35,7 @@ function DownloadAppSchema({ lang, title }: { lang: string; title: string }) {
         'operatingSystem': 'iOS',
         'applicationCategory': 'BusinessApplication',
         'installUrl': 'https://apps.apple.com/in/app/agriguru-online/id6472804536',
+        'image': `${siteUrl}/social-preview/download-app.png`,
         'offers': {
           '@type': 'Offer',
           'price': '0',
@@ -47,6 +48,7 @@ function DownloadAppSchema({ lang, title }: { lang: string; title: string }) {
         'operatingSystem': 'Android',
         'applicationCategory': 'BusinessApplication',
         'installUrl': 'https://play.google.com/store/apps/details?id=com.app.agriguruonline&hl=en_IN',
+        'image': `${siteUrl}/social-preview/download-app.png`,
         'offers': {
           '@type': 'Offer',
           'price': '0',

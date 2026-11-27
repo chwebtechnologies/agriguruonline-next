@@ -897,6 +897,9 @@ export const SEO_DICTIONARY: Record<
 
 // Dedicated social preview images mapping for static / listing pages (from public/social-preview/)
 export const SOCIAL_PREVIEW_PAGE_IMAGES: Record<string, { file: string; width: number; height: number }> = {
+  'home': { file: 'homepage.jpeg', width: 700, height: 368 },
+  'homepage': { file: 'homepage.jpeg', width: 700, height: 368 },
+  'root': { file: 'homepage.jpeg', width: 700, height: 368 },
   'about': { file: 'about-us.png', width: 700, height: 368 },
   'about_us': { file: 'about-us.png', width: 700, height: 368 },
   'contact': { file: 'contact-us.png', width: 700, height: 368 },
@@ -917,7 +920,10 @@ export const SOCIAL_PREVIEW_PAGE_IMAGES: Record<string, { file: string; width: n
   'insights': { file: 'updates.png', width: 700, height: 368 },
   'product_charts': { file: 'marketed-products.png', width: 700, height: 368 },
   'freight_charts': { file: 'marketed-products.png', width: 700, height: 368 },
-  'download_app': { file: 'default.png', width: 1200, height: 630 },
+  'download_app': { file: 'download-app.png', width: 700, height: 368 },
+  'download_application': { file: 'download-app.png', width: 700, height: 368 },
+  'download-app': { file: 'download-app.png', width: 700, height: 368 },
+  'download-application': { file: 'download-app.png', width: 700, height: 368 },
   'default': { file: 'default.png', width: 1200, height: 630 },
 }
 
@@ -977,7 +983,17 @@ export function resolveSocialPreview({
     }
   }
 
-  // Default fallback: website logo
+  // Default fallback: website default card or homepage preview
+  const defaultCard = SOCIAL_PREVIEW_PAGE_IMAGES['default'] || SOCIAL_PREVIEW_PAGE_IMAGES['home'];
+  if (defaultCard) {
+    return {
+      url: `${siteUrl}/social-preview/${defaultCard.file}`,
+      width: defaultCard.width,
+      height: defaultCard.height,
+    };
+  }
+
+  // Final fallback: website logo
   return {
     url: `${siteUrl}/logo.png`,
     width: 512,
@@ -1028,6 +1044,13 @@ export function getStandardMetadata({
   const imageUrl = ogImage || (socialConfig ? `${siteUrl}/social-preview/${socialConfig.file}` : defaultSocial.url)
   const imageWidth = ogImageWidth || (socialConfig ? socialConfig.width : defaultSocial.width)
   const imageHeight = ogImageHeight || (socialConfig ? socialConfig.height : defaultSocial.height)
+  const imageType = imageUrl.endsWith('.png')
+    ? 'image/png'
+    : imageUrl.endsWith('.jpeg') || imageUrl.endsWith('.jpg')
+    ? 'image/jpeg'
+    : imageUrl.endsWith('.webp')
+    ? 'image/webp'
+    : undefined
 
   return {
     title,
@@ -1063,9 +1086,11 @@ export function getStandardMetadata({
       images: [
         {
           url: imageUrl,
+          secureUrl: imageUrl.startsWith('https://') ? imageUrl : undefined,
           width: imageWidth,
           height: imageHeight,
           alt: title,
+          ...(imageType ? { type: imageType } : {}),
         },
       ],
       locale: safeLang,

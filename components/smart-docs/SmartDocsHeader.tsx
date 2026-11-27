@@ -635,7 +635,7 @@ export function SmartDocsHeader({
                         </p>
                         <p className="text-[11px] text-muted-foreground truncate">{profile?.email || 'Connected'}</p>
                         <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary/10 text-primary uppercase tracking-wide mt-0.5">
-                          {profile?.membership?.plan_name || 'Member'}
+                          {profile?.membership?.plan_name || profile?.plan_name || 'Member'}
                         </span>
                       </div>
                     </div>

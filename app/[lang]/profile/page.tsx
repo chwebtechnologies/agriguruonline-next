@@ -16,7 +16,7 @@ import { userService } from '@/lib/api/user.service';
 import { getUserProfile } from '@/lib/user-data';
 import { withTimeout } from '@/lib/api-utils';
 import { getValidAuthToken } from '@/lib/auth-token';
-import { isRegularAccount } from '@/lib/membership-status';
+import { isRegularAccount, isUserMember } from '@/lib/membership-status';
 
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
 
@@ -309,7 +309,7 @@ async function ProfilePageContent({ lang, token }: { lang: string; token: string
               <div className="absolute inset-0 opacity-[0.08] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay pointer-events-none z-0"></div>
               <i className="fa-solid fa-crown text-white drop-shadow-md relative z-10 text-[15px]"></i>
               <span className="tracking-widest uppercase text-sm sm:text-base relative z-10 drop-shadow-md">
-                {profileData?.membership && !isRegular ? (dict?.header?.upgrade_plan || 'Upgrade Plan') : (dict?.header?.free_trial || 'Free Trial')}
+                {isUserMember(profileData) ? (dict?.header?.upgrade_plan || 'Upgrade Plan') : (dict?.header?.free_trial || 'Free Trial')}
               </span>
               <i className="fa-solid fa-award text-white drop-shadow-md relative z-10 text-lg"></i>
             </Link>

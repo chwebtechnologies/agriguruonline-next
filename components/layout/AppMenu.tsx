@@ -8,7 +8,7 @@ import { logoutUser } from '@/app/actions/auth';
 import { useScrollLock } from '@/lib/scroll-lock';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import BecomeMemberModal from '@/components/membership/BecomeMemberModal';
-import { isRegularAccount, isMembershipExpired } from '@/lib/membership-status';
+import { isRegularAccount, isMembershipExpired, isUserMember, getUserFromClientCookie } from '@/lib/membership-status';
 
 interface MenuItem {
   label: string;
@@ -134,21 +134,12 @@ export function AppMenu({
     return String(typeData).toLowerCase();
   };
 
-  const isRegular = isRegularAccount(profile);
+  const effectiveProfile = profile || (typeof window !== 'undefined' ? getUserFromClientCookie() : null);
+  const isRegular = isRegularAccount(effectiveProfile);
+  const isMember = isUserMember(effectiveProfile);
 
   // Determine dynamic label for My Inquiries / My Offers
-  const isSeller = getNormalizedType(profile?.user_type) === 'seller' || getNormalizedType(profile?.role) === 'seller';
-  const planName = String(profile?.membership?.plan_name || profile?.membership?.name || '').toLowerCase();
-  const hasActivePlan = Boolean(
-    profile?.membership &&
-    !isMembershipExpired(profile) &&
-    planName &&
-    planName !== 'guest' &&
-    planName !== 'regular' &&
-    planName !== 'null' &&
-    planName !== 'undefined'
-  );
-  const isMember = hasActivePlan && !isRegular;
+  const isSeller = getNormalizedType(effectiveProfile?.user_type) === 'seller' || getNormalizedType(effectiveProfile?.role) === 'seller';
   const inquiriesLabel = (isMember && isSeller) ? 'My Offers' : 'My Inquiries';
   const inquiriesHref = (isMember && isSeller) ? `/${lang}/my-offers` : `/${lang}/my-inquiries`;
 
@@ -255,7 +246,7 @@ export function AppMenu({
 
             {/* Premium Upgrade Banner (Mobile & Tablet) */}
             <div className="lg:hidden flex justify-center my-1.5 mb-3.5">
-              <Link onClick={() => setIsOpen(false)} href={profile ? `/${lang}/membership` : `/${lang}/login?redirectUrl=/${lang}/membership`} className="w-full max-w-xs mx-auto px-4 min-[390px]:px-8 bg-plan-platinum p-3 min-[390px]:p-3.5 rounded-full text-white font-black flex items-center justify-center gap-2 shadow-xl shadow-sky-900/20 active:scale-[0.98] transition-all relative overflow-hidden">
+              <Link onClick={() => setIsOpen(false)} href={effectiveProfile ? `/${lang}/membership` : `/${lang}/login?redirectUrl=/${lang}/membership`} className="w-full max-w-xs mx-auto px-4 min-[390px]:px-8 bg-plan-platinum p-3 min-[390px]:p-3.5 rounded-full text-white font-black flex items-center justify-center gap-2 shadow-xl shadow-sky-900/20 active:scale-[0.98] transition-all relative overflow-hidden">
                 <div className="absolute inset-0 opacity-[0.08] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay pointer-events-none z-0"></div>
                 <i className="fa-solid fa-crown text-white drop-shadow-md relative z-10 text-[13px] min-[390px]:text-[14px]"></i>
                 <span className="tracking-wider uppercase text-[12px] min-[390px]:text-[13px] relative z-10 drop-shadow-md whitespace-nowrap">

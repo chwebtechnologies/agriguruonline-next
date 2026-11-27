@@ -287,6 +287,13 @@ export async function captureSubscriptionAction(
               else if (norm.includes('seller')) effectiveType = 'seller';
               else effectiveType = norm || String(rawRole).toLowerCase() || 'business user';
 
+              const rawMembership = u.membership || u.membership_plan || (u.plan_name ? {
+                plan_name: u.plan_name,
+                plan_type: u.plan_type,
+                status: u.membership_status || u.status || 'ACTIVE',
+                membership_expiry_date: u.membership_expiry_date || u.expiry_date,
+              } : null);
+
               const safeUser = {
                 id: u.id || '',
                 customer_id: u.customer_id || u.id || '',
@@ -299,7 +306,10 @@ export async function captureSubscriptionAction(
                 role: rawRole || 'Business User',
                 user_type: effectiveType,
                 is_kyc_verified: u.is_kyc_verified ?? false,
-                membership: u.membership || null,
+                plan_name: u.plan_name || rawMembership?.plan_name || '',
+                plan_type: u.plan_type || rawMembership?.plan_type || '',
+                membership_expiry_date: u.membership_expiry_date || rawMembership?.membership_expiry_date || '',
+                membership: rawMembership || null,
               };
 
               cookieStore.set('user_info', JSON.stringify(safeUser), {
@@ -359,6 +369,13 @@ export async function captureSubscriptionAction(
         else if (norm.includes('seller')) effectiveType = 'seller';
         else effectiveType = norm || String(rawRole).toLowerCase() || 'business user';
 
+        const rawMembership = u.membership || u.membership_plan || (u.plan_name ? {
+          plan_name: u.plan_name,
+          plan_type: u.plan_type,
+          status: u.membership_status || u.status || 'ACTIVE',
+          membership_expiry_date: u.membership_expiry_date || u.expiry_date,
+        } : null);
+
         const safeUser = {
           id: u.id || '',
           customer_id: u.customer_id || u.id || '',
@@ -371,7 +388,10 @@ export async function captureSubscriptionAction(
           role: rawRole || 'Business User',
           user_type: effectiveType,
           is_kyc_verified: u.is_kyc_verified ?? false,
-          membership: u.membership || null,
+          plan_name: u.plan_name || rawMembership?.plan_name || '',
+          plan_type: u.plan_type || rawMembership?.plan_type || '',
+          membership_expiry_date: u.membership_expiry_date || rawMembership?.membership_expiry_date || '',
+          membership: rawMembership || null,
         };
 
         cookieStore.set('user_info', JSON.stringify(safeUser), {

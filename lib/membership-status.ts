@@ -25,16 +25,146 @@ export function getUserFromClientCookie(): any | null {
 }
 
 /**
- * Returns true if the user is a Regular (non-onboarded) account.
- * Users who have already onboarded as Buyer or Seller are NOT regular accounts,
- * even if their membership plan has expired or reverted to Guest/Regular/null.
+ * Extracts the plan name from any supported object shape
+ * (membership object, membership_plan, root plan_name, etc.)
+ */
+export function getActiveMembershipPlanName(profile?: any): string {
+  if (!profile) return '';
+  const membership =
+    profile.membership ||
+    profile.membership_plan ||
+    profile.user_membership_history?.membership;
+
+  const rawName =
+    membership?.plan_name ||
+    membership?.name ||
+    membership?.title ||
+    profile.plan_name ||
+    profile.membership_plan_name ||
+    profile.membership_name ||
+    profile.subscription?.plan_name ||
+    profile.plan?.name ||
+    profile.plan?.plan_name ||
+    '';
+
+  return String(rawName).trim();
+}
+
+/**
+ * Returns true if the user's membership plan is expired/inactive.
+ * Handles ISO, DD-MM-YYYY, DD/MM/YYYY, timestamps, and status strings.
+ */
+export function isMembershipExpired(profile?: any): boolean {
+  if (!profile) return false;
+  const membership =
+    profile?.membership ||
+    profile?.membership_plan ||
+    profile?.user_membership_history?.membership;
+
+  const status = String(
+    membership?.status ||
+    profile?.membership_status ||
+    profile?.subscription_status ||
+    ''
+  ).trim().toUpperCase();
+
+  if (status === 'EXPIRED' || status === 'CANCELLED' || status === 'INACTIVE') {
+    return true;
+  }
+
+  const expiryRaw =
+    membership?.membership_expiry_date ||
+    profile?.membership_expiry_date ||
+    membership?.expiry_date ||
+    profile?.expiry_date ||
+    membership?.expires_at ||
+    profile?.expires_at;
+
+  if (expiryRaw) {
+    let expiryDate = new Date(expiryRaw);
+    if (isNaN(expiryDate.getTime()) && typeof expiryRaw === 'string') {
+      const parts = expiryRaw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+      if (parts) {
+        expiryDate = new Date(`${parts[3]}-${parts[2].padStart(2, '0')}-${parts[1].padStart(2, '0')}`);
+      }
+    }
+    if (!isNaN(expiryDate.getTime()) && expiryDate.getTime() < Date.now()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Returns true if the user is an active Member.
+ * An active member is a user who has a paid/assigned membership plan
+ * (e.g. Silver, Gold, Platinum) that is NOT expired and status is active.
+ *
+ * Registered users without a paid plan (or whose plan is guest/regular/null/expired)
+ * are Non-Members and this will return false.
+ */
+export function isUserMember(profile?: any): boolean {
+  if (!profile) return false;
+
+  const planName = getActiveMembershipPlanName(profile).toLowerCase();
+
+  // If no plan, or plan is explicitly guest/regular/free/null/none
+  if (
+    !planName ||
+    planName === 'guest' ||
+    planName === 'regular' ||
+    planName === 'free' ||
+    planName === 'free trial' ||
+    planName === 'null' ||
+    planName === 'undefined' ||
+    planName === 'none'
+  ) {
+    return false;
+  }
+
+  // If membership has expired, user is not an active member
+  if (isMembershipExpired(profile)) {
+    return false;
+  }
+
+  // Check explicit status
+  const membership =
+    profile.membership ||
+    profile.membership_plan ||
+    profile.user_membership_history?.membership;
+
+  const status = String(
+    membership?.status ||
+    profile.membership_status ||
+    profile.subscription_status ||
+    ''
+  ).trim().toUpperCase();
+
+  if (status === 'EXPIRED' || status === 'CANCELLED' || status === 'INACTIVE') {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Returns true if the user is a Regular (non-onboarded, non-paying) account.
+ * An active paying member is NEVER a regular account.
+ * An onboarded Buyer or Seller is NEVER a regular account.
  */
 export function isRegularAccount(profile?: any): boolean {
   if (!profile) return true;
 
+  // Active members are never regular accounts
+  if (isUserMember(profile)) {
+    return false;
+  }
+
   const userTypeNorm = getNormalizedUserType(profile?.user_type);
   const roleName = String(profile?.role?.name || profile?.role || '').toLowerCase();
 
+  // Onboarded Buyer or Seller accounts retain access
   if (
     userTypeNorm.includes('buyer') ||
     userTypeNorm.includes('seller') ||
@@ -44,37 +174,16 @@ export function isRegularAccount(profile?: any): boolean {
     return false;
   }
 
-  const planName = String(
-    profile?.membership?.plan_name || profile?.membership?.name || profile?.plan_name || ''
-  ).toLowerCase();
+  const planName = getActiveMembershipPlanName(profile).toLowerCase();
 
   return (
     !userTypeNorm ||
     userTypeNorm === 'regular' ||
     roleName === 'regular' ||
+    !planName ||
     planName === 'guest' ||
     planName === 'regular'
   );
-}
-
-/**
- * Returns true if the user's membership plan is expired/inactive.
- */
-export function isMembershipExpired(profile?: any): boolean {
-  if (!profile) return false;
-  const membership = profile?.membership;
-  const status = String(membership?.status || profile?.membership_status || '').toUpperCase();
-  if (status === 'EXPIRED' || status === 'CANCELLED' || status === 'INACTIVE') {
-    return true;
-  }
-  const expiryRaw = membership?.membership_expiry_date || profile?.membership_expiry_date;
-  if (expiryRaw) {
-    const expiryDate = new Date(expiryRaw);
-    if (!isNaN(expiryDate.getTime()) && expiryDate.getTime() < Date.now()) {
-      return true;
-    }
-  }
-  return false;
 }
 
 /**
@@ -82,8 +191,8 @@ export function isMembershipExpired(profile?: any): boolean {
  *
  * Rules:
  * - Guest user (not logged in): buttonText = 'Free Trial', redirectUrl = '/[lang]/login?redirectUrl=/[lang]/membership'
- * - Registered non-member (logged in as regular user or no active paid membership): buttonText = 'Free Trial', redirectUrl = '/[lang]/membership'
- * - Active member (has active paid membership and not regular): buttonText = 'Upgrade Plan', redirectUrl = '/[lang]/membership'
+ * - Registered non-member (logged in, has not purchased a plan / no active membership): buttonText = 'Free Trial', redirectUrl = '/[lang]/membership'
+ * - Active member (has purchased a plan, membership not expired): buttonText = 'Upgrade Plan', redirectUrl = '/[lang]/membership'
  */
 export function getMembershipStatus(
   userOrProfile?: any,
@@ -114,24 +223,7 @@ export function getMembershipStatus(
     };
   }
 
-  // Profile exists or user has auth cookie
-  const membership = profile?.membership;
-  const planName = String(membership?.plan_name || membership?.name || '').toLowerCase();
-
-  const isRegular = isRegularAccount(profile);
-  const expired = isMembershipExpired(profile);
-
-  const hasActiveMembership = Boolean(
-    membership &&
-    !expired &&
-    planName &&
-    planName !== 'guest' &&
-    planName !== 'regular' &&
-    planName !== 'null' &&
-    planName !== 'undefined'
-  );
-
-  const isMember = hasActiveMembership && !isRegular;
+  const isMember = isUserMember(profile);
 
   return {
     isGuest: !hasAuth,

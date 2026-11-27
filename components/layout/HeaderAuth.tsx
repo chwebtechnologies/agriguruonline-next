@@ -9,7 +9,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { HeaderGuest, AgriGuruLogo } from './HeaderGuest'
 import { AppMenu } from '@/components/layout/AppMenu'
 import { getAssetsUrl, getNormalizedUserType, getUserApiUrl, getTradingApiUrl } from '@/lib/api-utils';
-import { isRegularAccount, isMembershipExpired } from '@/lib/membership-status';
+import { isRegularAccount, isMembershipExpired, isUserMember, getUserFromClientCookie } from '@/lib/membership-status';
 import { authService, customFetch } from '@/lib/api';
 import { extractPredicts } from '@/lib/api/user.service';
 import { HeaderSearch } from '@/components/search/HeaderSearch'
@@ -98,19 +98,8 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [activeNotificationTab, setActiveNotificationTab] = useState<'notifications' | 'alerts' | 'ai_predicts'>('notifications')
 
+  const isMember = isUserMember(profile);
   const isRegular = isRegularAccount(profile);
-
-  const planName = String(profile?.membership?.plan_name || profile?.membership?.name || '').toLowerCase();
-  const hasActivePlan = Boolean(
-    profile?.membership &&
-    !isMembershipExpired(profile) &&
-    planName &&
-    planName !== 'guest' &&
-    planName !== 'regular' &&
-    planName !== 'null' &&
-    planName !== 'undefined'
-  );
-  const isMember = hasActivePlan && !isRegular;
 
 
 
@@ -144,8 +133,28 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   useEffect(() => {
     if (initialProfile) {
       setProfile(initialProfile);
+    } else {
+      const clientUser = getUserFromClientCookie();
+      if (clientUser) {
+        setProfile(clientUser);
+      }
     }
   }, [initialProfile]);
+
+  useEffect(() => {
+    const handleAuthChange = () => {
+      const clientUser = getUserFromClientCookie();
+      if (clientUser) {
+        setProfile(clientUser);
+      }
+    };
+    window.addEventListener('auth-state-change', handleAuthChange);
+    window.addEventListener('profile-updated', handleAuthChange);
+    return () => {
+      window.removeEventListener('auth-state-change', handleAuthChange);
+      window.removeEventListener('profile-updated', handleAuthChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (initialNotifications && initialNotifications.length > 0) {
@@ -722,7 +731,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
             <div className="flex items-center gap-2 sm:gap-4 select-none border-l border-border pl-2 sm:pl-4 dir-none">
               <div className="flex items-center gap-1.5 sm:gap-3">
                 <Link
-                  href={profile ? `/${activeLang}/membership` : `/${activeLang}/login?redirectUrl=/${activeLang}/membership`}
+                  href={`/${activeLang}/membership`}
                   className="h-10 px-5 hidden lg:inline-flex items-center justify-center rounded-lg bg-primary-gradient text-[15px] font-black text-white shadow-md hover:scale-105 active:scale-95 transition-all duration-200"
                 >
                   {isMember ? (dict.header.upgrade_plan || 'Upgrade Plan') : (dict.header.free_trial || 'Free Trial')}
