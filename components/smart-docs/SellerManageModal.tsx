@@ -124,7 +124,7 @@ export interface SellerManageModalProps {
   onSaveBusiness: (
     businessData: Partial<SellerFormData> | FormData | any
   ) => Promise<{ success: boolean; data?: any; message?: string; error_fields?: any[]; errors?: any }>;
-  onSaveBank: (
+  onSaveBank?: (
     bankData: Partial<SellerFormData> | FormData | any,
     sellerId: string
   ) => Promise<{ success: boolean; data?: any; message?: string; error_fields?: any[]; errors?: any }>;
@@ -136,6 +136,7 @@ export interface SellerManageModalProps {
   ) => Promise<{ success: boolean; message: string; data?: any }>;
   dict?: any;
   isLoading?: boolean;
+  basicDetailsOnly?: boolean;
 }
 
 export default function SellerManageModal({
@@ -150,6 +151,7 @@ export default function SellerManageModal({
   onDeleteBankDetail,
   dict,
   isLoading = false,
+  basicDetailsOnly = false,
 }: SellerManageModalProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -355,6 +357,137 @@ export default function SellerManageModal({
   const isFirstOpenRef = useRef(false);
   const prevOpenedIdRef = useRef<string | null>(null);
 
+  // Helper to populate seller data into state without resetting scroll or active tab
+  const populateSellerData = useCallback(
+    (sellerData: any) => {
+      if (!sellerData) return;
+      const id = String(sellerData.id || sellerData._id || sellerData.instruction_id || '');
+      setSavedSellerId(id);
+      setIsBusinessSaved(true);
+
+      setCompanyName(
+        sellerData.company_name ||
+        sellerData.companyName ||
+        sellerData.company ||
+        sellerData.business_name ||
+        sellerData.name ||
+        ''
+      );
+      setAddress(sellerData.address || sellerData.address_details || sellerData.details || '');
+      setCity(sellerData.city || sellerData.city_name || '');
+      setStateName(sellerData.state || sellerData.state_name || sellerData.province || '');
+
+      const countryRaw =
+        sellerData.country?.name ||
+        (typeof sellerData.country === 'string' ? sellerData.country : '') ||
+        sellerData.country_name ||
+        sellerData.countryName ||
+        '';
+      if (countryRaw) {
+        const resolved = resolveCountry(countryRaw);
+        setSelectedCountryName(resolved.name || countryRaw);
+        setSelectedCountryCode(resolved.code);
+
+        let rawCountryId = String(
+          sellerData.country?.id ||
+          sellerData.country_id ||
+          sellerData.countryId ||
+          sellerData.raw?.country_id ||
+          sellerData.raw?.country?.id ||
+          ''
+        );
+        if (!rawCountryId && (resolved.code || resolved.name)) {
+          const match = countries?.find((c: any) =>
+            (resolved.code && c.iso2?.toUpperCase() === resolved.code.toUpperCase()) ||
+            (resolved.name && c.name?.toLowerCase() === resolved.name.toLowerCase())
+          );
+          if (match?.id) rawCountryId = match.id;
+        }
+        setSelectedCountryId(rawCountryId);
+      } else {
+        setSelectedCountryName('');
+        setSelectedCountryCode(null);
+        setSelectedCountryId('');
+      }
+
+      // Contact Number & Country Code (100% decoupled from address country, ZERO forced defaults)
+      const rawPhone = String(
+        sellerData.contact_number || sellerData.contactNumber || sellerData.phone || sellerData.mobile || ''
+      ).trim();
+      const rawPCode = String(
+        sellerData.country_code || sellerData.countryCode || ''
+      ).trim();
+
+      if (rawPhone.startsWith('+')) {
+        try {
+          const parsed = parsePhoneNumber(rawPhone);
+          if (parsed) {
+            setPhoneCountryCode(`+${parsed.countryCallingCode}`);
+            setPhoneCountry((parsed.country as Country) || null);
+            setContactNumber(parsed.nationalNumber || '');
+          } else {
+            setPhoneCountryCode('');
+            setPhoneCountry(null);
+            setContactNumber(rawPhone);
+          }
+        } catch {
+          setPhoneCountryCode('');
+          setPhoneCountry(null);
+          setContactNumber(rawPhone);
+        }
+      } else if (rawPCode) {
+        const cleanCode = rawPCode.startsWith('+') ? rawPCode : `+${rawPCode}`;
+        setPhoneCountryCode(cleanCode);
+        setContactNumber(rawPhone);
+        const matched = allPhoneCountries.find((c) => c.callingCode === cleanCode);
+        setPhoneCountry(matched?.code || null);
+      } else {
+        setPhoneCountryCode('');
+        setPhoneCountry(null);
+        setContactNumber(rawPhone);
+      }
+      setIsPhoneDropdownOpen(false);
+      setPhoneSearch('');
+
+      setZipcode(String(sellerData.zip_code || sellerData.zipcode || sellerData.postal_code || ''));
+      setEmail(sellerData.email || sellerData.email_address || '');
+      setCertificateNameNumber(
+        sellerData.certificate_name_number ||
+        sellerData.certificate_name_and_number ||
+        sellerData.certificate_no ||
+        sellerData.certificate ||
+        ''
+      );
+      setAuthorityName(
+        sellerData.authority_name || sellerData.authorityName || sellerData.authority || ''
+      );
+      setAuthorisedSignature(
+        sellerData.authorised_signature ||
+        sellerData.authority_signature ||
+        sellerData.authoritySignature ||
+        sellerData.signature ||
+        ''
+      );
+      setCompanyLogo(sellerData.company_logo || sellerData.companyLogo || sellerData.logo || '');
+      const fallbackName = sellerData.bank_name || sellerData.bankName || '';
+      const fallbackDetails = sellerData.bank_details || sellerData.bankDetails || sellerData.bank_detail || '';
+      setBankItems([
+        {
+          id: generateBankCuid(),
+          name: fallbackName,
+          account_details:
+            fallbackDetails && !isBankDetailsTemplateEmpty(fallbackDetails)
+              ? fallbackDetails
+              : DEFAULT_BANK_DETAILS_TEMPLATE,
+        },
+      ]);
+      setFetchedBankSellerId('');
+      setExistingBackendBankIds(new Set());
+      setDeletingBankId(null);
+    },
+    [countries, allPhoneCountries, resolveCountry]
+  );
+
   // Sync state when modal opens or editing seller changes
   useEffect(() => {
     if (!isOpen) {
@@ -377,129 +510,7 @@ export default function SellerManageModal({
       setActiveTab('business');
 
       if (mode === 'edit' && seller) {
-        const id = String(seller.id || seller._id || seller.instruction_id || '');
-        setSavedSellerId(id);
-        setIsBusinessSaved(true);
-
-        setCompanyName(
-          seller.company_name ||
-          seller.companyName ||
-          seller.company ||
-          seller.business_name ||
-          seller.name ||
-          ''
-        );
-        setAddress(seller.address || seller.address_details || seller.details || '');
-        setCity(seller.city || seller.city_name || '');
-        setStateName(seller.state || seller.state_name || seller.province || '');
-
-        const countryRaw =
-          seller.country?.name ||
-          (typeof seller.country === 'string' ? seller.country : '') ||
-          seller.country_name ||
-          seller.countryName ||
-          '';
-        if (countryRaw) {
-          const resolved = resolveCountry(countryRaw);
-          setSelectedCountryName(resolved.name || countryRaw);
-          setSelectedCountryCode(resolved.code);
-
-          let rawCountryId = String(
-            seller.country?.id ||
-            seller.country_id ||
-            seller.countryId ||
-            seller.raw?.country_id ||
-            seller.raw?.country?.id ||
-            ''
-          );
-          if (!rawCountryId && (resolved.code || resolved.name)) {
-            const match = countries?.find((c: any) =>
-              (resolved.code && c.iso2?.toUpperCase() === resolved.code.toUpperCase()) ||
-              (resolved.name && c.name?.toLowerCase() === resolved.name.toLowerCase())
-            );
-            if (match?.id) rawCountryId = match.id;
-          }
-          setSelectedCountryId(rawCountryId);
-        } else {
-          setSelectedCountryName('');
-          setSelectedCountryCode(null);
-          setSelectedCountryId('');
-        }
-
-        // Contact Number & Country Code (100% decoupled from address country, ZERO forced defaults)
-        const rawPhone = String(
-          seller.contact_number || seller.contactNumber || seller.phone || seller.mobile || ''
-        ).trim();
-        const rawPCode = String(
-          seller.country_code || seller.countryCode || ''
-        ).trim();
-
-        if (rawPhone.startsWith('+')) {
-          try {
-            const parsed = parsePhoneNumber(rawPhone);
-            if (parsed) {
-              setPhoneCountryCode(`+${parsed.countryCallingCode}`);
-              setPhoneCountry((parsed.country as Country) || null);
-              setContactNumber(parsed.nationalNumber || '');
-            } else {
-              setPhoneCountryCode('');
-              setPhoneCountry(null);
-              setContactNumber(rawPhone);
-            }
-          } catch {
-            setPhoneCountryCode('');
-            setPhoneCountry(null);
-            setContactNumber(rawPhone);
-          }
-        } else if (rawPCode) {
-          const cleanCode = rawPCode.startsWith('+') ? rawPCode : `+${rawPCode}`;
-          setPhoneCountryCode(cleanCode);
-          setContactNumber(rawPhone);
-          const matched = allPhoneCountries.find((c) => c.callingCode === cleanCode);
-          setPhoneCountry(matched?.code || null);
-        } else {
-          setPhoneCountryCode('');
-          setPhoneCountry(null);
-          setContactNumber(rawPhone);
-        }
-        setIsPhoneDropdownOpen(false);
-        setPhoneSearch('');
-
-        setZipcode(String(seller.zip_code || seller.zipcode || seller.postal_code || ''));
-        setEmail(seller.email || seller.email_address || '');
-        setCertificateNameNumber(
-          seller.certificate_name_number ||
-          seller.certificate_name_and_number ||
-          seller.certificate_no ||
-          seller.certificate ||
-          ''
-        );
-        setAuthorityName(
-          seller.authority_name || seller.authorityName || seller.authority || ''
-        );
-        setAuthorisedSignature(
-          seller.authorised_signature ||
-          seller.authority_signature ||
-          seller.authoritySignature ||
-          seller.signature ||
-          ''
-        );
-        setCompanyLogo(seller.company_logo || seller.companyLogo || seller.logo || '');
-        const fallbackName = seller.bank_name || seller.bankName || '';
-        const fallbackDetails = seller.bank_details || seller.bankDetails || seller.bank_detail || '';
-        setBankItems([
-          {
-            id: generateBankCuid(),
-            name: fallbackName,
-            account_details:
-              fallbackDetails && !isBankDetailsTemplateEmpty(fallbackDetails)
-                ? fallbackDetails
-                : DEFAULT_BANK_DETAILS_TEMPLATE,
-          },
-        ]);
-        setFetchedBankSellerId('');
-        setExistingBackendBankIds(new Set());
-        setDeletingBankId(null);
+        populateSellerData(seller);
       } else {
         // Add Mode Reset - NOTHING is selected by default
         setSavedSellerId('');
@@ -542,8 +553,14 @@ export default function SellerManageModal({
       setTimeout(() => {
         companyNameInputRef.current?.focus();
       }, 100);
+      return;
     }
-  }, [isOpen, mode, seller, resolveCountry, allPhoneCountries]);
+
+    // Modal was already open, same record (asynchronous detailed fetch returned):
+    if (mode === 'edit' && currentSellerId && currentSellerId === prevOpenedIdRef.current && seller) {
+      populateSellerData(seller);
+    }
+  }, [isOpen, mode, seller, populateSellerData]);
 
   // Scroll to top when activeTab changes
   useEffect(() => {
@@ -1217,6 +1234,17 @@ export default function SellerManageModal({
           setCompanyLogo(returnedLogo);
         }
 
+        if (basicDetailsOnly) {
+          toast.success(
+            res.message ||
+              (mode === 'add'
+                ? dict?.smart_docs?.sellers?.seller_created || 'Seller saved successfully'
+                : dict?.smart_docs?.sellers?.seller_updated || 'Seller updated successfully')
+          );
+          onClose();
+          return;
+        }
+
         if (mode === 'add') {
           setActiveTab('bank');
           toast.success(
@@ -1306,6 +1334,10 @@ export default function SellerManageModal({
     };
 
     try {
+      if (!onSaveBank) {
+        setIsSavingBank(false);
+        return;
+      }
       const res = await onSaveBank(bankPayload, savedSellerId);
       if (res && res.success) {
         toast.success(res.message || 'Bank details updated successfully!');
@@ -1452,56 +1484,58 @@ export default function SellerManageModal({
           </button>
         </div>
 
-        {/* 2 Tabs Navigation Header */}
-        <div 
-          style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
-          className="px-5 pt-2 pb-0 border-b border-border bg-card shrink-0 transform-gpu"
-        >
-          <div className="flex items-center gap-2">
-            {/* Tab 1: Business Details */}
-            <button
-              type="button"
-              onClick={() => setActiveTab('business')}
-              className={`flex items-center gap-2 px-3.5 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all cursor-pointer ${
-                activeTab === 'business'
-                  ? 'border-brand-blue text-brand-blue'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
-            >
-              <i className="fa-solid fa-building text-xs" />
-              <span>{dict?.smart_docs?.business_details || 'Business Details'}</span>
-            </button>
+        {/* 2 Tabs Navigation Header (Hidden in basic details only mode) */}
+        {!basicDetailsOnly && (
+          <div 
+            style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
+            className="px-5 pt-2 pb-0 border-b border-border bg-card shrink-0 transform-gpu"
+          >
+            <div className="flex items-center gap-2">
+              {/* Tab 1: Business Details */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('business')}
+                className={`flex items-center gap-2 px-3.5 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+                  activeTab === 'business'
+                    ? 'border-brand-blue text-brand-blue'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                }`}
+              >
+                <i className="fa-solid fa-building text-xs" />
+                <span>{dict?.smart_docs?.business_details || 'Business Details'}</span>
+              </button>
 
-            {/* Tab 2: Bank Details */}
-            <button
-              type="button"
-              onClick={() => {
-                if (isBankTabEnabled) {
-                  setActiveTab('bank');
-                } else {
-                  toast.info('Please save Business Details first to enable Bank Details');
-                }
-              }}
-              disabled={!isBankTabEnabled}
-              className={`flex items-center gap-2 px-3.5 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all ${
-                activeTab === 'bank'
-                  ? 'border-brand-blue text-brand-blue'
-                  : isBankTabEnabled
-                  ? 'border-transparent text-muted-foreground hover:text-foreground hover:border-border cursor-pointer'
-                  : 'border-transparent text-muted-foreground/40 cursor-not-allowed'
-              }`}
-            >
-              <i className="fa-solid fa-building-columns text-xs" />
-              <span>{dict?.smart_docs?.bank_details_label || 'Bank Details'}</span>
-              {!isBankTabEnabled && (
-                <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1 bg-muted px-1.5 py-0.5 rounded ml-0.5">
-                  <i className="fa-solid fa-lock text-[9px]" />
-                  <span>Locked</span>
-                </span>
-              )}
-            </button>
+              {/* Tab 2: Bank Details */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (isBankTabEnabled) {
+                    setActiveTab('bank');
+                  } else {
+                    toast.info('Please save Business Details first to enable Bank Details');
+                  }
+                }}
+                disabled={!isBankTabEnabled}
+                className={`flex items-center gap-2 px-3.5 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all ${
+                  activeTab === 'bank'
+                    ? 'border-brand-blue text-brand-blue'
+                    : isBankTabEnabled
+                    ? 'border-transparent text-muted-foreground hover:text-foreground hover:border-border cursor-pointer'
+                    : 'border-transparent text-muted-foreground/40 cursor-not-allowed'
+                }`}
+              >
+                <i className="fa-solid fa-building-columns text-xs" />
+                <span>{dict?.smart_docs?.bank_details_label || 'Bank Details'}</span>
+                {!isBankTabEnabled && (
+                  <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1 bg-muted px-1.5 py-0.5 rounded ml-0.5">
+                    <i className="fa-solid fa-lock text-[9px]" />
+                    <span>Locked</span>
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* General Error Banner if backend returns general non-field error */}
         {errors.general && (
@@ -1964,7 +1998,7 @@ export default function SellerManageModal({
                         clearFieldError('authorised_signature', 'authority_signature', 'signature');
                       }}
                       hideTitleFields={true}
-                      className="!p-0 w-full [&>div:first-of-type]:!my-0 [&>div:first-of-type]:!h-36 sm:[&>div:first-of-type]:!h-40"
+                      className="!p-0 w-full"
                     />
                   </div>
                   {(errors.authorised_signature || errors.authority_signature || errors.signature) && (
@@ -2216,7 +2250,11 @@ export default function SellerManageModal({
                 <i className="fa-solid fa-arrow-right text-xs" />
               )}
               <span>
-                {mode === 'add'
+                {basicDetailsOnly
+                  ? mode === 'add'
+                    ? dict?.smart_docs?.sellers?.save_seller || 'Save Seller'
+                    : dict?.smart_docs?.sellers?.update_seller || 'Update Seller'
+                  : mode === 'add'
                   ? 'Save & Continue to Bank Details'
                   : 'Update Business Details'}
               </span>

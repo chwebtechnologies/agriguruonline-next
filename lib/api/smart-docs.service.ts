@@ -1708,6 +1708,25 @@ export const smartDocsService = {
 
     const url = `${baseUrl}/product/${encodeURIComponent(cleanId)}`;
 
+    // 1. Try bare URL (matches old project SMART_DOCS_PRODUCT_GET_ONE_URL)
+    try {
+      const bareResponse = await customFetchJSON<any>(url, {
+        token,
+        cache: 'no-store',
+      });
+      if (
+        bareResponse &&
+        (bareResponse.success === true || bareResponse.success === 1 || bareResponse.status === true || bareResponse.status === 200) &&
+        (bareResponse.data || bareResponse.product || bareResponse.name)
+      ) {
+        return bareResponse;
+      }
+      if (bareResponse && (bareResponse.name || bareResponse.product_name || (bareResponse.data && (bareResponse.data.name || bareResponse.data.id)))) {
+        return bareResponse;
+      }
+    } catch {}
+
+    // 2. Try with query params
     try {
       const response = await customFetchJSON<any>(url, {
         token,
@@ -1718,11 +1737,38 @@ export const smartDocsService = {
         cache: 'no-store',
       });
 
-      return response;
+      if (
+        response &&
+        (response.success === true || response.success === 1 || response.status === true || response.status === 200) &&
+        (response.data || response.product || response.name)
+      ) {
+        return response;
+      }
+      if (response && (response.name || response.product_name || (response.data && (response.data.name || response.data.id)))) {
+        return response;
+      }
     } catch (error) {
       console.error('[smartDocsService.getProductById] error:', error);
-      return null;
     }
+
+    // 3. Fallback: Search from /dms-fields/product
+    try {
+      const prodsRes = await smartDocsService.getProducts({ lang: safeLang, source: params.source || 'web' }, token);
+      if (prodsRes) {
+        const rawList = prodsRes.data?.products || prodsRes.data || prodsRes.products || [];
+        if (Array.isArray(rawList)) {
+          const match = rawList.find((p: any) => {
+            const pid = sanitizeDocId(p.id || p._id || p.product_id);
+            return pid === cleanId || String(p.name || '').toLowerCase() === cleanId.toLowerCase();
+          });
+          if (match) {
+            return { success: true, data: match };
+          }
+        }
+      }
+    } catch {}
+
+    return null;
   },
 
   /**
@@ -1932,6 +1978,159 @@ export const smartDocsService = {
   },
 
   /**
+   * Quick adds a packing type for a product:
+   * POST /update-instructions/packing-type
+   */
+  savePackingType: async (
+    payload: {
+      product_id: string;
+      title: string;
+      quantity: number;
+      unit_type: string;
+      conversion_factor?: number;
+    },
+    token: string
+  ): Promise<{ success: boolean; message: string; data?: any }> => {
+    if (!token) {
+      return { success: false, message: 'Authentication required' };
+    }
+
+    const baseUrl = getSmartDocsApiUrl();
+    const url = `${baseUrl}/update-instructions/packing-type`;
+
+    try {
+      const response = await customFetch(url, {
+        method: 'POST',
+        token,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data?.success !== 0 && data?.status !== 0) {
+        return {
+          success: true,
+          message: data?.message || 'Packing type saved successfully',
+          data: data?.data ?? data,
+        };
+      }
+      return {
+        success: false,
+        message: data?.message || 'Failed to save packing type',
+        data,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error?.message || 'Failed to save packing type',
+      };
+    }
+  },
+
+  /**
+   * Quick updates a packing type for a product:
+   * PATCH /update-instructions/packing-type/:id
+   */
+  updatePackingType: async (
+    packingTypeId: string,
+    payload: {
+      product_id: string;
+      title: string;
+      quantity: number;
+      unit_type: string;
+      conversion_factor?: number;
+    },
+    token: string
+  ): Promise<{ success: boolean; message: string; data?: any }> => {
+    if (!token || !packingTypeId) {
+      return { success: false, message: 'Authentication required or invalid packing type ID' };
+    }
+
+    const baseUrl = getSmartDocsApiUrl();
+    const cleanId = sanitizeDocId(packingTypeId);
+    const url = `${baseUrl}/update-instructions/packing-type/${encodeURIComponent(cleanId)}`;
+
+    try {
+      let response = await customFetch(url, {
+        method: 'PATCH',
+        token,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+      });
+
+      if (!response.ok && (response.status === 404 || response.status === 405)) {
+        response = await customFetch(url, {
+          method: 'PUT',
+          token,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          cache: 'no-store',
+        });
+      }
+
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data?.success !== 0 && data?.status !== 0) {
+        return {
+          success: true,
+          message: data?.message || 'Packing type updated successfully',
+          data: data?.data ?? data,
+        };
+      }
+      return {
+        success: false,
+        message: data?.message || 'Failed to update packing type',
+        data,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error?.message || 'Failed to update packing type',
+      };
+    }
+  },
+
+  /**
+   * Fetches single packing type for a product:
+   * GET /update-instructions/packing-type/:productId/:id
+   */
+  getPackingTypeById: async (
+    productId: string,
+    packingTypeId: string,
+    token: string
+  ): Promise<{ success: boolean; message?: string; data?: any }> => {
+    if (!token || !productId || !packingTypeId) {
+      return { success: false, message: 'Missing parameters' };
+    }
+
+    const baseUrl = getSmartDocsApiUrl();
+    const cleanProdId = sanitizeDocId(productId);
+    const cleanPackId = sanitizeDocId(packingTypeId);
+    const url = `${baseUrl}/update-instructions/packing-type/${encodeURIComponent(cleanProdId)}/${encodeURIComponent(cleanPackId)}`;
+
+    try {
+      const response = await customFetch(url, {
+        method: 'GET',
+        token,
+        cache: 'no-store',
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data?.success !== 0 && data?.status !== 0) {
+        return {
+          success: true,
+          data: data?.data ?? data,
+        };
+      }
+    } catch {
+      // fallback
+    }
+
+    return { success: false, message: 'Packing type not found' };
+  },
+
+  /**
    * Fetches product specific fields (HSN code, specification, packing types, loading ports, destination ports) with authentication:
    * GET /dms-fields/product/:productId?lang_code=en&source=web
    */
@@ -2089,6 +2288,25 @@ export const smartDocsService = {
 
     const url = `${baseUrl}/payment-term/${encodeURIComponent(cleanId)}`;
 
+    // 1. Try bare URL (matches old project SMART_DOCS_PAYMENT_TERM_GET_ONE_URL)
+    try {
+      const bareResponse = await customFetchJSON<any>(url, {
+        token,
+        cache: 'no-store',
+      });
+      if (
+        bareResponse &&
+        (bareResponse.success === true || bareResponse.success === 1 || bareResponse.status === true || bareResponse.status === 200) &&
+        (bareResponse.data || bareResponse.payment_term || bareResponse.title || bareResponse.name)
+      ) {
+        return bareResponse;
+      }
+      if (bareResponse && (bareResponse.title || bareResponse.name || (bareResponse.data && (bareResponse.data.title || bareResponse.data.id)))) {
+        return bareResponse;
+      }
+    } catch {}
+
+    // 2. Try with query params
     try {
       const response = await customFetchJSON<any>(url, {
         token,
@@ -2099,11 +2317,38 @@ export const smartDocsService = {
         cache: 'no-store',
       });
 
-      return response;
+      if (
+        response &&
+        (response.success === true || response.success === 1 || response.status === true || response.status === 200) &&
+        (response.data || response.payment_term || response.title || response.name)
+      ) {
+        return response;
+      }
+      if (response && (response.title || response.name || (response.data && (response.data.title || response.data.id)))) {
+        return response;
+      }
     } catch (error) {
       console.error('[smartDocsService.getPaymentTermById] error:', error);
-      return null;
     }
+
+    // 3. Fallback: Search from /dms-fields/payment-terms
+    try {
+      const termsRes = await smartDocsService.getPaymentTerms({ lang: safeLang, source: params.source || 'web' }, token);
+      if (termsRes) {
+        const rawList = termsRes.data?.payment_terms || termsRes.data || termsRes.payment_terms || [];
+        if (Array.isArray(rawList)) {
+          const match = rawList.find((pt: any) => {
+            const ptId = sanitizeDocId(pt.id || pt._id || pt.payment_term_id);
+            return ptId === cleanId || String(pt.title || pt.name || '').toLowerCase() === cleanId.toLowerCase();
+          });
+          if (match) {
+            return { success: true, data: match };
+          }
+        }
+      }
+    } catch {}
+
+    return null;
   },
 
   /**
@@ -2393,11 +2638,34 @@ export const smartDocsService = {
     if (!cleanId) return null;
 
     const endpoints = [
+      `${baseUrl}/instructions/seller-instruction/${encodeURIComponent(cleanId)}`,
       `${baseUrl}/instructions/${encodeURIComponent(cleanId)}`,
       `${baseUrl}/dms-fields/instructions/${encodeURIComponent(cleanId)}`,
     ];
 
     for (const url of endpoints) {
+      // 1. Try bare URL first (matches old project agriguru-website SMART_DOCS_GET_ONE_URL exactly)
+      try {
+        const response = await customFetchJSON<any>(url, {
+          token,
+          cache: 'no-store',
+        });
+
+        if (
+          response &&
+          (response.success === true || response.success === 1 || response.status === true || response.status === 200) &&
+          (response.data || response.instruction || response.seller || response.company_name)
+        ) {
+          return response;
+        }
+        if (response && (response.company_name || (response.data && response.data.company_name))) {
+          return response;
+        }
+      } catch {
+        // try with query params
+      }
+
+      // 2. Try with query params
       try {
         const response = await customFetchJSON<any>(url, {
           token,
@@ -2409,13 +2677,42 @@ export const smartDocsService = {
           cache: 'no-store',
         });
 
-        if (response && (response.data || response.success || response.status || response.company_name)) {
+        if (
+          response &&
+          (response.success === true || response.success === 1 || response.status === true || response.status === 200) &&
+          (response.data || response.instruction || response.seller || response.company_name)
+        ) {
+          return response;
+        }
+        if (response && (response.company_name || (response.data && response.data.company_name))) {
           return response;
         }
       } catch {
         // try next endpoint
       }
     }
+
+    // 3. Fallback: Search from /dms-fields/instructions
+    try {
+      const instRes = await smartDocsService.getInstructions({ lang: safeLang, source: params.source || 'web' }, token);
+      if (instRes) {
+        const rawList =
+          instRes.data?.seller_instructions ||
+          instRes.data?.sellers ||
+          instRes.seller_instructions ||
+          instRes.sellers ||
+          [];
+        if (Array.isArray(rawList)) {
+          const match = rawList.find((s: any) => {
+            const sid = sanitizeDocId(s.id || s._id || s.instruction_id);
+            return sid === cleanId || String(s.company_name || '').toLowerCase() === cleanId.toLowerCase();
+          });
+          if (match) {
+            return { success: true, data: match };
+          }
+        }
+      }
+    } catch {}
 
     return null;
   },
@@ -3120,6 +3417,28 @@ export const smartDocsService = {
     ];
 
     for (const url of endpoints) {
+      // 1. Try bare URL first (matches old project agriguru-website exactly)
+      try {
+        const response = await customFetchJSON<any>(url, {
+          token,
+          cache: 'no-store',
+        });
+
+        if (
+          response &&
+          (response.success === true || response.success === 1 || response.status === true || response.status === 200) &&
+          (response.data || response.instruction || response.buyer || response.company_name)
+        ) {
+          return response;
+        }
+        if (response && (response.company_name || (response.data && response.data.company_name))) {
+          return response;
+        }
+      } catch {
+        // try with query params
+      }
+
+      // 2. Try with query params
       try {
         const response = await customFetchJSON<any>(url, {
           token,
@@ -3131,13 +3450,42 @@ export const smartDocsService = {
           cache: 'no-store',
         });
 
-        if (response && (response.data || response.success || response.status || response.company_name)) {
+        if (
+          response &&
+          (response.success === true || response.success === 1 || response.status === true || response.status === 200) &&
+          (response.data || response.instruction || response.buyer || response.company_name)
+        ) {
+          return response;
+        }
+        if (response && (response.company_name || (response.data && response.data.company_name))) {
           return response;
         }
       } catch {
         // try next endpoint
       }
     }
+
+    // 3. Fallback: Search from /dms-fields/instructions
+    try {
+      const instRes = await smartDocsService.getInstructions({ lang: safeLang, source: params.source || 'web' }, token);
+      if (instRes) {
+        const rawList =
+          instRes.data?.buyer_instructions ||
+          instRes.data?.buyers ||
+          instRes.buyer_instructions ||
+          instRes.buyers ||
+          [];
+        if (Array.isArray(rawList)) {
+          const match = rawList.find((b: any) => {
+            const bid = sanitizeDocId(b.id || b._id || b.instruction_id);
+            return bid === cleanId || String(b.company_name || '').toLowerCase() === cleanId.toLowerCase();
+          });
+          if (match) {
+            return { success: true, data: match };
+          }
+        }
+      }
+    } catch {}
 
     return null;
   },
@@ -16656,6 +17004,61 @@ export function extractInstructionsData(data: any): ExtractedInstructions {
 
     let detailsText = formatObjectToString(rawDetails);
 
+    // Build complete multiline address details if instructionText is empty or single-line company name
+    const street = String(item.address || item.street || item.address_line || '').trim();
+    const city = String(item.city || item.city_name || '').trim();
+    const state = String(item.state || item.state_name || item.province || '').trim();
+    const zip = String(item.zip_code || item.zipcode || item.postal_code || item.pincode || '').trim();
+    const country =
+      typeof item.country === 'object' && item.country !== null
+        ? String(item.country.name || item.country.title || item.country.label || '').trim()
+        : String(item.country || item.country_name || '').trim();
+
+    const localityParts = [city, state, country, zip].filter(Boolean);
+    const locality = localityParts.join(', ');
+
+    const phone = String(item.contact_number || item.contactNumber || item.phone || item.mobile || '').trim();
+    const phoneCode = String(item.phone_country_code || item.phoneCountryCode || item.country_code || item.countryCode || '').trim();
+    const email = String(item.email || item.email_address || '').trim();
+    const cert = String(item.certificate_name_number || item.certificate_name_and_number || item.tax_id || item.registration_number || '').trim();
+
+    const contactParts: string[] = [];
+    if (phone) {
+      const formattedPhone = phoneCode && !phone.startsWith('+') ? `${phoneCode} ${phone}` : phone;
+      contactParts.push(`TEL: ${formattedPhone}`);
+    }
+    if (email) {
+      contactParts.push(`EMAIL: ${email}`);
+    }
+    if (cert) {
+      contactParts.push(`TAX/REG ID: ${cert}`);
+    }
+
+    const constructedLines: string[] = [];
+    if (companyName) constructedLines.push(companyName);
+    if (street) {
+      if (companyName && street.toLowerCase().startsWith(companyName.toLowerCase())) {
+        constructedLines[0] = street;
+      } else {
+        constructedLines.push(street);
+      }
+    }
+    if (locality) constructedLines.push(locality);
+    if (contactParts.length > 0) constructedLines.push(contactParts.join('  '));
+
+    const constructedFull = constructedLines.join('\n').trim();
+
+    if (!instructionText || instructionText === companyName || !instructionText.includes('\n')) {
+      if (constructedFull && constructedFull.length > instructionText.length) {
+        instructionText = constructedFull;
+      }
+    }
+    if (!detailsText || detailsText === companyName || !detailsText.includes('\n')) {
+      if (constructedFull && constructedFull.length > detailsText.length) {
+        detailsText = constructedFull;
+      }
+    }
+
     if (!instructionText && detailsText) {
       instructionText = detailsText;
     }
@@ -16664,11 +17067,11 @@ export function extractInstructionsData(data: any): ExtractedInstructions {
     }
 
     // Clean snippet for dropdown subLabel
-    const subLabel = detailsText
+    const subLabel = locality || (detailsText
       ? detailsText.split('\n')[0].trim()
       : instructionText
       ? instructionText.split('\n')[0].trim()
-      : '';
+      : '');
 
     const label = companyName || instructionText.slice(0, 40) || `Instruction ${index + 1}`;
     const rawItemId = item.id || item._id;

@@ -53,6 +53,28 @@ export function PaymentTermManageModal({
     setMounted(true);
   }, []);
 
+  // Helper to populate term data
+  const populateTermData = (term: any) => {
+    if (!term) return;
+    setName(term.label || term.name || term.title || term.term || '');
+    setDays(
+      term.days !== undefined && term.days !== null
+        ? String(term.days)
+        : term.credit_days
+        ? String(term.credit_days)
+        : ''
+    );
+    setDescription(
+      term.description ||
+        term.desc ||
+        term.notes ||
+        (term.subLabel && !term.subLabel.includes('Days credit period')
+          ? term.subLabel
+          : '') ||
+        ''
+    );
+  };
+
   // Sync state when modal opens or editing payment term changes
   useEffect(() => {
     if (!isOpen) {
@@ -72,23 +94,7 @@ export function PaymentTermManageModal({
       prevTermIdRef.current = currentTermId;
 
       if (mode === 'edit' && paymentTerm) {
-        setName(paymentTerm.label || paymentTerm.name || paymentTerm.title || paymentTerm.term || '');
-        setDays(
-          paymentTerm.days !== undefined && paymentTerm.days !== null
-            ? String(paymentTerm.days)
-            : paymentTerm.credit_days
-            ? String(paymentTerm.credit_days)
-            : ''
-        );
-        setDescription(
-          paymentTerm.description ||
-            paymentTerm.desc ||
-            paymentTerm.notes ||
-            (paymentTerm.subLabel && !paymentTerm.subLabel.includes('Days credit period')
-              ? paymentTerm.subLabel
-              : '') ||
-            ''
-        );
+        populateTermData(paymentTerm);
       } else {
         setName(paymentTerm?.label || '');
         setDays('');
@@ -100,6 +106,12 @@ export function PaymentTermManageModal({
       setTimeout(() => {
         nameInputRef.current?.focus();
       }, 100);
+      return;
+    }
+
+    // Modal was already open, same record (asynchronous detailed fetch returned):
+    if (mode === 'edit' && currentTermId && currentTermId === prevTermIdRef.current && paymentTerm) {
+      populateTermData(paymentTerm);
     }
   }, [isOpen, mode, paymentTerm]);
 

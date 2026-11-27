@@ -7858,11 +7858,15 @@ export async function fetchSignatureAsDataUrlAction(
     let res = await fetch(targetUrl, {
       headers,
       cache: "no-store",
+      signal: AbortSignal.timeout(3000),
     });
 
     if (!res.ok) {
       // Retry without Authorization (in case of Cloud Storage / S3 / public CDN asset)
-      res = await fetch(targetUrl, { cache: "no-store" });
+      res = await fetch(targetUrl, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(3000),
+      });
     }
 
     if (!res.ok) {
@@ -8113,6 +8117,118 @@ export async function updateProductAction(
       success: false,
       message: error?.message || "Failed to update product",
       error_fields: [],
+    };
+  }
+}
+
+/**
+ * Server Action to quick save a packing type for a product
+ */
+export async function savePackingTypeAction(
+  payload: {
+    product_id: string;
+    title: string;
+    quantity: number;
+    unit_type: string;
+    conversion_factor?: number;
+  }
+): Promise<{ success: boolean; message: string; data?: any }> {
+  try {
+    let token = await getActionToken();
+    if (!token) {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    const result = await smartDocsService.savePackingType(payload, token);
+    return result;
+  } catch (error: any) {
+    console.error("[savePackingTypeAction] Error:", error);
+    return {
+      success: false,
+      message: error?.message || "Failed to save packing type",
+    };
+  }
+}
+
+/**
+ * Server Action to quick update a packing type
+ */
+export async function updatePackingTypeAction(
+  packingId: string,
+  payload: {
+    product_id: string;
+    title: string;
+    quantity: number;
+    unit_type: string;
+    conversion_factor?: number;
+  }
+): Promise<{ success: boolean; message: string; data?: any }> {
+  try {
+    let token = await getActionToken();
+    if (!token) {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    const result = await smartDocsService.updatePackingType(packingId, payload, token);
+    return result;
+  } catch (error: any) {
+    console.error("[updatePackingTypeAction] Error:", error);
+    return {
+      success: false,
+      message: error?.message || "Failed to update packing type",
+    };
+  }
+}
+
+/**
+ * Server Action to fetch single packing type by product ID and packing ID
+ */
+export async function getPackingTypeByIdAction(
+  productId: string,
+  packingId: string
+): Promise<{ success: boolean; message?: string; data?: any }> {
+  try {
+    let token = await getActionToken();
+    if (!token) {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    const result = await smartDocsService.getPackingTypeById(productId, packingId, token);
+    if (result.success && result.data) {
+      return result;
+    }
+
+    // Fallback: search product details for packing
+    const prodDetails = await smartDocsService.getProductDetails(productId, {}, token);
+    const packings =
+      prodDetails?.data?.packing_types ||
+      prodDetails?.packing_types ||
+      [];
+    const found = packings.find(
+      (p: any) =>
+        String(p.id || p._id || p.value || p.packing_type_id || "") === String(packingId) ||
+        String(p.title || p.name || "").toLowerCase() === String(packingId).toLowerCase()
+    );
+
+    if (found) {
+      return {
+        success: true,
+        data: {
+          id: found.id || found._id || packingId,
+          title: found.title || found.name || "",
+          quantity: found.quantity || found.qty || 0,
+          unit_type: found.unit_type || found.unitType || "SOLID",
+          conversion_factor: found.conversion_factor || found.conversionFactor || 1,
+        },
+      };
+    }
+
+    return { success: false, message: "Packing type not found" };
+  } catch (error: any) {
+    console.error("[getPackingTypeByIdAction] Error:", error);
+    return {
+      success: false,
+      message: error?.message || "Failed to fetch packing type",
     };
   }
 }

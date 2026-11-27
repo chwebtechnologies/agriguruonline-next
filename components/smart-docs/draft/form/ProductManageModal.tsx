@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import flags from 'react-phone-number-input/flags';
 import { getCountries, type Country } from 'react-phone-number-input';
@@ -195,6 +195,209 @@ export function ProductManageModal({
   const isFirstOpenRef = useRef(false);
   const prevProductIdRef = useRef<string | null>(null);
 
+  // Helper to populate product data into state without losing focus/scroll
+  const populateProductData = useCallback(
+    (productData: any) => {
+      if (!productData) return;
+
+      setName(productData.label || productData.product_name || productData.name || '');
+
+      const rawCountryId = String(
+        productData.country_id ||
+        productData.countryId ||
+        productData.origin_country_id ||
+        productData.raw?.country_id ||
+        productData.raw?.country?.id ||
+        productData.raw?.origin_country_id ||
+        ''
+      );
+      setSelectedCountryId(rawCountryId);
+
+      const resolved = resolveCountry(
+        productData.country ||
+        productData.country_name ||
+        productData.origin_country ||
+        productData.origin ||
+        ''
+      );
+      setSelectedCountryName(resolved.name);
+      setSelectedCountryCode(resolved.code);
+
+      setHsn(
+        String(
+          productData.hsn ||
+          productData.hsn_code ||
+          productData.hsn_sac_code ||
+          productData.hsnCode ||
+          ''
+        )
+      );
+
+      setCategory(
+        productData.category ||
+        productData.category_name ||
+        productData.categoryName ||
+        productData.sub_category_name ||
+        ''
+      );
+
+      setSpec(productData.spec || productData.specification || productData.specifications || '');
+
+      // Detect unit type accurately without false overrides
+      const rawPackings =
+        productData.packings ||
+        productData.packing_types ||
+        productData.packingTypes ||
+        [];
+
+      const isLiquidFlag =
+        productData.is_liquid ??
+        productData.isLiquid ??
+        productData.liquid ??
+        productData.raw?.is_liquid ??
+        productData.raw?.isLiquid;
+
+      const explicitUnitType = String(
+        productData.unit_type ||
+        productData.unitType ||
+        productData.packing_unit_type ||
+        productData.packingUnitType ||
+        productData.raw?.unit_type ||
+        productData.raw?.unitType ||
+        ''
+      ).trim().toLowerCase();
+
+      const explicitUnit = String(
+        productData.unit ||
+        productData.unit_name ||
+        productData.unitName ||
+        productData.default_unit ||
+        productData.raw?.unit ||
+        ''
+      ).trim().toLowerCase();
+
+      let detectedUnitType: PackingUnitType = 'solid';
+
+      if (isLiquidFlag === true || isLiquidFlag === 1 || isLiquidFlag === 'true' || isLiquidFlag === '1') {
+        detectedUnitType = 'liquid';
+      } else if (isLiquidFlag === false || isLiquidFlag === 0 || isLiquidFlag === 'false' || isLiquidFlag === '0') {
+        detectedUnitType = 'solid';
+      } else if (explicitUnitType === 'liquid') {
+        detectedUnitType = 'liquid';
+      } else if (explicitUnitType === 'solid') {
+        detectedUnitType = 'solid';
+      } else if (['l', 'ltr', 'ltrs', 'liter', 'liters', 'litre', 'litres', 'ml'].includes(explicitUnit)) {
+        detectedUnitType = 'liquid';
+      } else if (['kg', 'kgs', 'g', 'gm', 'gms', 'mt', 'ton', 'tons', 'quintal'].includes(explicitUnit)) {
+        detectedUnitType = 'solid';
+      } else if (Array.isArray(rawPackings) && rawPackings.length > 0) {
+        const hasExplicitLiquidPacking = rawPackings.some((p: any) => {
+          const uType = String(p.unit_type || p.unitType || '').toLowerCase();
+          const uUnit = String(p.unit || p.uom || '').toLowerCase();
+          const title = String(p.title || p.name || p.packing_name || (typeof p === 'string' ? p : '')).toLowerCase();
+
+          if (uType === 'liquid') return true;
+          if (['l', 'ltr', 'liter', 'liters', 'litre', 'litres', 'ml'].includes(uUnit)) return true;
+          if (/\b(ltrs?|liters?|litres?|ml)\b/i.test(title)) return true;
+          if (title.includes('liquid') || title.includes('flexitank') || title.includes('ibc tank')) return true;
+          return false;
+        });
+
+        const hasExplicitSolidPacking = rawPackings.some((p: any) => {
+          const uType = String(p.unit_type || p.unitType || '').toLowerCase();
+          const uUnit = String(p.unit || p.uom || '').toLowerCase();
+          const title = String(p.title || p.name || p.packing_name || (typeof p === 'string' ? p : '')).toLowerCase();
+
+          if (uType === 'solid') return true;
+          if (['kg', 'kgs', 'g', 'gm', 'mt', 'ton', 'tons'].includes(uUnit)) return true;
+          if (/\b(kgs?|grams?|gms?|mts?|tons?)\b/i.test(title)) return true;
+          if (title.includes('bag') || title.includes('sack') || title.includes('jute') || title.includes('box') || title.includes('carton')) return true;
+          return false;
+        });
+
+        if (hasExplicitLiquidPacking && !hasExplicitSolidPacking) {
+          detectedUnitType = 'liquid';
+        } else {
+          detectedUnitType = 'solid';
+        }
+      }
+
+      setUnitType(detectedUnitType);
+
+      if (Array.isArray(rawPackings) && rawPackings.length > 0) {
+        const parsed = rawPackings.map((p: any) => {
+          const pkObj = p?.packing_type && typeof p.packing_type === 'object' ? p.packing_type : null;
+          const rawTitle = String(
+            p.title ||
+            p.name ||
+            p.packing_name ||
+            p.packing_type_name ||
+            pkObj?.title ||
+            pkObj?.name ||
+            (typeof p.packing_type === 'string' ? p.packing_type : '') ||
+            p.label ||
+            ''
+          ).trim();
+
+          let rawQty = String(
+            p.quantity ??
+            p.qty ??
+            p.pack_qty ??
+            p.bagWeightKg ??
+            p.weight ??
+            p.size ??
+            ''
+          );
+
+          if (!rawQty && rawTitle) {
+            const match = rawTitle.match(/(\d+(?:\.\d+)?)\s*(?:kg|kgs|g|gm|gms|l|ltr|ltrs|liter|liters|ml|ton|tons|mt)/i);
+            if (match && match[1]) {
+              rawQty = match[1];
+            }
+          }
+
+          const isProductLiquid = detectedUnitType === 'liquid';
+          const rawDensity = String(p.density ?? '1');
+          const density = isProductLiquid ? (rawDensity || '1') : '1';
+          const netWeightKg = isProductLiquid
+            ? calculateNetWeightKg(rawQty, density)
+            : String(p.netWeightKg || p.net_weight_kg || rawQty);
+
+          const rawId = p.id || p._id || p.packing_type_id || p.packing_id || (p.packing_type?.id);
+          const resolvedId = (rawId && !String(rawId).startsWith('pack-')) ? String(rawId) : generatePackingCuid();
+          const rawCf = p.conversion_factor ?? p.conversionFactor ?? p.packing_type?.conversion_factor;
+          const parsedCf =
+            rawCf !== undefined && rawCf !== null && String(rawCf).trim() !== '' && !isNaN(Number(rawCf))
+              ? parseFloat(Number(rawCf).toFixed(3))
+              : undefined;
+
+          return {
+            id: resolvedId,
+            title: rawTitle,
+            quantity: rawQty,
+            density,
+            netWeightKg,
+            conversion_factor: parsedCf,
+          };
+        });
+        setPackings(parsed);
+      } else {
+        setPackings([
+          {
+            id: generatePackingCuid(),
+            title: '',
+            quantity: '',
+            density: '1',
+            netWeightKg: '',
+            conversion_factor: undefined,
+          },
+        ]);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
   // Sync state when modal opens or editing product changes
   useEffect(() => {
     if (!isOpen) {
@@ -214,199 +417,7 @@ export function ProductManageModal({
       prevProductIdRef.current = currentProdId;
 
       if (mode === 'edit' && product) {
-        setName(product.label || product.product_name || product.name || '');
-
-        const rawCountryId = String(
-          product.country_id ||
-          product.countryId ||
-          product.origin_country_id ||
-          product.raw?.country_id ||
-          product.raw?.country?.id ||
-          product.raw?.origin_country_id ||
-          ''
-        );
-        setSelectedCountryId(rawCountryId);
-
-        const resolved = resolveCountry(
-          product.country ||
-          product.country_name ||
-          product.origin_country ||
-          product.origin ||
-          ''
-        );
-        setSelectedCountryName(resolved.name);
-        setSelectedCountryCode(resolved.code);
-
-        setHsn(
-          String(
-            product.hsn ||
-            product.hsn_code ||
-            product.hsn_sac_code ||
-            product.hsnCode ||
-            ''
-          )
-        );
-
-        setCategory(
-          product.category ||
-          product.category_name ||
-          product.categoryName ||
-          product.sub_category_name ||
-          ''
-        );
-
-        setSpec(product.spec || product.specification || '');
-
-        // Detect unit type accurately without false overrides
-        const rawPackings =
-          product.packings ||
-          product.packing_types ||
-          product.packingTypes ||
-          [];
-
-        const isLiquidFlag =
-          product.is_liquid ??
-          product.isLiquid ??
-          product.liquid ??
-          product.raw?.is_liquid ??
-          product.raw?.isLiquid;
-
-        const explicitUnitType = String(
-          product.unit_type ||
-          product.unitType ||
-          product.packing_unit_type ||
-          product.packingUnitType ||
-          product.raw?.unit_type ||
-          product.raw?.unitType ||
-          ''
-        ).trim().toLowerCase();
-
-        const explicitUnit = String(
-          product.unit ||
-          product.unit_name ||
-          product.unitName ||
-          product.default_unit ||
-          product.raw?.unit ||
-          ''
-        ).trim().toLowerCase();
-
-        let detectedUnitType: PackingUnitType = 'solid';
-
-        if (isLiquidFlag === true || isLiquidFlag === 1 || isLiquidFlag === 'true' || isLiquidFlag === '1') {
-          detectedUnitType = 'liquid';
-        } else if (isLiquidFlag === false || isLiquidFlag === 0 || isLiquidFlag === 'false' || isLiquidFlag === '0') {
-          detectedUnitType = 'solid';
-        } else if (explicitUnitType === 'liquid') {
-          detectedUnitType = 'liquid';
-        } else if (explicitUnitType === 'solid') {
-          detectedUnitType = 'solid';
-        } else if (['l', 'ltr', 'ltrs', 'liter', 'liters', 'litre', 'litres', 'ml'].includes(explicitUnit)) {
-          detectedUnitType = 'liquid';
-        } else if (['kg', 'kgs', 'g', 'gm', 'gms', 'mt', 'ton', 'tons', 'quintal'].includes(explicitUnit)) {
-          detectedUnitType = 'solid';
-        } else if (Array.isArray(rawPackings) && rawPackings.length > 0) {
-          const hasExplicitLiquidPacking = rawPackings.some((p: any) => {
-            const uType = String(p.unit_type || p.unitType || '').toLowerCase();
-            const uUnit = String(p.unit || p.uom || '').toLowerCase();
-            const title = String(p.title || p.name || p.packing_name || (typeof p === 'string' ? p : '')).toLowerCase();
-
-            if (uType === 'liquid') return true;
-            if (['l', 'ltr', 'liter', 'liters', 'litre', 'litres', 'ml'].includes(uUnit)) return true;
-            if (/\b(ltrs?|liters?|litres?|ml)\b/i.test(title)) return true;
-            if (title.includes('liquid') || title.includes('flexitank') || title.includes('ibc tank')) return true;
-            return false;
-          });
-
-          const hasExplicitSolidPacking = rawPackings.some((p: any) => {
-            const uType = String(p.unit_type || p.unitType || '').toLowerCase();
-            const uUnit = String(p.unit || p.uom || '').toLowerCase();
-            const title = String(p.title || p.name || p.packing_name || (typeof p === 'string' ? p : '')).toLowerCase();
-
-            if (uType === 'solid') return true;
-            if (['kg', 'kgs', 'g', 'gm', 'mt', 'ton', 'tons'].includes(uUnit)) return true;
-            if (/\b(kgs?|grams?|gms?|mts?|tons?)\b/i.test(title)) return true;
-            if (title.includes('bag') || title.includes('sack') || title.includes('jute') || title.includes('box') || title.includes('carton')) return true;
-            return false;
-          });
-
-          if (hasExplicitLiquidPacking && !hasExplicitSolidPacking) {
-            detectedUnitType = 'liquid';
-          } else {
-            detectedUnitType = 'solid';
-          }
-        }
-
-        setUnitType(detectedUnitType);
-
-        if (Array.isArray(rawPackings) && rawPackings.length > 0) {
-          const parsed = rawPackings.map((p: any, idx: number) => {
-            const pkObj = p?.packing_type && typeof p.packing_type === 'object' ? p.packing_type : null;
-            const rawTitle = String(
-              p.title ||
-              p.name ||
-              p.packing_name ||
-              p.packing_type_name ||
-              pkObj?.title ||
-              pkObj?.name ||
-              (typeof p.packing_type === 'string' ? p.packing_type : '') ||
-              p.label ||
-              ''
-            ).trim();
-
-            let rawQty = String(
-              p.quantity ??
-              p.qty ??
-              p.pack_qty ??
-              p.bagWeightKg ??
-              p.weight ??
-              p.size ??
-              ''
-            );
-
-            if (!rawQty && rawTitle) {
-              const match = rawTitle.match(/(\d+(?:\.\d+)?)\s*(?:kg|kgs|g|gm|gms|l|ltr|ltrs|liter|liters|ml|ton|tons|mt)/i);
-              if (match && match[1]) {
-                rawQty = match[1];
-              }
-            }
-
-            const isProductLiquid = detectedUnitType === 'liquid';
-            const rawDensity = String(p.density ?? '1');
-            const density = isProductLiquid ? (rawDensity || '1') : '1';
-            const netWeightKg = isProductLiquid
-              ? calculateNetWeightKg(rawQty, density)
-              : String(p.netWeightKg || p.net_weight_kg || rawQty);
-
-            const rawId = p.id || p._id || p.packing_type_id || p.packing_id || (p.packing_type?.id);
-            const resolvedId = (rawId && !String(rawId).startsWith('pack-')) ? String(rawId) : generatePackingCuid();
-            const rawCf = p.conversion_factor ?? p.conversionFactor ?? p.packing_type?.conversion_factor;
-            const parsedCf =
-              rawCf !== undefined && rawCf !== null && String(rawCf).trim() !== '' && !isNaN(Number(rawCf))
-                ? parseFloat(Number(rawCf).toFixed(3))
-                : undefined;
-
-            return {
-              id: resolvedId,
-              title: rawTitle,
-              quantity: rawQty,
-              density,
-              netWeightKg,
-              conversion_factor: parsedCf,
-            };
-          });
-          setPackings(parsed);
-        } else {
-          setPackings([
-            {
-              id: generatePackingCuid(),
-              title: '',
-              quantity: '',
-              density: '1',
-              netWeightKg: '',
-              conversion_factor: undefined,
-            },
-          ]);
-        }
+        populateProductData(product);
       } else {
         // Reset for Add mode
         setName('');
@@ -436,8 +447,14 @@ export function ProductManageModal({
       setTimeout(() => {
         nameInputRef.current?.focus();
       }, 100);
+      return;
     }
-  }, [isOpen, mode, product]);
+
+    // Modal was already open, same record (asynchronous detailed fetch returned):
+    if (mode === 'edit' && currentProdId && currentProdId === prevProductIdRef.current && product) {
+      populateProductData(product);
+    }
+  }, [isOpen, mode, product, populateProductData]);
 
   // Click outside country dropdown to close
   useEffect(() => {

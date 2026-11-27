@@ -7159,6 +7159,7 @@ export function DocumentDraftWorkspace({
             paymentTerms={initialPaymentTerms}
             currencies={initialCurrencies}
             shippingTerms={shippingTerms}
+            countries={initialCountries}
             onUpdateSteps={handleUpdateSteps}
             onSaveSuccess={(savedId, savedData) => {
               if (savedId) {

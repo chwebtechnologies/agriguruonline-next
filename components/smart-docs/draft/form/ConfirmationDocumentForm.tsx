@@ -19,6 +19,22 @@ import {
   getStepperListAction,
   getConfirmationAction,
   downloadDocPdfAction,
+  getSmartDocsCountriesAction,
+  saveSellerAction,
+  updateSellerAction,
+  getSellerByIdAction,
+  saveBuyerAction,
+  updateBuyerAction,
+  getBuyerByIdAction,
+  saveProductAction,
+  updateProductAction,
+  getProductByIdAction,
+  savePaymentTermAction,
+  updatePaymentTermAction,
+  getPaymentTermByIdAction,
+  savePackingTypeAction,
+  updatePackingTypeAction,
+  getPackingTypeByIdAction,
 } from '@/app/actions/smart-docs';
 import {
   extractHsnCodeFromItem,
@@ -41,10 +57,15 @@ import {
   getWorkflowSubmitButtonInfo,
   getWorkflowSubmitToastMessage,
   isSameWorkflowStep,
+  extractSellerDetailData,
+  extractProductDetailData,
+  extractPaymentTermDetailData,
 } from '@/lib/api/smart-docs.service';
+import SellerManageModal from '@/components/smart-docs/SellerManageModal';
+import BuyerManageModal from '@/components/smart-docs/BuyerManageModal';
 import ProductManageModal from './ProductManageModal';
+import ConfirmationPackingTypeModal from './ConfirmationPackingTypeModal';
 import PaymentTermManageModal from './PaymentTermManageModal';
-import InstructionManageModal from './InstructionManageModal';
 import DocPrintPreviewModal from './DocPrintPreviewModal';
 
 export interface FormOptionItem {
@@ -1120,6 +1141,7 @@ export interface ConfirmationDocumentFormProps {
   shippingTerms?: FormOptionItem[];
   currencies?: FormOptionItem[];
   paymentTerms?: FormOptionItem[];
+  countries?: any[];
   onSaveDraft?: (data: any) => Promise<any> | any;
   onSaveSuccess?: (savedId: string, confirmationData?: any) => Promise<void> | void;
   onUpdateSteps?: (steps: StepperDocumentItem[]) => void;
@@ -1145,6 +1167,7 @@ export function ConfirmationDocumentForm({
   shippingTerms,
   currencies,
   paymentTerms,
+  countries = [],
   onSaveDraft,
   onSaveSuccess,
   onUpdateSteps,
@@ -1621,86 +1644,398 @@ export function ConfirmationDocumentForm({
   });
   const [isLoadingCurrencies, setIsLoadingCurrencies] = useState<boolean>(false);
 
+  // Countries state + self-heal
+  const [internalCountries, setInternalCountries] = useState<any[]>(countries || []);
+  useEffect(() => {
+    if (countries && countries.length > 0) {
+      setInternalCountries(countries);
+    }
+  }, [countries]);
+
+  useEffect(() => {
+    if (!countries || countries.length === 0) {
+      getSmartDocsCountriesAction({ lang })
+        .then((res) => {
+          if (res.success && res.countries && res.countries.length > 0) {
+            setInternalCountries(res.countries);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [countries, lang]);
+
+  // Seller Add / Edit Modal states
+  const [isSellerModalOpen, setIsSellerModalOpen] = useState<boolean>(false);
+  const [sellerModalMode, setSellerModalMode] = useState<'add' | 'edit'>('add');
+  const [editingSeller, setEditingSeller] = useState<any | null>(null);
+  const [isLoadingSellerDetails, setIsLoadingSellerDetails] = useState<boolean>(false);
+
+  // Buyer Add / Edit Modal states
+  const [isBuyerModalOpen, setIsBuyerModalOpen] = useState<boolean>(false);
+  const [buyerModalMode, setBuyerModalMode] = useState<'add' | 'edit'>('add');
+  const [editingBuyer, setEditingBuyer] = useState<any | null>(null);
+  const [isLoadingBuyerDetails, setIsLoadingBuyerDetails] = useState<boolean>(false);
+
+  // Packing Type Add / Edit Modal states
+  const [isPackingModalOpen, setIsPackingModalOpen] = useState<boolean>(false);
+  const [packingModalMode, setPackingModalMode] = useState<'add' | 'edit'>('add');
+  const [editingPacking, setEditingPacking] = useState<any | null>(null);
+
   // Payment Term Add / Edit Modal states
   const [isPaymentTermModalOpen, setIsPaymentTermModalOpen] = useState<boolean>(false);
   const [paymentTermModalMode, setPaymentTermModalMode] = useState<'add' | 'edit'>('add');
   const [editingPaymentTerm, setEditingPaymentTerm] = useState<FormOptionItem | null>(null);
 
-  // Party (Seller / Buyer) Add / Edit Modal states
-  const [isInstructionModalOpen, setIsInstructionModalOpen] = useState<boolean>(false);
-  const [instructionModalMode, setInstructionModalMode] = useState<'add' | 'edit'>('add');
-  const [instructionModalPartyType, setInstructionModalPartyType] = useState<'seller' | 'buyer'>('seller');
-  const [editingParty, setEditingParty] = useState<FormOptionItem | null>(null);
-
   const handleAddNewSeller = () => {
-    setEditingParty(null);
-    setInstructionModalMode('add');
-    setInstructionModalPartyType('seller');
-    setIsInstructionModalOpen(true);
+    setEditingSeller(null);
+    setSellerModalMode('add');
+    setIsSellerModalOpen(true);
   };
 
-  const handleEditSeller = (opt: any) => {
-    const found = sellersList.find((s) => s.value === opt.value || s.label === opt.label) || opt;
-    setEditingParty(found);
-    setInstructionModalMode('edit');
-    setInstructionModalPartyType('seller');
-    setIsInstructionModalOpen(true);
+  const handleEditSeller = async (opt: any) => {
+    const rawId = toCleanId(opt?.value || sellerId);
+    if (!rawId) return;
+
+    const found = sellersList.find((s) => toCleanId(s.value) === rawId || s.label === opt?.label) || opt;
+    const initialFallback = extractSellerDetailData(found?.raw || found, rawId) || {
+      id: rawId,
+      company_name: found?.label || opt?.label || '',
+      address: found?.subLabel || '',
+    };
+
+    setIsLoadingSellerDetails(true);
+    let finalSeller = initialFallback;
+    try {
+      const res = await getSellerByIdAction(rawId, { lang, source: 'web' });
+      if (res && res.success && res.data) {
+        finalSeller = res.data;
+      }
+    } catch (err) {
+      console.warn('[ConfirmationDocumentForm] Error fetching seller details:', err);
+    } finally {
+      setIsLoadingSellerDetails(false);
+    }
+
+    setEditingSeller(finalSeller);
+    setSellerModalMode('edit');
+    setIsSellerModalOpen(true);
+  };
+
+  // Helper to format party address & details into clean multiline text
+  const formatPartyInstructionDetails = (data: any, fallbackName: string = ''): string => {
+    if (!data) return fallbackName;
+
+    const get = (key: string): string => {
+      if (typeof data.get === 'function') {
+        const v = data.get(key);
+        return typeof v === 'string' ? v.trim() : '';
+      }
+      const v = data[key];
+      if (typeof v === 'string') return v.trim();
+      if (typeof v === 'number') return String(v);
+      if (typeof v === 'object' && v !== null) {
+        return String(v.name || v.label || v.title || v.code || '').trim();
+      }
+      return '';
+    };
+
+    const compName = get('company_name') || get('companyName') || get('name') || fallbackName;
+
+    const explicit = get('details') || get('instruction') || get('instructionText') || get('seller_instruction') || get('buyer_instruction');
+    if (explicit && explicit.includes('\n') && explicit.trim() !== compName.trim()) {
+      return explicit.trim();
+    }
+
+    const street = get('address') || get('street') || get('address_line');
+    const city = get('city');
+    const state = get('state');
+    const country = get('country') || get('country_name');
+    const zip = get('zip_code') || get('zipcode') || get('postal_code') || get('pincode');
+
+    const localityParts = [city, state, country, zip].filter(Boolean);
+    const locality = localityParts.join(', ');
+
+    const phone = get('contact_number') || get('phone') || get('mobile');
+    const phoneCode = get('country_code') || get('phone_country_code');
+    const email = get('email');
+    const cert = get('certificate_name_number') || get('certificate_name_and_number') || get('tax_id') || get('registration_number');
+
+    const contactParts: string[] = [];
+    if (phone) {
+      const formattedPhone = phoneCode && !phone.startsWith('+') ? `${phoneCode} ${phone}` : phone;
+      contactParts.push(`TEL: ${formattedPhone}`);
+    }
+    if (email) {
+      contactParts.push(`EMAIL: ${email}`);
+    }
+    if (cert) {
+      contactParts.push(`TAX/REG ID: ${cert}`);
+    }
+
+    const lines: string[] = [];
+    if (compName) lines.push(compName);
+    if (street) {
+      if (compName && street.toLowerCase().startsWith(compName.toLowerCase())) {
+        lines[0] = street;
+      } else {
+        lines.push(street);
+      }
+    }
+    if (locality) lines.push(locality);
+    if (contactParts.length > 0) lines.push(contactParts.join('  '));
+
+    const result = lines.join('\n').trim();
+    return result || explicit || compName || fallbackName;
+  };
+
+  const handleSaveSellerBusiness = async (formData: any) => {
+    markDirty();
+    try {
+      if (sellerModalMode === 'edit') {
+        const id =
+          (typeof formData?.get === 'function' ? formData.get('id') : formData?.id) ||
+          toCleanId(sellerId) ||
+          toCleanId(editingSeller?.id);
+        const res = await updateSellerAction(id, formData, { lang, source: 'web' });
+        if (res && res.success) {
+          const compName =
+            (typeof formData?.get === 'function' ? formData.get('company_name') : formData?.company_name) ||
+            res.data?.company_name ||
+            editingSeller?.company_name ||
+            '';
+          const fullDetails =
+            formatPartyInstructionDetails(res.data, compName) ||
+            formatPartyInstructionDetails(formData, compName) ||
+            compName;
+          const subLabelSnippet =
+            (typeof formData?.get === 'function' ? formData.get('address') : formData?.address) ||
+            res.data?.address ||
+            compName;
+
+          const newFormatted: FormOptionItem = {
+            value: id,
+            label: compName,
+            subLabel: subLabelSnippet,
+            instructionText: fullDetails,
+            details: fullDetails,
+            companyName: compName,
+            raw: res.data || formData,
+          };
+          setInternalSellers((prev) => {
+            const idx = prev.findIndex((s) => toCleanId(s.value) === toCleanId(id));
+            if (idx >= 0) {
+              const next = [...prev];
+              next[idx] = { ...next[idx], ...newFormatted };
+              return next;
+            }
+            return [newFormatted, ...prev];
+          });
+          setSellerId(id);
+          setSellerInstruction(fullDetails);
+          setErrors((prev) => ({ ...prev, sellerId: '', sellerInstruction: '' }));
+          setIsSellerModalOpen(false);
+
+          getSmartDocsInstructionsAction({ lang })
+            .then((refreshed) => {
+              if (refreshed.success && refreshed.sellers.length > 0) {
+                setInternalSellers(refreshed.sellers);
+              }
+            })
+            .catch(() => {});
+        }
+        return res;
+      } else {
+        const res = await saveSellerAction(formData);
+        if (res && res.success) {
+          const newId =
+            res.data?.id ||
+            res.data?._id ||
+            res.data?.instruction_id ||
+            `inst-seller-${Date.now()}`;
+          const compName =
+            (typeof formData?.get === 'function' ? formData.get('company_name') : formData?.company_name) ||
+            res.data?.company_name ||
+            '';
+          const fullDetails =
+            formatPartyInstructionDetails(res.data, compName) ||
+            formatPartyInstructionDetails(formData, compName) ||
+            compName;
+          const subLabelSnippet =
+            (typeof formData?.get === 'function' ? formData.get('address') : formData?.address) ||
+            res.data?.address ||
+            compName;
+
+          const newFormatted: FormOptionItem = {
+            value: newId,
+            label: compName,
+            subLabel: subLabelSnippet,
+            instructionText: fullDetails,
+            details: fullDetails,
+            companyName: compName,
+            raw: res.data || formData,
+          };
+          setInternalSellers((prev) => [newFormatted, ...prev]);
+          setSellerId(newId);
+          setSellerInstruction(fullDetails);
+          setErrors((prev) => ({ ...prev, sellerId: '', sellerInstruction: '' }));
+          setIsSellerModalOpen(false);
+
+          getSmartDocsInstructionsAction({ lang })
+            .then((refreshed) => {
+              if (refreshed.success && refreshed.sellers.length > 0) {
+                setInternalSellers(refreshed.sellers);
+              }
+            })
+            .catch(() => {});
+        }
+        return res;
+      }
+    } catch (err: any) {
+      console.error('[ConfirmationDocumentForm] Error saving seller:', err);
+      return { success: false, message: err?.message || 'Error saving seller' };
+    }
   };
 
   const handleAddNewBuyer = () => {
-    setEditingParty(null);
-    setInstructionModalMode('add');
-    setInstructionModalPartyType('buyer');
-    setIsInstructionModalOpen(true);
+    setEditingBuyer(null);
+    setBuyerModalMode('add');
+    setIsBuyerModalOpen(true);
   };
 
-  const handleEditBuyer = (opt: any) => {
-    const found = buyersList.find((b) => b.value === opt.value || b.label === opt.label) || opt;
-    setEditingParty(found);
-    setInstructionModalMode('edit');
-    setInstructionModalPartyType('buyer');
-    setIsInstructionModalOpen(true);
-  };
+  const handleEditBuyer = async (opt: any) => {
+    const rawId = toCleanId(opt?.value || buyerId);
+    if (!rawId) return;
 
-  const handleSaveInstruction = (savedData: { id: string; label: string; instructionText: string }) => {
-    markDirty();
-    const formattedItem: FormOptionItem = {
-      value: savedData.id,
-      label: savedData.label,
-      subLabel: savedData.instructionText,
-      instructionText: savedData.instructionText,
+    const found = buyersList.find((b) => toCleanId(b.value) === rawId || b.label === opt?.label) || opt;
+    const initialFallback = extractSellerDetailData(found?.raw || found, rawId) || {
+      id: rawId,
+      company_name: found?.label || opt?.label || '',
+      address: found?.subLabel || '',
     };
 
-    if (instructionModalPartyType === 'seller') {
-      setInternalSellers((prev) => {
-        const idx = prev.findIndex(
-          (p) => p.value === savedData.id || p.label.toLowerCase() === savedData.label.toLowerCase()
-        );
-        if (idx >= 0) {
-          const next = [...prev];
-          next[idx] = { ...next[idx], ...formattedItem };
-          return next;
+    setIsLoadingBuyerDetails(true);
+    let finalBuyer = initialFallback;
+    try {
+      const res = await getBuyerByIdAction(rawId, { lang, source: 'web' });
+      if (res && res.success && res.data) {
+        finalBuyer = res.data;
+      }
+    } catch (err) {
+      console.warn('[ConfirmationDocumentForm] Error fetching buyer details:', err);
+    } finally {
+      setIsLoadingBuyerDetails(false);
+    }
+
+    setEditingBuyer(finalBuyer);
+    setBuyerModalMode('edit');
+    setIsBuyerModalOpen(true);
+  };
+
+  const handleSaveBuyerBusiness = async (formData: any) => {
+    markDirty();
+    try {
+      if (buyerModalMode === 'edit') {
+        const id =
+          (typeof formData?.get === 'function' ? formData.get('id') : formData?.id) ||
+          toCleanId(buyerId) ||
+          toCleanId(editingBuyer?.id);
+        const res = await updateBuyerAction(id, formData, { lang, source: 'web' });
+        if (res && res.success) {
+          const compName =
+            (typeof formData?.get === 'function' ? formData.get('company_name') : formData?.company_name) ||
+            res.data?.company_name ||
+            editingBuyer?.company_name ||
+            '';
+          const fullDetails =
+            formatPartyInstructionDetails(res.data, compName) ||
+            formatPartyInstructionDetails(formData, compName) ||
+            compName;
+          const subLabelSnippet =
+            (typeof formData?.get === 'function' ? formData.get('address') : formData?.address) ||
+            res.data?.address ||
+            compName;
+
+          const newFormatted: FormOptionItem = {
+            value: id,
+            label: compName,
+            subLabel: subLabelSnippet,
+            instructionText: fullDetails,
+            details: fullDetails,
+            companyName: compName,
+            raw: res.data || formData,
+          };
+          setInternalBuyers((prev) => {
+            const idx = prev.findIndex((b) => toCleanId(b.value) === toCleanId(id));
+            if (idx >= 0) {
+              const next = [...prev];
+              next[idx] = { ...next[idx], ...newFormatted };
+              return next;
+            }
+            return [newFormatted, ...prev];
+          });
+          setBuyerId(id);
+          setBuyerInstruction(fullDetails);
+          setErrors((prev) => ({ ...prev, buyerId: '', buyerInstruction: '' }));
+          setIsBuyerModalOpen(false);
+
+          getSmartDocsInstructionsAction({ lang })
+            .then((refreshed) => {
+              if (refreshed.success && refreshed.buyers.length > 0) {
+                setInternalBuyers(refreshed.buyers);
+              }
+            })
+            .catch(() => {});
         }
-        return [formattedItem, ...prev];
-      });
-      setSellerId(savedData.id);
-      setSellerInstruction(savedData.instructionText);
-      setErrors((prev) => ({ ...prev, sellerId: '', sellerInstruction: '' }));
-    } else {
-      setInternalBuyers((prev) => {
-        const idx = prev.findIndex(
-          (p) => p.value === savedData.id || p.label.toLowerCase() === savedData.label.toLowerCase()
-        );
-        if (idx >= 0) {
-          const next = [...prev];
-          next[idx] = { ...next[idx], ...formattedItem };
-          return next;
+        return res;
+      } else {
+        const res = await saveBuyerAction(formData);
+        if (res && res.success) {
+          const newId =
+            res.data?.id ||
+            res.data?._id ||
+            res.data?.instruction_id ||
+            `inst-buyer-${Date.now()}`;
+          const compName =
+            (typeof formData?.get === 'function' ? formData.get('company_name') : formData?.company_name) ||
+            res.data?.company_name ||
+            '';
+          const fullDetails =
+            formatPartyInstructionDetails(res.data, compName) ||
+            formatPartyInstructionDetails(formData, compName) ||
+            compName;
+          const subLabelSnippet =
+            (typeof formData?.get === 'function' ? formData.get('address') : formData?.address) ||
+            res.data?.address ||
+            compName;
+
+          const newFormatted: FormOptionItem = {
+            value: newId,
+            label: compName,
+            subLabel: subLabelSnippet,
+            instructionText: fullDetails,
+            details: fullDetails,
+            companyName: compName,
+            raw: res.data || formData,
+          };
+          setInternalBuyers((prev) => [newFormatted, ...prev]);
+          setBuyerId(newId);
+          setBuyerInstruction(fullDetails);
+          setErrors((prev) => ({ ...prev, buyerId: '', buyerInstruction: '' }));
+          setIsBuyerModalOpen(false);
+
+          getSmartDocsInstructionsAction({ lang })
+            .then((refreshed) => {
+              if (refreshed.success && refreshed.buyers.length > 0) {
+                setInternalBuyers(refreshed.buyers);
+              }
+            })
+            .catch(() => {});
         }
-        return [formattedItem, ...prev];
-      });
-      setBuyerId(savedData.id);
-      setBuyerInstruction(savedData.instructionText);
-      setErrors((prev) => ({ ...prev, buyerId: '', buyerInstruction: '' }));
+        return res;
+      }
+    } catch (err: any) {
+      console.error('[ConfirmationDocumentForm] Error saving buyer:', err);
+      return { success: false, message: err?.message || 'Error saving buyer' };
     }
   };
 
@@ -1830,70 +2165,161 @@ export function ConfirmationDocumentForm({
     setIsProductModalOpen(true);
   };
 
-  const handleEditProduct = (opt: any) => {
-    const found = productsList.find((p) => p.value === opt.value) || opt;
-    setEditingProduct(found);
+  const handleEditProduct = async (opt: any) => {
+    const rawId = toCleanId(opt?.value || productId);
+    if (!rawId) return;
+
+    const found = productsList.find((p) => toCleanId(p.value) === rawId) || opt;
+    const initialFallback = extractProductDetailData(found?.raw || found, rawId) || found;
+
+    setIsLoadingProducts(true);
+    let finalProduct = initialFallback;
+    try {
+      const res = await getProductByIdAction(rawId, { lang, source: 'web' });
+      if (res && res.success && res.data) {
+        finalProduct = res.data;
+      }
+    } catch (e) {
+      console.warn('[ConfirmationDocumentForm] Error fetching product details for edit:', e);
+    } finally {
+      setIsLoadingProducts(false);
+    }
+
+    setEditingProduct(finalProduct);
     setProductModalMode('edit');
     setIsProductModalOpen(true);
   };
 
-  const handleSaveProduct = (savedProd: {
-    id: string;
-    label: string;
-    hsn: string;
-    country: string;
-    spec: string;
-  }) => {
+  const handleSaveProduct = async (savedProd: any) => {
     markDirty();
-    const cleanCountry = normalizeCountryString(savedProd.country);
-    const cleanHsn = normalizeHsnString(savedProd.hsn);
+    try {
+      let res: any;
+      if (productModalMode === 'edit' && savedProd.id && !String(savedProd.id).startsWith('prod-custom-')) {
+        res = await updateProductAction(savedProd.id, savedProd, { lang, source: 'web' });
+      } else {
+        res = await saveProductAction(savedProd);
+      }
 
-    const formattedItem: FormOptionItem = {
-      value: savedProd.id,
-      label: savedProd.label,
-      subLabel: cleanCountry ? `Origin Country: ${cleanCountry}` : undefined,
-      badge: undefined,
-      hsn: cleanHsn,
-      country: cleanCountry,
-      spec: savedProd.spec,
+      if (res && res.success) {
+        toast.success(
+          res.message ||
+            (productModalMode === 'edit'
+              ? 'Product updated successfully'
+              : 'Product saved successfully')
+        );
+        const cleanCountry = normalizeCountryString(savedProd.country || savedProd.origin_country);
+        const cleanHsn = normalizeHsnString(savedProd.hsn || savedProd.hsn_code);
+        const prodId = res.data?.id || res.data?._id || savedProd.id;
+
+        const formattedItem: FormOptionItem = {
+          value: prodId,
+          label: savedProd.label || savedProd.name,
+          subLabel: cleanCountry ? `Origin Country: ${cleanCountry}` : undefined,
+          hsn: cleanHsn,
+          country: cleanCountry,
+          spec: savedProd.spec || savedProd.specifications,
+        };
+
+        setInternalProducts((prev) => {
+          const idx = prev.findIndex((p) => toCleanId(p.value) === toCleanId(prodId));
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = { ...next[idx], ...formattedItem };
+            return next;
+          }
+          return [formattedItem, ...prev];
+        });
+
+        // Auto-select the newly added / edited product & populate HSN & Country
+        setProductId(prodId);
+        setHsnCode(cleanHsn);
+        setProductCountry(cleanCountry);
+        if (savedProd.spec || savedProd.specifications) {
+          setSpecification(savedProd.spec || savedProd.specifications);
+        }
+
+        setErrors((prev) => ({ ...prev, productId: '' }));
+        setIsProductModalOpen(false);
+        fetchAndApplyProductDetails(prodId);
+        return res;
+      } else {
+        toast.error(res?.message || 'Failed to save product');
+        return res;
+      }
+    } catch (err: any) {
+      console.error('[ConfirmationDocumentForm] Error saving product:', err);
+      toast.error(err?.message || 'Error saving product');
+      return { success: false, message: err?.message };
+    }
+  };
+
+  const handleAddNewPacking = () => {
+    if (!productId) {
+      toast.error('Select a product before adding a packing type');
+      return;
+    }
+    setEditingPacking(null);
+    setPackingModalMode('add');
+    setIsPackingModalOpen(true);
+  };
+
+  const handleEditPacking = async (opt: any) => {
+    if (!productId) {
+      toast.error('Select a product first');
+      return;
+    }
+    const packId = toCleanId(opt?.value || packing);
+    if (!packId) return;
+
+    const list = packingList || packingOptions || [];
+    const found = list.find((p) => toCleanId(p.value) === packId) || opt;
+    const initialFallback = {
+      id: packId,
+      title: found?.label || opt?.label || '',
+      quantity: found?.bagWeightKg || 50,
+      unit_type: 'SOLID',
     };
 
-    setInternalProducts((prev) => {
-      const existsIndex = prev.findIndex((p) => p.value === savedProd.id);
-      if (existsIndex >= 0) {
-        const next = [...prev];
-        next[existsIndex] = { ...next[existsIndex], ...formattedItem };
-        return next;
+    let finalPacking = initialFallback;
+    try {
+      const res = await getPackingTypeByIdAction(productId, packId);
+      if (res && res.success && res.data) {
+        finalPacking = res.data;
       }
-      return [formattedItem, ...prev];
-    });
-
-    // Auto-select the newly added / edited product & populate HSN & Country
-    setProductId(savedProd.id);
-    setHsnCode(cleanHsn);
-    setProductCountry(cleanCountry);
-    if (savedProd.spec) {
-      setSpecification(savedProd.spec);
+    } catch (e) {
+      console.warn('[ConfirmationDocumentForm] Error fetching packing type:', e);
     }
 
-    // Auto-populate packing options if provided from product modal
-    if (Array.isArray((savedProd as any).packings) && (savedProd as any).packings.length > 0) {
-      const newPackings: FormOptionItem[] = (savedProd as any).packings.map((p: any) => ({
-        value: p.title || String(p.quantity),
-        label: p.title || `${p.quantity} KG`,
-        bagWeightKg:
-          p.unitType === 'liquid'
-            ? parseFloat(p.netWeightKg || p.quantity) || undefined
-            : parseFloat(p.quantity) || undefined,
-      }));
-      setInternalPackingOptions((prev) => [...newPackings, ...prev]);
-      if (newPackings[0]) {
-        setPacking(newPackings[0].value);
-      }
-    }
+    setEditingPacking(finalPacking);
+    setPackingModalMode('edit');
+    setIsPackingModalOpen(true);
+  };
 
-    setErrors((prev) => ({ ...prev, productId: '' }));
-    fetchAndApplyProductDetails(savedProd.id);
+  const handleSavePackingAction = async (payload: any) => {
+    markDirty();
+    try {
+      if (packingModalMode === 'edit' && payload.id) {
+        return await updatePackingTypeAction(payload.id, payload);
+      } else {
+        return await savePackingTypeAction(payload);
+      }
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'Error saving packing type' };
+    }
+  };
+
+  const handlePackingModalSuccess = (savedData: any, savedTitle: string) => {
+    markDirty();
+    const packingId =
+      savedData?.id ||
+      savedData?._id ||
+      savedData?.packing_type_id ||
+      editingPacking?.id ||
+      savedTitle;
+
+    fetchAndApplyProductDetails(productId);
+    setPacking(packingId);
+    setErrors((prev) => ({ ...prev, packing: '' }));
   };
 
   // Client-side self-heal: if paymentTerms is empty on mount, fetch via server action
@@ -1940,49 +2366,111 @@ export function ConfirmationDocumentForm({
     setIsPaymentTermModalOpen(true);
   };
 
-  const handleEditPaymentTerm = (opt: any) => {
+  const handleEditPaymentTerm = async (opt: any) => {
+    const rawId = toCleanId(opt?.value || paymentTerm);
+    if (!rawId) return;
+
     const found =
-      internalPaymentTerms.find((p) => p.value === opt.value || p.label === opt.label) || opt;
-    setEditingPaymentTerm(found);
+      internalPaymentTerms.find((p) => toCleanId(p.value) === rawId || p.label === opt.label) || opt;
+    const initialFallback = extractPaymentTermDetailData(found?.raw || found, rawId) || found;
+
+    setIsLoadingPaymentTerms(true);
+    let finalTerm: any = {
+      value: rawId,
+      label: initialFallback?.title || initialFallback?.name || found?.label || '',
+      days: String(initialFallback?.days ?? ''),
+      description: initialFallback?.description || '',
+    };
+
+    try {
+      if (!rawId.startsWith('pay-custom-')) {
+        const res = await getPaymentTermByIdAction(rawId, { lang, source: 'web' });
+        if (res && res.success && res.data) {
+          finalTerm = {
+            value: res.data.id || rawId,
+            label: res.data.title || res.data.name || res.data.condition || found?.label || '',
+            days: String(res.data.days ?? ''),
+            description: res.data.description || '',
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('[ConfirmationDocumentForm] Error fetching payment term:', e);
+    } finally {
+      setIsLoadingPaymentTerms(false);
+    }
+
+    setEditingPaymentTerm(finalTerm);
     setPaymentTermModalMode('edit');
     setIsPaymentTermModalOpen(true);
   };
 
-  const handleSavePaymentTerm = (savedTerm: {
+  const handleSavePaymentTerm = async (savedTerm: {
     id: string;
     label: string;
     days?: string;
     description?: string;
   }) => {
     markDirty();
-    const formattedItem: FormOptionItem = {
-      value: savedTerm.id,
-      label: savedTerm.label,
-      subLabel:
-        savedTerm.description ||
-        (savedTerm.days ? `${savedTerm.days} Days credit period` : undefined),
-      badge: savedTerm.days ? `${savedTerm.days} Days` : undefined,
-      days: savedTerm.days,
-      description: savedTerm.description,
-    };
+    try {
+      const payload = {
+        name: savedTerm.label,
+        condition: savedTerm.label,
+        days: Number(savedTerm.days) || 0,
+        description: savedTerm.description || '',
+      };
 
-    setInternalPaymentTerms((prev) => {
-      const existsIndex = prev.findIndex(
-        (p) =>
-          p.value === savedTerm.id ||
-          p.label.toLowerCase() === savedTerm.label.toLowerCase()
-      );
-      if (existsIndex >= 0) {
-        const next = [...prev];
-        next[existsIndex] = { ...next[existsIndex], ...formattedItem };
-        return next;
+      let res: any;
+      if (
+        paymentTermModalMode === 'edit' &&
+        savedTerm.id &&
+        !savedTerm.id.startsWith('pay-custom-')
+      ) {
+        res = await updatePaymentTermAction(savedTerm.id, payload, { lang, source: 'web' });
+      } else {
+        res = await savePaymentTermAction(payload);
       }
-      return [formattedItem, ...prev];
-    });
 
-    // Auto-select the newly added / edited payment term & clear errors
-    setPaymentTerm(savedTerm.id);
-    setErrors((prev) => ({ ...prev, paymentTerm: '' }));
+      if (res && res.success) {
+        toast.success(
+          res.message ||
+            (paymentTermModalMode === 'edit'
+              ? 'Payment term updated successfully'
+              : 'Payment term added successfully')
+        );
+        const termId = res.data?.id || res.data?._id || savedTerm.id;
+        const formattedItem: FormOptionItem = {
+          value: termId,
+          label: savedTerm.label,
+          subLabel:
+            savedTerm.description ||
+            (savedTerm.days ? `${savedTerm.days} Days credit period` : undefined),
+          badge: savedTerm.days ? `${savedTerm.days} Days` : undefined,
+          days: savedTerm.days,
+          description: savedTerm.description,
+        };
+
+        setInternalPaymentTerms((prev) => {
+          const idx = prev.findIndex((p) => toCleanId(p.value) === toCleanId(termId));
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = { ...next[idx], ...formattedItem };
+            return next;
+          }
+          return [formattedItem, ...prev];
+        });
+
+        // Auto-select the newly added / edited payment term & clear errors
+        setPaymentTerm(termId);
+        setErrors((prev) => ({ ...prev, paymentTerm: '' }));
+        setIsPaymentTermModalOpen(false);
+      } else {
+        toast.error(res?.message || 'Failed to save payment term');
+      }
+    } catch (err: any) {
+      console.error('[ConfirmationDocumentForm] Error saving payment term:', err);
+      toast.error(err?.message || 'Error saving payment term');
+    }
   };
 
   // Dynamic Lists Data (Derived from props or state or initialData)
@@ -3887,7 +4375,7 @@ export function ConfirmationDocumentForm({
                     'Enter Seller Instruction'
                   }
                   icon="fa-solid fa-pen"
-                  disabled={readOnly}
+                  disabled={readOnly || !sellerId}
                 />
               </div>
             </div>
@@ -3934,7 +4422,7 @@ export function ConfirmationDocumentForm({
                     'Enter Buyer Instruction'
                   }
                   icon="fa-solid fa-pen"
-                  disabled={readOnly}
+                  disabled={readOnly || !buyerId}
                 />
               </div>
             </div>
@@ -4192,6 +4680,11 @@ export function ConfirmationDocumentForm({
                 allowCustom={true}
                 error={errors.packing}
                 disabled={readOnly || !isProductSelected}
+                showEditOption={!readOnly && isProductSelected}
+                onEditOption={handleEditPacking}
+                showAddNew={!readOnly && isProductSelected}
+                addNewLabel="Add Packing"
+                onAddNew={handleAddNewPacking}
               />
             </div>
           </div>
@@ -4247,7 +4740,7 @@ export function ConfirmationDocumentForm({
                     placeholder="0"
                     icon="fa-solid fa-pen"
                     align="center"
-                    disabled={readOnly}
+                    disabled={readOnly || !isProductSelected}
                   />
                 </div>
               </div>
@@ -4271,7 +4764,7 @@ export function ConfirmationDocumentForm({
                     placeholder="0"
                     icon="fa-solid fa-pen"
                     align="center"
-                    disabled={readOnly}
+                    disabled={readOnly || !isProductSelected}
                   />
                 </div>
               </div>
@@ -4395,7 +4888,7 @@ export function ConfirmationDocumentForm({
                     placeholder="0.00"
                     icon="fa-solid fa-pen"
                     align="center"
-                    disabled={readOnly}
+                    disabled={readOnly || !isProductSelected}
                   />
                 </div>
               </div>
@@ -4748,34 +5241,76 @@ export function ConfirmationDocumentForm({
         </div>
       </div>
 
+      {/* Seller Add / Edit Modal (Basic details only - no bank tabs) */}
+      <SellerManageModal
+        isOpen={isSellerModalOpen}
+        onClose={() => {
+          setIsSellerModalOpen(false);
+          setEditingSeller(null);
+        }}
+        mode={sellerModalMode}
+        seller={editingSeller}
+        countries={internalCountries}
+        onSaveBusiness={handleSaveSellerBusiness}
+        dict={dict}
+        isLoading={isLoadingSellerDetails}
+        basicDetailsOnly={true}
+      />
+
+      {/* Buyer Add / Edit Modal (Basic details only - no consignee/notify tabs) */}
+      <BuyerManageModal
+        isOpen={isBuyerModalOpen}
+        onClose={() => {
+          setIsBuyerModalOpen(false);
+          setEditingBuyer(null);
+        }}
+        mode={buyerModalMode}
+        buyer={editingBuyer}
+        countries={internalCountries}
+        onSaveBusiness={handleSaveBuyerBusiness}
+        dict={dict}
+        isLoading={isLoadingBuyerDetails}
+        basicDetailsOnly={true}
+      />
+
       {/* Product Add / Edit Modal */}
       <ProductManageModal
         isOpen={isProductModalOpen}
-        onClose={() => setIsProductModalOpen(false)}
+        onClose={() => {
+          setIsProductModalOpen(false);
+          setEditingProduct(null);
+        }}
         mode={productModalMode}
         product={editingProduct}
         onSave={handleSaveProduct}
         dict={dict}
       />
 
-      {/* Payment Term Add / Edit Modal */}
-      <PaymentTermManageModal
-        isOpen={isPaymentTermModalOpen}
-        onClose={() => setIsPaymentTermModalOpen(false)}
-        mode={paymentTermModalMode}
-        paymentTerm={editingPaymentTerm}
-        onSave={handleSavePaymentTerm}
+      {/* Packing Type Add / Edit Modal */}
+      <ConfirmationPackingTypeModal
+        isOpen={isPackingModalOpen}
+        onClose={() => {
+          setIsPackingModalOpen(false);
+          setEditingPacking(null);
+        }}
+        productId={productId}
+        initialData={editingPacking}
+        mode={packingModalMode}
+        onSuccess={handlePackingModalSuccess}
+        onSaveAction={handleSavePackingAction}
         dict={dict}
       />
 
-      {/* Party (Seller / Buyer) Add / Edit Modal */}
-      <InstructionManageModal
-        isOpen={isInstructionModalOpen}
-        onClose={() => setIsInstructionModalOpen(false)}
-        mode={instructionModalMode}
-        partyType={instructionModalPartyType}
-        party={editingParty}
-        onSave={handleSaveInstruction}
+      {/* Payment Term Add / Edit Modal */}
+      <PaymentTermManageModal
+        isOpen={isPaymentTermModalOpen}
+        onClose={() => {
+          setIsPaymentTermModalOpen(false);
+          setEditingPaymentTerm(null);
+        }}
+        mode={paymentTermModalMode}
+        paymentTerm={editingPaymentTerm}
+        onSave={handleSavePaymentTerm}
         dict={dict}
       />
 

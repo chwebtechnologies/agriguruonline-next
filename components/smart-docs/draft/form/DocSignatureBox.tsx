@@ -243,6 +243,7 @@ export function DocSignatureBox({
     (src: string, onLoaded?: () => void) => {
       if (!src) {
         baseImageObjRef.current = null;
+        setIsLoadingBaseImage(false);
         redrawCanvas();
         if (onLoaded) onLoaded();
         return;
@@ -254,6 +255,7 @@ export function DocSignatureBox({
       }
       img.onload = () => {
         baseImageObjRef.current = img;
+        setIsLoadingBaseImage(false);
         redrawCanvas();
         if (onLoaded) onLoaded();
       };
@@ -263,12 +265,14 @@ export function DocSignatureBox({
           const fallbackImg = new Image();
           fallbackImg.onload = () => {
             baseImageObjRef.current = fallbackImg;
+            setIsLoadingBaseImage(false);
             redrawCanvas();
             if (onLoaded) onLoaded();
           };
           fallbackImg.onerror = (fallbackErr) => {
             console.warn('[DocSignatureBox] Base image fallback load error:', src, fallbackErr);
             baseImageObjRef.current = null;
+            setIsLoadingBaseImage(false);
             redrawCanvas();
             if (onLoaded) onLoaded();
           };
@@ -277,6 +281,7 @@ export function DocSignatureBox({
         }
         console.warn('[DocSignatureBox] Base image load error:', src, err);
         baseImageObjRef.current = null;
+        setIsLoadingBaseImage(false);
         redrawCanvas();
         if (onLoaded) onLoaded();
       };
@@ -300,6 +305,7 @@ export function DocSignatureBox({
       strokesRef.current = [];
       setHasDrawnSignature(false);
       setIsDrawingMode(false);
+      setIsLoadingBaseImage(false);
       lastExportedUrlRef.current = '';
       redrawCanvas();
       return;
@@ -313,8 +319,22 @@ export function DocSignatureBox({
     const formatted = formatSignatureUrl(signatureUrl);
     setServerImageUrl(formatted);
 
+    if (!formatted) {
+      setServerImageUrl('');
+      setUploadedStampSrc('');
+      baseImageObjRef.current = null;
+      strokesRef.current = [];
+      setHasDrawnSignature(false);
+      setIsDrawingMode(false);
+      setIsLoadingBaseImage(false);
+      lastExportedUrlRef.current = '';
+      redrawCanvas();
+      return;
+    }
+
     // If already data: or blob:, load directly
     if (formatted.startsWith('data:') || formatted.startsWith('blob:')) {
+      setIsLoadingBaseImage(false);
       loadBaseImage(formatted);
       return;
     }
@@ -324,8 +344,16 @@ export function DocSignatureBox({
     let isCancelled = false;
     setIsLoadingBaseImage(true);
 
+    const safetyTimer = setTimeout(() => {
+      if (!isCancelled) {
+        setIsLoadingBaseImage(false);
+        loadBaseImage(formatted);
+      }
+    }, 2500);
+
     fetchSignatureAsDataUrlAction(formatted)
       .then((dataUrl) => {
+        clearTimeout(safetyTimer);
         if (isCancelled) return;
         setIsLoadingBaseImage(false);
         if (dataUrl) {
@@ -335,6 +363,7 @@ export function DocSignatureBox({
         }
       })
       .catch(() => {
+        clearTimeout(safetyTimer);
         if (!isCancelled) {
           setIsLoadingBaseImage(false);
           loadBaseImage(formatted);
@@ -343,6 +372,8 @@ export function DocSignatureBox({
 
     return () => {
       isCancelled = true;
+      clearTimeout(safetyTimer);
+      setIsLoadingBaseImage(false);
     };
   }, [signatureUrl, loadBaseImage, redrawCanvas]);
 

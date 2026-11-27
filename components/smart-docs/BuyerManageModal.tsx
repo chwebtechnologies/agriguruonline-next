@@ -95,6 +95,7 @@ export interface BuyerManageModalProps {
   onDeleteNotifyParty?: (notifyPartyId: string) => Promise<{ success: boolean; message: string; data?: any }>;
   dict?: any;
   isLoading?: boolean;
+  basicDetailsOnly?: boolean;
 }
 
 export default function BuyerManageModal({
@@ -112,6 +113,7 @@ export default function BuyerManageModal({
   onDeleteNotifyParty,
   dict,
   isLoading = false,
+  basicDetailsOnly = false,
 }: BuyerManageModalProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -1153,6 +1155,17 @@ export default function BuyerManageModal({
         setIsBusinessSaved(true);
         setErrors({});
 
+        if (basicDetailsOnly) {
+          toast.success(
+            res.message ||
+              (mode === 'add'
+                ? dict?.smart_docs?.buyers?.buyer_created || 'Buyer saved successfully'
+                : dict?.smart_docs?.buyers?.buyer_updated || 'Buyer updated successfully')
+          );
+          onClose();
+          return;
+        }
+
         if (mode === 'add') {
           setActiveTab('consignee');
           toast.success(
@@ -1845,85 +1858,87 @@ export default function BuyerManageModal({
           </button>
         </div>
 
-        {/* 3 Tabs Navigation Header */}
-        <div
-          style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
-          className="px-5 pt-2 pb-0 border-b border-border bg-card shrink-0 transform-gpu"
-        >
-          <div className="flex items-center gap-2 overflow-x-auto">
-            {/* Tab 1: Business Details */}
-            <button
-              type="button"
-              onClick={() => setActiveTab('business')}
-              className={`flex items-center gap-2 px-3.5 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'business'
-                  ? 'border-brand-blue text-brand-blue'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
-            >
-              <i className="fa-solid fa-building text-xs" />
-              <span>{dict?.smart_docs?.business_details || 'Business Details'}</span>
-            </button>
+        {/* 3 Tabs Navigation Header (Hidden in basic details only mode) */}
+        {!basicDetailsOnly && (
+          <div
+            style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
+            className="px-5 pt-2 pb-0 border-b border-border bg-card shrink-0 transform-gpu"
+          >
+            <div className="flex items-center gap-2 overflow-x-auto">
+              {/* Tab 1: Business Details */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('business')}
+                className={`flex items-center gap-2 px-3.5 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'business'
+                    ? 'border-brand-blue text-brand-blue'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                }`}
+              >
+                <i className="fa-solid fa-building text-xs" />
+                <span>{dict?.smart_docs?.business_details || 'Business Details'}</span>
+              </button>
 
-            {/* Tab 2: Consignee Details */}
-            <button
-              type="button"
-              onClick={() => {
-                if (isOtherTabsEnabled) {
-                  setActiveTab('consignee');
-                } else {
-                  toast.info('Please save Business Details first to enable Consignee Details');
-                }
-              }}
-              disabled={!isOtherTabsEnabled}
-              className={`flex items-center gap-2 px-3.5 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap ${
-                activeTab === 'consignee'
-                  ? 'border-brand-blue text-brand-blue'
-                  : isOtherTabsEnabled
-                  ? 'border-transparent text-muted-foreground hover:text-foreground hover:border-border cursor-pointer'
-                  : 'border-transparent text-muted-foreground/40 cursor-not-allowed'
-              }`}
-            >
-              <i className="fa-solid fa-dolly text-xs" />
-              <span>{dict?.smart_docs?.consignee_details_label || 'Consignee Details'}</span>
-              {!isOtherTabsEnabled && (
-                <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1 bg-muted px-1.5 py-0.5 rounded ml-0.5">
-                  <i className="fa-solid fa-lock text-[9px]" />
-                  <span>Locked</span>
-                </span>
-              )}
-            </button>
+              {/* Tab 2: Consignee Details */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (isOtherTabsEnabled) {
+                    setActiveTab('consignee');
+                  } else {
+                    toast.info('Please save Business Details first to enable Consignee Details');
+                  }
+                }}
+                disabled={!isOtherTabsEnabled}
+                className={`flex items-center gap-2 px-3.5 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap ${
+                  activeTab === 'consignee'
+                    ? 'border-brand-blue text-brand-blue'
+                    : isOtherTabsEnabled
+                    ? 'border-transparent text-muted-foreground hover:text-foreground hover:border-border cursor-pointer'
+                    : 'border-transparent text-muted-foreground/40 cursor-not-allowed'
+                }`}
+              >
+                <i className="fa-solid fa-dolly text-xs" />
+                <span>{dict?.smart_docs?.consignee_details_label || 'Consignee Details'}</span>
+                {!isOtherTabsEnabled && (
+                  <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1 bg-muted px-1.5 py-0.5 rounded ml-0.5">
+                    <i className="fa-solid fa-lock text-[9px]" />
+                    <span>Locked</span>
+                  </span>
+                )}
+              </button>
 
-            {/* Tab 3: Notify Party Details */}
-            <button
-              type="button"
-              onClick={() => {
-                if (isOtherTabsEnabled) {
-                  setActiveTab('notify_party');
-                } else {
-                  toast.info('Please save Business Details first to enable Notify Party Details');
-                }
-              }}
-              disabled={!isOtherTabsEnabled}
-              className={`flex items-center gap-2 px-3.5 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap ${
-                activeTab === 'notify_party'
-                  ? 'border-brand-blue text-brand-blue'
-                  : isOtherTabsEnabled
-                  ? 'border-transparent text-muted-foreground hover:text-foreground hover:border-border cursor-pointer'
-                  : 'border-transparent text-muted-foreground/40 cursor-not-allowed'
-              }`}
-            >
-              <i className="fa-solid fa-bell text-xs" />
-              <span>{dict?.smart_docs?.notify_party_details_label || 'Notify Party Details'}</span>
-              {!isOtherTabsEnabled && (
-                <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1 bg-muted px-1.5 py-0.5 rounded ml-0.5">
-                  <i className="fa-solid fa-lock text-[9px]" />
-                  <span>Locked</span>
-                </span>
-              )}
-            </button>
+              {/* Tab 3: Notify Party Details */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (isOtherTabsEnabled) {
+                    setActiveTab('notify_party');
+                  } else {
+                    toast.info('Please save Business Details first to enable Notify Party Details');
+                  }
+                }}
+                disabled={!isOtherTabsEnabled}
+                className={`flex items-center gap-2 px-3.5 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap ${
+                  activeTab === 'notify_party'
+                    ? 'border-brand-blue text-brand-blue'
+                    : isOtherTabsEnabled
+                    ? 'border-transparent text-muted-foreground hover:text-foreground hover:border-border cursor-pointer'
+                    : 'border-transparent text-muted-foreground/40 cursor-not-allowed'
+                }`}
+              >
+                <i className="fa-solid fa-bell text-xs" />
+                <span>{dict?.smart_docs?.notify_party_details_label || 'Notify Party Details'}</span>
+                {!isOtherTabsEnabled && (
+                  <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1 bg-muted px-1.5 py-0.5 rounded ml-0.5">
+                    <i className="fa-solid fa-lock text-[9px]" />
+                    <span>Locked</span>
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Modal Scrollable Body */}
         {isLoading ? (
@@ -2256,7 +2271,7 @@ export default function BuyerManageModal({
                         clearFieldError('authorised_signature', 'authority_signature', 'signature');
                       }}
                       hideTitleFields={true}
-                      className="!p-0 w-full [&>div:first-of-type]:!my-0 [&>div:first-of-type]:!h-36 sm:[&>div:first-of-type]:!h-40"
+                      className="!p-0 w-full"
                     />
                   </div>
                 </div>
@@ -2914,7 +2929,11 @@ export default function BuyerManageModal({
                 <i className="fa-solid fa-arrow-right text-xs" />
               )}
               <span>
-                {mode === 'add'
+                {basicDetailsOnly
+                  ? mode === 'add'
+                    ? dict?.smart_docs?.buyers?.save_buyer || 'Save Buyer'
+                    : dict?.smart_docs?.buyers?.update_buyer || 'Update Buyer'
+                  : mode === 'add'
                   ? 'Save & Continue to Consignee Details'
                   : 'Update Business Details'}
               </span>
