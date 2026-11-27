@@ -17,6 +17,7 @@ import { FlagIcon } from '@/components/ui/FlagIcon';
 import { ProductInquiryModal } from '@/components/marketed-products/ProductInquiryModal';
 import { ChartProductInquiryModal } from '@/components/marketed-products/ChartProductInquiryModal';
 import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus, fetchFavoriteProductDetails, checkFavoriteProductLimit } from '@/app/actions/product';
+import { checkPriceAlertLimitAction, checkPriceAnalysisLimitAction } from '@/app/actions/charts';
 import { WATCHLIST_REFRESH_EVENT, WATCHLIST_SCROLL_KEY, scrollToMarketWatchlist, openHeaderSearch } from '@/lib/watchlist-utils';
 import { useScrollLock } from '@/lib/scroll-lock';
 import { prefetchPriceHistory } from '@/components/product-charts/MobileCommodityChart';
@@ -392,21 +393,124 @@ export default function ProductChartsClient({
     setIsInitialFullScreen(false);
   };
 
-  const handleOptionSelect = (optionKey: 'inquiry' | 'alert' | 'predict' | 'chart') => {
+  const handleOptionSelect = async (optionKey: 'inquiry' | 'alert' | 'predict' | 'chart') => {
     if (!selectedOptionsItem) return;
     const item = selectedOptionsItem;
-    setSelectedOptionsItem(null);
 
     if (optionKey === 'inquiry') {
+      setSelectedOptionsItem(null);
       handleBuySellClick(item);
-    } else if (item.chartStatus) {
-      if (optionKey === 'alert') {
+    } else if (optionKey === 'alert') {
+      const hasAuth = Boolean(
+        userType ||
+        (typeof document !== 'undefined' && (document.cookie.includes('auth_token=') || document.cookie.includes('user_info=') || document.cookie.includes('__Secure-uid=')))
+      );
+
+      if (!hasAuth) {
+        setSelectedOptionsItem(null);
+        router.push(`/${lang}/login`);
+        return;
+      }
+
+      try {
+        const limitRes = await checkPriceAlertLimitAction('product', lang);
+        const canCreate = limitRes?.data?.can_create ?? limitRes?.can_create;
+        const isPermitted = canCreate === true || canCreate === 1;
+
+        if (!isPermitted) {
+          setSelectedOptionsItem(null);
+          if (limitRes?.isUnauthorized) {
+            router.push(`/${lang}/login`);
+            return;
+          }
+          const indication = limitRes?.response_indication || limitRes?.data?.response_indication;
+          const isKyc = indication === 'NOT_VERIFIED' || indication === 'KYC_REQUIRED';
+          setKycTitle(isKyc ? 'Verification Required' : 'Feature Limit Reached');
+          setKycMessage(
+            isKyc
+              ? 'Please complete your business verification to continue setting price alerts.'
+              : 'You have reached your feature limit for Price Alerts on your current plan. Please upgrade your membership plan to continue setting real-time price alerts.'
+          );
+          if (isKyc) {
+            setKycIndicationText('Submit Documents');
+            setKycRedirectUrl(`/${lang}/profile`);
+          } else {
+            const status = getMembershipStatus(null, lang);
+            setKycIndicationText(status.buttonText || 'Upgrade Plan');
+            setKycRedirectUrl(status.redirectUrl);
+          }
+          setKycSecondaryText(undefined);
+          setKycSecondaryUrl(undefined);
+          setIsKYCModalOpen(true);
+          return;
+        }
+      } catch (err) {
+        console.error('Error checking price alert limit:', err);
+      }
+
+      setSelectedOptionsItem(null);
+      if (item.chartStatus) {
         openBottomSheet(item.id, 'Alert Setups');
-      } else if (optionKey === 'predict') {
+      }
+    } else if (optionKey === 'predict') {
+      const hasAuth = Boolean(
+        userType ||
+        (typeof document !== 'undefined' && (document.cookie.includes('auth_token=') || document.cookie.includes('user_info=') || document.cookie.includes('__Secure-uid=')))
+      );
+
+      if (!hasAuth) {
+        setSelectedOptionsItem(null);
+        router.push(`/${lang}/login`);
+        return;
+      }
+
+      try {
+        const limitRes = await checkPriceAnalysisLimitAction('PRODUCT', lang);
+        const canCreate = limitRes?.data?.can_create ?? limitRes?.can_create;
+        const isPermitted = canCreate === true || canCreate === 1;
+
+        if (!isPermitted) {
+          setSelectedOptionsItem(null);
+          if (limitRes?.isUnauthorized) {
+            router.push(`/${lang}/login`);
+            return;
+          }
+          const indication = limitRes?.response_indication || limitRes?.data?.response_indication;
+          const isKyc = indication === 'NOT_VERIFIED' || indication === 'KYC_REQUIRED';
+          setKycTitle(isKyc ? 'Verification Required' : 'Feature Limit Reached');
+          setKycMessage(
+            isKyc
+              ? 'Please complete your business verification to continue using AI market predictions.'
+              : 'You have reached your feature limit for AI Predictions on your current plan. Please upgrade your membership plan to continue accessing AI predictive market insights.'
+          );
+          if (isKyc) {
+            setKycIndicationText('Submit Documents');
+            setKycRedirectUrl(`/${lang}/profile`);
+          } else {
+            const status = getMembershipStatus(null, lang);
+            setKycIndicationText(status.buttonText || 'Upgrade Plan');
+            setKycRedirectUrl(status.redirectUrl);
+          }
+          setKycSecondaryText(undefined);
+          setKycSecondaryUrl(undefined);
+          setIsKYCModalOpen(true);
+          return;
+        }
+      } catch (err) {
+        console.error('Error checking price analysis limit:', err);
+      }
+
+      setSelectedOptionsItem(null);
+      if (item.chartStatus) {
         openBottomSheet(item.id, 'AI Predict');
-      } else if (optionKey === 'chart') {
+      }
+    } else if (item.chartStatus) {
+      setSelectedOptionsItem(null);
+      if (optionKey === 'chart') {
         openBottomSheet(item.id, 'Overview');
       }
+    } else {
+      setSelectedOptionsItem(null);
     }
   };
 
@@ -472,8 +576,28 @@ export default function ProductChartsClient({
   const [selectedTerm, setSelectedTerm] = useState('');
   const [selectedPOL, setSelectedPOL] = useState('');
   const [selectedPOD, setSelectedPOD] = useState('');
-  const [addedProducts, setAddedProducts] = useState<FavoriteItem[]>(initialFavorites);
+  const [addedProducts, setAddedProducts] = useState<FavoriteItem[]>(() => {
+    if (initialFavorites && initialFavorites.length > 0) return initialFavorites;
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('ag_watchlist_products_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return initialFavorites;
+  });
   const [isFetchingFavorites, setIsFetchingFavorites] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (addedProducts.length > 0) {
+      try {
+        sessionStorage.setItem('ag_watchlist_products_cache', JSON.stringify(addedProducts));
+      } catch {}
+    }
+  }, [addedProducts]);
 
   const fetchLatestFavorites = useCallback(async () => {
     try {
@@ -540,29 +664,22 @@ export default function ProductChartsClient({
   }, [lang]);
 
   useEffect(() => {
-    if (isHomePage) {
-      let cameFromAdd = false;
-      if (typeof window !== 'undefined') {
-        try {
-          if (sessionStorage.getItem(WATCHLIST_SCROLL_KEY) === 'true') {
-            cameFromAdd = true;
-          }
-        } catch {}
-      }
+    let cameFromAdd = false;
+    if (typeof window !== 'undefined') {
+      try {
+        if (sessionStorage.getItem(WATCHLIST_SCROLL_KEY) === 'true') {
+          cameFromAdd = true;
+        }
+      } catch {}
+    }
 
-      if (cameFromAdd) {
-        fetchLatestFavorites();
-      } else {
-        setAddedProducts(initialFavorites);
-        setIsFetchingFavorites(false);
-      }
-    } else {
-      if (!initialFavorites || initialFavorites.length === 0) {
-        fetchLatestFavorites();
-      } else {
-        setAddedProducts(initialFavorites);
-        setIsFetchingFavorites(false);
-      }
+    if (cameFromAdd) {
+      fetchLatestFavorites();
+    } else if (initialFavorites && initialFavorites.length > 0) {
+      setAddedProducts(initialFavorites);
+      setIsFetchingFavorites(false);
+    } else if (addedProducts.length === 0) {
+      fetchLatestFavorites();
     }
   }, [lang, isHomePage, initialFavorites, fetchLatestFavorites]);
 
@@ -579,10 +696,29 @@ export default function ProductChartsClient({
   }, [fetchLatestFavorites]);
 
   useEffect(() => {
-    if (!isFetchingFavorites && addedProducts.length === 0 && initialFavorites.length > 0) {
-      setAddedProducts(initialFavorites);
+    if (!isFetchingFavorites && addedProducts.length === 0) {
+      if (initialFavorites && initialFavorites.length > 0) {
+        setAddedProducts(initialFavorites);
+      } else {
+        fetchLatestFavorites();
+      }
     }
-  }, [initialFavorites, isFetchingFavorites, addedProducts.length]);
+  }, [initialFavorites, isFetchingFavorites, addedProducts.length, fetchLatestFavorites]);
+
+  // Handle pageshow event (e.g. browser back button from /login)
+  useEffect(() => {
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted || addedProducts.length === 0) {
+        if (initialFavorites && initialFavorites.length > 0) {
+          setAddedProducts(initialFavorites);
+        } else {
+          fetchLatestFavorites();
+        }
+      }
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, [initialFavorites, addedProducts.length, fetchLatestFavorites]);
 
   // Compute unique categories
   const categories = useMemo(() => {

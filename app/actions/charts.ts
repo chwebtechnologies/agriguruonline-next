@@ -1,11 +1,12 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { getSafeLang } from "@/lib/api-utils";
+import { getSafeLang, getTradingApiUrl } from "@/lib/api-utils";
 import { tradingService } from "@/lib/api";
 import { encryptData } from "@/lib/crypto-utils";
 import { getUserProfile } from "@/lib/user-data";
 import { getValidAuthToken } from "@/lib/auth-token";
+import { customFetch } from "@/lib/api/fetcher";
 export interface ServerActionResponse<T = any> {
   success: boolean;
   message?: string;
@@ -751,4 +752,225 @@ export async function getDashboardStatsAction(
     return { success: false, error: error?.message || "Failed to fetch stats" };
   }
 }
+
+/**
+ * Check Price Alert feature limit status before allowing user to create alert
+ * Endpoint: /price-alert/feature-limit/{type}?lang_code=${safeLang}&source=web
+ */
+export async function checkPriceAlertLimitAction(type: 'product' | 'freight' = 'product', lang: string = 'en') {
+  try {
+    const safeLang = getSafeLang(lang);
+    const token = await getValidAuthToken();
+
+    if (!token) {
+      return {
+        success: false,
+        isUnauthorized: true,
+        message: "Please log in to set price alerts.",
+        data: {
+          can_create: false,
+          response_indication: "LOGIN_REQUIRED"
+        }
+      };
+    }
+
+    let isKycVerified = false;
+    let userType: any = null;
+
+    try {
+      const profileResult = await getUserProfile(token, safeLang);
+      const profile = profileResult?.userProfile;
+      if (profile) {
+        isKycVerified = Boolean(profile.is_kyc_verified);
+        userType = profile.user_type;
+      }
+    } catch (e) {
+      console.error("Error retrieving user profile in checkPriceAlertLimitAction:", e);
+    }
+
+    if (!userType) {
+      const cookieStore = await cookies();
+      const userInfoCookie = cookieStore.get("user_info")?.value;
+      if (userInfoCookie) {
+        try {
+          const u = JSON.parse(decodeURIComponent(userInfoCookie));
+          if (u?.is_kyc_verified !== undefined) {
+            isKycVerified = Boolean(u.is_kyc_verified);
+          }
+          if (u?.user_type) {
+            userType = u.user_type;
+          }
+        } catch {}
+      }
+    }
+
+    const tradingApiUrl = getTradingApiUrl();
+    const endpointType = String(type).toLowerCase();
+    const url = `${tradingApiUrl}/price-alert/feature-limit/${endpointType}?lang_code=${safeLang}&source=web`;
+
+    const res = await customFetch(url, {
+      method: "GET",
+      token: token || undefined,
+      timeout: 15000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store'
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (res.status === 401 || data?.message === 'Unauthorized' || data?.isUnauthorized) {
+      return {
+        success: false,
+        isUnauthorized: true,
+        message: "Please log in to set price alerts.",
+        data: {
+          can_create: false,
+          response_indication: "LOGIN_REQUIRED"
+        }
+      };
+    }
+
+    if (data) {
+      const canCreate = data?.data?.can_create ?? data?.can_create;
+      const indication = data?.data?.response_indication || data?.response_indication;
+      const isPermitted = canCreate === true || canCreate === 1;
+      return {
+        ...data,
+        can_create: isPermitted,
+        response_indication: indication,
+        message: !isPermitted
+          ? (data.message || 'You have reached your feature limit for Price Alerts on your current plan. Please upgrade your membership plan to continue.')
+          : data.message,
+        is_kyc_verified: isKycVerified,
+        user_type: userType
+      };
+    }
+
+    return {
+      success: false,
+      message: "Failed to check price alert limit",
+      data: { can_create: false }
+    };
+  } catch (error: any) {
+    console.error("Error checking price alert limit:", error);
+    return {
+      success: false,
+      message: error?.message || "Failed to check price alert limit",
+      data: { can_create: false }
+    };
+  }
+}
+
+/**
+ * Check AI Price Analysis feature limit status before allowing user to run AI Predict
+ * Endpoint: /price-analysis/feature-limit/{TYPE}?lang_code=${safeLang}&source=web
+ */
+export async function checkPriceAnalysisLimitAction(type: 'PRODUCT' | 'FREIGHT' = 'PRODUCT', lang: string = 'en') {
+  try {
+    const safeLang = getSafeLang(lang);
+    const token = await getValidAuthToken();
+
+    if (!token) {
+      return {
+        success: false,
+        isUnauthorized: true,
+        message: "Please log in or start a free trial to use AI Price Analysis.",
+        data: {
+          can_create: false,
+          response_indication: "LOGIN_REQUIRED"
+        }
+      };
+    }
+
+    let isKycVerified = false;
+    let userType: any = null;
+
+    try {
+      const profileResult = await getUserProfile(token, safeLang);
+      const profile = profileResult?.userProfile;
+      if (profile) {
+        isKycVerified = Boolean(profile.is_kyc_verified);
+        userType = profile.user_type;
+      }
+    } catch (e) {
+      console.error("Error retrieving user profile in checkPriceAnalysisLimitAction:", e);
+    }
+
+    if (!userType) {
+      const cookieStore = await cookies();
+      const userInfoCookie = cookieStore.get("user_info")?.value;
+      if (userInfoCookie) {
+        try {
+          const u = JSON.parse(decodeURIComponent(userInfoCookie));
+          if (u?.is_kyc_verified !== undefined) {
+            isKycVerified = Boolean(u.is_kyc_verified);
+          }
+          if (u?.user_type) {
+            userType = u.user_type;
+          }
+        } catch {}
+      }
+    }
+
+    const tradingApiUrl = getTradingApiUrl();
+    const endpointType = String(type).toUpperCase();
+    const url = `${tradingApiUrl}/price-analysis/feature-limit/${endpointType}?lang_code=${safeLang}&source=web`;
+
+    const res = await customFetch(url, {
+      method: "GET",
+      token: token || undefined,
+      timeout: 15000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store'
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (res.status === 401 || data?.message === 'Unauthorized' || data?.isUnauthorized) {
+      return {
+        success: false,
+        isUnauthorized: true,
+        message: "Please log in or start a free trial to use AI Price Analysis.",
+        data: {
+          can_create: false,
+          response_indication: "LOGIN_REQUIRED"
+        }
+      };
+    }
+
+    if (data) {
+      const canCreate = data?.data?.can_create ?? data?.can_create;
+      const indication = data?.data?.response_indication || data?.response_indication;
+      const isPermitted = canCreate === true || canCreate === 1;
+      return {
+        ...data,
+        can_create: isPermitted,
+        response_indication: indication,
+        message: !isPermitted
+          ? (data.message || 'You have reached your feature limit for AI Predictions on your current plan. Please upgrade your membership plan to continue.')
+          : data.message,
+        is_kyc_verified: isKycVerified,
+        user_type: userType
+      };
+    }
+
+    return {
+      success: false,
+      message: "Failed to check AI price analysis limit",
+      data: { can_create: false }
+    };
+  } catch (error: any) {
+    console.error("Error checking AI price analysis limit:", error);
+    return {
+      success: false,
+      message: error?.message || "Failed to check AI price analysis limit",
+      data: { can_create: false }
+    };
+  }
+}
+
 

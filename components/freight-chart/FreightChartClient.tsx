@@ -23,6 +23,7 @@ import {
   getFavoritePortsAction,
   checkFreightKYCStatus
 } from '@/app/actions/freight';
+import { checkPriceAlertLimitAction, checkPriceAnalysisLimitAction } from '@/app/actions/charts';
 import { useScrollLock } from '@/lib/scroll-lock';
 import { FreightInquiryModal } from '@/components/freight-chart/FreightInquiryModal';
 import { prefetchPriceHistory } from '@/components/product-charts/MobileCommodityChart';
@@ -98,20 +99,32 @@ export default function FreightChartClient({
   const [loadingPorts, setLoadingPorts] = useState<PortInfo[]>([]);
   const [destinationPorts, setDestinationPorts] = useState<PortInfo[]>([]);
   
-  const [addedFreights, setAddedFreights] = useState<FavoriteFreightItem[]>(initialFavorites);
+  const [addedFreights, setAddedFreights] = useState<FavoriteFreightItem[]>(() => {
+    if (initialFavorites && initialFavorites.length > 0) return initialFavorites;
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('ag_watchlist_freight_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return initialFavorites;
+  });
   const [isFetchingFavorites, setIsFetchingFavorites] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (addedFreights.length > 0) {
+      try {
+        sessionStorage.setItem('ag_watchlist_freight_cache', JSON.stringify(addedFreights));
+      } catch {}
+    }
+  }, [addedFreights]);
 
   useEffect(() => {
     let isMounted = true;
     
-    if (isHomePage) {
-      if (addedFreights.length === 0 && initialFavorites.length > 0) {
-        setAddedFreights(initialFavorites);
-      }
-      setIsFetchingFavorites(false);
-      return;
-    }
-
     const fetchLatestFavorites = async () => {
       try {
         setIsFetchingFavorites(true);
@@ -173,15 +186,43 @@ export default function FreightChartClient({
         if (isMounted) setIsFetchingFavorites(false);
       }
     };
+
+    if (isHomePage) {
+      if (initialFavorites && initialFavorites.length > 0) {
+        setAddedFreights(initialFavorites);
+        setIsFetchingFavorites(false);
+      } else if (addedFreights.length === 0) {
+        fetchLatestFavorites();
+      } else {
+        setIsFetchingFavorites(false);
+      }
+      return;
+    }
+
     fetchLatestFavorites();
     return () => { isMounted = false; };
   }, [lang, isHomePage, initialFavorites]);
 
   useEffect(() => {
-    if (!isFetchingFavorites && addedFreights.length === 0 && initialFavorites.length > 0) {
-      setAddedFreights(initialFavorites);
+    if (!isFetchingFavorites && addedFreights.length === 0) {
+      if (initialFavorites && initialFavorites.length > 0) {
+        setAddedFreights(initialFavorites);
+      }
     }
   }, [initialFavorites, isFetchingFavorites, addedFreights.length]);
+
+  // Handle pageshow event (e.g. browser back button from /login)
+  useEffect(() => {
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted || addedFreights.length === 0) {
+        if (initialFavorites && initialFavorites.length > 0) {
+          setAddedFreights(initialFavorites);
+        }
+      }
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, [initialFavorites, addedFreights.length]);
 
   // Loading states
   const [polLoading, setPolLoading] = useState(false);
@@ -207,9 +248,12 @@ export default function FreightChartClient({
   const [selectedFreightInquiryItem, setSelectedFreightInquiryItem] = useState<FavoriteFreightItem | null>(null);
   const [freightPriceLimits, setFreightPriceLimits] = useState<{ min?: number; max?: number } | null>(null);
   const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
+  const [kycTitle, setKycTitle] = useState('Action Required');
   const [kycMessage, setKycMessage] = useState('');
   const [kycIndicationText, setKycIndicationText] = useState('Submit Documents');
   const [kycRedirectUrl, setKycRedirectUrl] = useState(`/${lang}/profile`);
+  const [kycSecondaryText, setKycSecondaryText] = useState<string | undefined>(undefined);
+  const [kycSecondaryUrl, setKycSecondaryUrl] = useState<string | undefined>(undefined);
   const [isBookingLoading, setIsBookingLoading] = useState(false);
   const [bookingLoadingId, setBookingLoadingId] = useState<string | number | null>(null);
 
@@ -562,24 +606,127 @@ export default function FreightChartClient({
     }
   };
 
-  const handleFreightOptionSelect = (optionKey: 'inquiry' | 'alert' | 'predict' | 'chart') => {
+  const handleFreightOptionSelect = async (optionKey: 'inquiry' | 'alert' | 'predict' | 'chart') => {
     if (!selectedOptionsItem) return;
     const item = selectedOptionsItem;
-    setSelectedOptionsItem(null);
 
     if (optionKey === 'inquiry') {
+      setSelectedOptionsItem(null);
       handleBooking(item, item.id);
-    } else if (item.chartStatus) {
-      if (optionKey === 'alert') {
+    } else if (optionKey === 'alert') {
+      const hasAuth = Boolean(
+        initialUserType ||
+        (typeof document !== 'undefined' && (document.cookie.includes('auth_token=') || document.cookie.includes('user_info=') || document.cookie.includes('__Secure-uid=')))
+      );
+
+      if (!hasAuth) {
+        setSelectedOptionsItem(null);
+        router.push(`/${lang}/login`);
+        return;
+      }
+
+      try {
+        const limitRes = await checkPriceAlertLimitAction('freight', lang);
+        const canCreate = limitRes?.data?.can_create ?? limitRes?.can_create;
+        const isPermitted = canCreate === true || canCreate === 1;
+
+        if (!isPermitted) {
+          setSelectedOptionsItem(null);
+          if (limitRes?.isUnauthorized) {
+            router.push(`/${lang}/login`);
+            return;
+          }
+          const indication = limitRes?.response_indication || limitRes?.data?.response_indication;
+          const isKyc = indication === 'NOT_VERIFIED' || indication === 'KYC_REQUIRED';
+          setKycTitle(isKyc ? 'Verification Required' : 'Feature Limit Reached');
+          setKycMessage(
+            isKyc
+              ? 'Please complete your business verification to continue setting freight rate alerts.'
+              : 'You have reached your feature limit for Freight Alerts on your current plan. Please upgrade your membership plan to continue setting freight rate alerts.'
+          );
+          if (isKyc) {
+            setKycIndicationText('Submit Documents');
+            setKycRedirectUrl(`/${lang}/profile`);
+          } else {
+            const status = getMembershipStatus(null, lang);
+            setKycIndicationText(status.buttonText || 'Upgrade Plan');
+            setKycRedirectUrl(status.redirectUrl);
+          }
+          setKycSecondaryText(undefined);
+          setKycSecondaryUrl(undefined);
+          setIsKYCModalOpen(true);
+          return;
+        }
+      } catch (err) {
+        console.error('Error checking freight alert limit:', err);
+      }
+
+      setSelectedOptionsItem(null);
+      if (item.chartStatus) {
         setSelectedInitialTab('Alert Setups');
         setActiveBottomSheetId(String(item.id));
-      } else if (optionKey === 'predict') {
+      }
+    } else if (optionKey === 'predict') {
+      const hasAuth = Boolean(
+        initialUserType ||
+        (typeof document !== 'undefined' && (document.cookie.includes('auth_token=') || document.cookie.includes('user_info=') || document.cookie.includes('__Secure-uid=')))
+      );
+
+      if (!hasAuth) {
+        setSelectedOptionsItem(null);
+        router.push(`/${lang}/login`);
+        return;
+      }
+
+      try {
+        const limitRes = await checkPriceAnalysisLimitAction('FREIGHT', lang);
+        const canCreate = limitRes?.data?.can_create ?? limitRes?.can_create;
+        const isPermitted = canCreate === true || canCreate === 1;
+
+        if (!isPermitted) {
+          setSelectedOptionsItem(null);
+          if (limitRes?.isUnauthorized) {
+            router.push(`/${lang}/login`);
+            return;
+          }
+          const indication = limitRes?.response_indication || limitRes?.data?.response_indication;
+          const isKyc = indication === 'NOT_VERIFIED' || indication === 'KYC_REQUIRED';
+          setKycTitle(isKyc ? 'Verification Required' : 'Feature Limit Reached');
+          setKycMessage(
+            isKyc
+              ? 'Please complete your business verification to continue using freight AI predictions.'
+              : 'You have reached your feature limit for Freight AI Predictions on your current plan. Please upgrade your membership plan to continue accessing predictive freight analytics.'
+          );
+          if (isKyc) {
+            setKycIndicationText('Submit Documents');
+            setKycRedirectUrl(`/${lang}/profile`);
+          } else {
+            const status = getMembershipStatus(null, lang);
+            setKycIndicationText(status.buttonText || 'Upgrade Plan');
+            setKycRedirectUrl(status.redirectUrl);
+          }
+          setKycSecondaryText(undefined);
+          setKycSecondaryUrl(undefined);
+          setIsKYCModalOpen(true);
+          return;
+        }
+      } catch (err) {
+        console.error('Error checking freight price analysis limit:', err);
+      }
+
+      setSelectedOptionsItem(null);
+      if (item.chartStatus) {
         setSelectedInitialTab('AI Predict');
         setActiveBottomSheetId(String(item.id));
-      } else if (optionKey === 'chart') {
+      }
+    } else if (item.chartStatus) {
+      setSelectedOptionsItem(null);
+      if (optionKey === 'chart') {
         setSelectedInitialTab('Overview');
         setActiveBottomSheetId(String(item.id));
       }
+    } else {
+      setSelectedOptionsItem(null);
     }
   };
 
@@ -1500,10 +1647,15 @@ export default function FreightChartClient({
           setIsKYCModalOpen(false);
           router.push(kycRedirectUrl);
         }}
-        title="Action Required"
+        title={kycTitle}
         description={kycMessage}
         indicationText={kycIndicationText}
         type="warning"
+        secondaryActionText={kycSecondaryText}
+        onSecondaryAction={kycSecondaryText ? () => {
+          setIsKYCModalOpen(false);
+          router.push(kycSecondaryUrl || `/${lang}/login`);
+        } : undefined}
       />
     </>
   );

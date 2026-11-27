@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, Brush, CartesianGrid, ReferenceLine } from 'recharts';
-import { getPriceHistoryAction, getProductDetailsAction, savePriceAlertAction, updatePriceAlertAction, getAlertSetupsAction, getAiPredictsAction, getFavoriteProductsAction, getPriceAnalysisDetailsAction } from '@/app/actions/charts';
+import { getPriceHistoryAction, getProductDetailsAction, savePriceAlertAction, updatePriceAlertAction, getAlertSetupsAction, getAiPredictsAction, getFavoriteProductsAction, getPriceAnalysisDetailsAction, checkPriceAlertLimitAction, checkPriceAnalysisLimitAction } from '@/app/actions/charts';
 import { getFavoritePortsAction } from '@/app/actions/freight';
 import { decryptData } from '@/lib/crypto-utils';
 import { ActionButton } from '@/components/ui/ActionButton';
@@ -293,6 +293,9 @@ export default function MobileCommodityChart({
   const [kycRedirectUrl, setKycRedirectUrl] = useState(`/${lang}/profile`);
   const [kycType, setKycType] = useState<'error' | 'warning' | 'info' | 'success'>('warning');
   const [kycIcon, setKycIcon] = useState<string | undefined>(undefined);
+  const [kycSecondaryText, setKycSecondaryText] = useState<string | undefined>(undefined);
+  const [kycSecondaryUrl, setKycSecondaryUrl] = useState<string | undefined>(undefined);
+  const [isAlertLimitChecking, setIsAlertLimitChecking] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   const isFreight = useMemo(() => {
@@ -640,8 +643,56 @@ export default function MobileCommodityChart({
 
   const handleAIPredictClick = async () => {
     if (isAnalysing) return;
-    
-    // 1. Immediately switch to AI Predict tab so user sees ai.gif with 0ms delay!
+
+    const hasAuth = Boolean(
+      userType ||
+      (typeof document !== 'undefined' && (document.cookie.includes('auth_token=') || document.cookie.includes('user_info=') || document.cookie.includes('__Secure-uid=')))
+    );
+
+    if (!hasAuth) {
+      router.push(`/${lang || 'en'}/login`);
+      return;
+    }
+
+    try {
+      const type = (isFreight || String(item.category || '').toUpperCase().includes('FREIGHT')) ? 'FREIGHT' : 'PRODUCT';
+      const limitRes = await checkPriceAnalysisLimitAction(type, lang);
+      const canCreate = limitRes?.data?.can_create ?? limitRes?.can_create;
+      const isPermitted = canCreate === true || canCreate === 1;
+
+      if (!isPermitted) {
+        if (limitRes?.isUnauthorized) {
+          router.push(`/${lang || 'en'}/login`);
+          return;
+        }
+        const indication = limitRes?.response_indication || limitRes?.data?.response_indication;
+        const isKyc = indication === 'NOT_VERIFIED' || indication === 'KYC_REQUIRED';
+        setKycTitle(isKyc ? 'Verification Required' : 'Feature Limit Reached');
+        setKycMessage(
+          isKyc
+            ? 'Please complete your business verification to continue using AI market predictions.'
+            : 'You have reached your feature limit for AI Predictions on your current plan. Please upgrade your membership plan to continue accessing AI predictive market insights.'
+        );
+        if (isKyc) {
+          setKycIndicationText('Submit Documents');
+          setKycRedirectUrl(`/${lang}/profile`);
+        } else {
+          const status = getMembershipStatus(null, lang);
+          setKycIndicationText(status.buttonText || 'Upgrade Plan');
+          setKycRedirectUrl(status.redirectUrl);
+        }
+        setKycSecondaryText(undefined);
+        setKycSecondaryUrl(undefined);
+        setKycType('warning');
+        setKycIcon('fa-solid fa-crown');
+        setIsKYCModalOpen(true);
+        return;
+      }
+    } catch (err) {
+      console.error('Error checking price analysis limit:', err);
+    }
+
+    // 1. Switch to AI Predict tab and start analysis only after limit check passes
     setActiveTab('AI Predict');
     setIsAnalysing(true);
     setAiAnalysis('');
@@ -1648,11 +1699,60 @@ export default function MobileCommodityChart({
   const currentChangePct = hoveredPoint ? (hoveredPoint.changePct || 0) : (basePrice > 0 && baseChange !== 0 ? (baseChange / basePrice) * 100 : 0);
   const currentIsPositive = currentChangeVal >= 0;
 
-  const handleCreateAlertClick = () => {
-    if (typeof document !== 'undefined' && !(document.cookie.includes('auth_token=') || document.cookie.includes('user_info=') || document.cookie.includes('__Secure-uid='))) {
+  const handleCreateAlertClick = async () => {
+    const hasAuth = Boolean(
+      userType ||
+      (typeof document !== 'undefined' && (document.cookie.includes('auth_token=') || document.cookie.includes('user_info=') || document.cookie.includes('__Secure-uid=')))
+    );
+
+    if (!hasAuth) {
       router.push(`/${lang || 'en'}/login`);
       return;
     }
+
+    if (isAlertLimitChecking) return;
+    setIsAlertLimitChecking(true);
+
+    try {
+      const type = isFreight ? 'freight' : 'product';
+      const limitRes = await checkPriceAlertLimitAction(type, lang);
+      const canCreate = limitRes?.data?.can_create ?? limitRes?.can_create;
+      const isPermitted = canCreate === true || canCreate === 1;
+
+      if (!isPermitted) {
+        if (limitRes?.isUnauthorized) {
+          router.push(`/${lang || 'en'}/login`);
+          return;
+        }
+        const indication = limitRes?.response_indication || limitRes?.data?.response_indication;
+        const isKyc = indication === 'NOT_VERIFIED' || indication === 'KYC_REQUIRED';
+        setKycTitle(isKyc ? 'Verification Required' : 'Feature Limit Reached');
+        setKycMessage(
+          isKyc
+            ? 'Please complete your business verification to continue setting price alerts.'
+            : 'You have reached your feature limit for Price Alerts on your current plan. Please upgrade your membership plan to continue setting real-time price alerts.'
+        );
+        if (isKyc) {
+          setKycIndicationText('Submit Documents');
+          setKycRedirectUrl(`/${lang}/profile`);
+        } else {
+          const status = getMembershipStatus(null, lang);
+          setKycIndicationText(status.buttonText || 'Upgrade Plan');
+          setKycRedirectUrl(status.redirectUrl);
+        }
+        setKycSecondaryText(undefined);
+        setKycSecondaryUrl(undefined);
+        setKycType('warning');
+        setKycIcon('fa-solid fa-crown');
+        setIsKYCModalOpen(true);
+        return;
+      }
+    } catch (err) {
+      console.error('Error checking price alert limit:', err);
+    } finally {
+      setIsAlertLimitChecking(false);
+    }
+
     setEditingAlertId(null);
     const defaultPrice = (currentDisplayPrice && !isNaN(Number(currentDisplayPrice)))
       ? String(currentDisplayPrice)
@@ -4128,6 +4228,11 @@ export default function MobileCommodityChart({
         indicationText={kycIndicationText}
         type={kycType}
         icon={kycIcon}
+        secondaryActionText={kycSecondaryText}
+        onSecondaryAction={kycSecondaryText ? () => {
+          setIsKYCModalOpen(false);
+          router.push(kycSecondaryUrl || `/${lang}/login`);
+        } : undefined}
       />
     </div>
   );
