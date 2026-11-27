@@ -587,9 +587,10 @@ export default function ProductChartsClient({
         }
       } catch {}
     }
-    return initialFavorites;
+    return initialFavorites || [];
   });
   const [isFetchingFavorites, setIsFetchingFavorites] = useState<boolean>(false);
+  const hasInitialFetchedRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (addedProducts.length > 0) {
@@ -664,22 +665,34 @@ export default function ProductChartsClient({
   }, [lang]);
 
   useEffect(() => {
-    let cameFromAdd = false;
-    if (typeof window !== 'undefined') {
-      try {
-        if (sessionStorage.getItem(WATCHLIST_SCROLL_KEY) === 'true') {
-          cameFromAdd = true;
-        }
-      } catch {}
-    }
+    if (isHomePage) {
+      let cameFromAdd = false;
+      if (typeof window !== 'undefined') {
+        try {
+          if (sessionStorage.getItem(WATCHLIST_SCROLL_KEY) === 'true') {
+            cameFromAdd = true;
+          }
+        } catch {}
+      }
 
-    if (cameFromAdd) {
-      fetchLatestFavorites();
-    } else if (initialFavorites && initialFavorites.length > 0) {
-      setAddedProducts(initialFavorites);
-      setIsFetchingFavorites(false);
-    } else if (addedProducts.length === 0) {
-      fetchLatestFavorites();
+      if (cameFromAdd) {
+        fetchLatestFavorites();
+      } else {
+        setAddedProducts(initialFavorites || []);
+        setIsFetchingFavorites(false);
+      }
+    } else {
+      if (!initialFavorites || initialFavorites.length === 0) {
+        if (!hasInitialFetchedRef.current) {
+          hasInitialFetchedRef.current = true;
+          fetchLatestFavorites();
+        } else {
+          setIsFetchingFavorites(false);
+        }
+      } else {
+        setAddedProducts(initialFavorites);
+        setIsFetchingFavorites(false);
+      }
     }
   }, [lang, isHomePage, initialFavorites, fetchLatestFavorites]);
 
@@ -695,20 +708,18 @@ export default function ProductChartsClient({
     };
   }, [fetchLatestFavorites]);
 
+  // Synchronize internal state whenever initialFavorites prop updates (e.g. from SSR)
   useEffect(() => {
-    if (!isFetchingFavorites && addedProducts.length === 0) {
-      if (initialFavorites && initialFavorites.length > 0) {
-        setAddedProducts(initialFavorites);
-      } else {
-        fetchLatestFavorites();
-      }
+    if (initialFavorites && initialFavorites.length > 0) {
+      setAddedProducts(initialFavorites);
+      setIsFetchingFavorites(false);
     }
-  }, [initialFavorites, isFetchingFavorites, addedProducts.length, fetchLatestFavorites]);
+  }, [initialFavorites]);
 
-  // Handle pageshow event (e.g. browser back button from /login)
+  // Handle pageshow event (e.g. browser back button from bfcache)
   useEffect(() => {
     const handlePageShow = (e: PageTransitionEvent) => {
-      if (e.persisted || addedProducts.length === 0) {
+      if (e.persisted) {
         if (initialFavorites && initialFavorites.length > 0) {
           setAddedProducts(initialFavorites);
         } else {
@@ -718,7 +729,7 @@ export default function ProductChartsClient({
     };
     window.addEventListener('pageshow', handlePageShow);
     return () => window.removeEventListener('pageshow', handlePageShow);
-  }, [initialFavorites, addedProducts.length, fetchLatestFavorites]);
+  }, [initialFavorites, fetchLatestFavorites]);
 
   // Compute unique categories
   const categories = useMemo(() => {

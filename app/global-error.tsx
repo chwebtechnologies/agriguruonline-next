@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect } from 'react'
+
 export default function GlobalError({
   error,
   reset,
@@ -18,25 +20,33 @@ export default function GlobalError({
     /failed to fetch dynamically imported module/i.test(errorMsg) ||
     /dynamically imported module/i.test(errorMsg);
 
-  const isNavigationOrRedirect =
+  const isRedirect =
     errorMsg.includes('NEXT_REDIRECT') ||
-    errorMsg.includes('NEXT_NOT_FOUND') ||
-    errorMsg.includes('aborted') ||
-    errorMsg.includes('canceled') ||
     error?.digest?.startsWith('NEXT_REDIRECT');
 
-  // Auto-reload immediately and silently if this is a chunk load mismatch (e.g. new build/deployment)
-  if (isChunkError && typeof window !== 'undefined') {
-    const reloadKey = `chunk_reload_${window.location.pathname}`;
-    const alreadyReloaded = sessionStorage.getItem(reloadKey);
-    if (!alreadyReloaded) {
-      sessionStorage.setItem(reloadKey, String(Date.now()));
-      window.location.reload();
-    }
+  if (isRedirect) {
+    throw error;
   }
 
+  const isNavigationAborted =
+    errorMsg.includes('NEXT_NOT_FOUND') ||
+    errorMsg.includes('aborted') ||
+    errorMsg.includes('canceled');
+
+  // Auto-reload once and safely if this is a chunk load mismatch (e.g. new build/deployment)
+  useEffect(() => {
+    if (isChunkError && typeof window !== 'undefined') {
+      const reloadKey = `chunk_reload_${window.location.pathname}`;
+      const alreadyReloaded = sessionStorage.getItem(reloadKey);
+      if (!alreadyReloaded) {
+        sessionStorage.setItem(reloadKey, String(Date.now()));
+        window.location.reload();
+      }
+    }
+  }, [isChunkError]);
+
   // If chunk error or navigation transition, show seamless silent loading state
-  if (isChunkError || isNavigationOrRedirect) {
+  if (isChunkError || isNavigationAborted) {
     return (
       <html lang="en">
         <body className="bg-background text-foreground transition-colors duration-200">

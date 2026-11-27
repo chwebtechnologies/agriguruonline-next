@@ -196,7 +196,7 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
     withTimeout(cmsService.getLatestNews({ lang: activeLang, page: 1, limit: 12 }).catch(() => null), API_TIMEOUT, null),
     withTimeout(cmsService.getLatestEvents({ lang: activeLang, page: 1, limit: 12 }).catch(() => null), API_TIMEOUT, null),
     withTimeout(tradingService.getMarketedProducts(activeLang, 1, 12).catch(() => null), API_TIMEOUT, null),
-    withTimeout(cmsService.getVideoCategories().catch(() => null), API_TIMEOUT, null),
+    withTimeout(cmsService.getMediaVideos({ lang: activeLang, page: 1, limit: 10 }).catch(() => null), API_TIMEOUT, null),
     withTimeout(cmsService.getMarketUpdates(activeLang, 1, 12).catch(() => null), API_TIMEOUT, null),
     withTimeout(cmsService.getParticipationCategories(activeLang, 1, 12).catch(() => null), API_TIMEOUT, null),
     withTimeout(cmsService.getAssociatePartners(1, 25).catch(() => null), API_TIMEOUT, null),
@@ -209,7 +209,7 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
   const articles = newsData?.data?.news || [];
   const events = eventsData?.data?.events || [];
   const products = productsData?.products || [];
-  const videoCategories = (videoData?.data?.categories || []).slice(0, 12);
+  const mediaVideos = videoData?.data?.media_videos || [];
   const marketUpdates = marketUpdatesData?.data?.flyers || [];
   const participationCategories = participationData?.data?.categories || [];
   const associatePartners = associatePartnersData?.data?.logo || [];
@@ -328,7 +328,7 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
         />
       )}
 
-      {videoCategories.length > 0 && (
+      {mediaVideos.length > 0 && (
         <section className="w-full pt-6 pb-8">
           <div className="max-w-3xl mx-auto text-center px-4">
             <div className="inline-block mb-4">
@@ -341,7 +341,7 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
               {dict?.home?.video_desc || 'Watch expert agricultural market analysis, video commodity updates, tutorial guides, and industry event coverage.'}
             </p>
           </div>
-          <InfiniteVideoGalleryCarousel videoCategories={videoCategories} lang={activeLang} imageBaseUrl={imageBaseUrl} dict={dict} />
+          <InfiniteVideoGalleryCarousel videos={mediaVideos} lang={activeLang} imageBaseUrl={imageBaseUrl} dict={dict} />
         </section>
       )}
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface YouTubeEmbedPlayerProps {
   videoId?: string;
@@ -17,119 +17,52 @@ export default function YouTubeEmbedPlayer({
 }: YouTubeEmbedPlayerProps) {
   const resolvedId = videoId || ytId || '';
   const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  // Send listening handshake to YouTube iframe API
-  const sendListening = useCallback(() => {
-    try {
-      const cw = iframeRef.current?.contentWindow;
-      if (!cw) return;
-      cw.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*');
-    } catch {}
-  }, []);
-
-  // Send command to YouTube iframe API
-  const sendCommand = useCallback((func: string, args: any[] = []) => {
-    try {
-      const cw = iframeRef.current?.contentWindow;
-      if (!cw) return;
-      cw.postMessage(JSON.stringify({ event: 'command', func, args }), '*');
-    } catch {}
-  }, []);
-
-  // Trigger play and unmute
-  const triggerPlayAndUnmute = useCallback(() => {
-    sendCommand('unMute');
-    sendCommand('setVolume', [100]);
-    sendCommand('playVideo');
-  }, [sendCommand]);
+  const [origin, setOrigin] = useState('');
+  const [isMobileOrSafari, setIsMobileOrSafari] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
+    if (typeof window !== 'undefined') {
+      setOrigin(window.location.origin);
+      const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isSafariBrowser = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      setIsMobileOrSafari(isMobileDevice || isSafariBrowser);
+    }
+  }, []);
 
-    const handleMessage = (e: MessageEvent) => {
-      // Validate origin to ensure it's from YouTube
-      if (
-        typeof e.origin === 'string' &&
-        !e.origin.includes('youtube.com') &&
-        !e.origin.includes('youtube-nocookie.com')
-      ) {
-        return;
-      }
-
-      try {
-        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
-        if (!data) return;
-
-        // When YouTube signals readiness or initial delivery, play unmuted
-        if (data.event === 'initialDelivery' || data.event === 'onReady') {
-          triggerPlayAndUnmute();
-        }
-
-        // When YouTube delivers player state updates
-        if (data.event === 'infoDelivery' && data.info) {
-          if (data.info.muted === true) {
-            sendCommand('unMute');
-            sendCommand('setVolume', [100]);
-          }
-          // If paused, resume playback
-          if (data.info.playerState === 2) {
-            sendCommand('playVideo');
-          }
-        }
-      } catch {
-        // Ignore non-JSON or external postMessages safely
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-
-    // Initial handshake and play triggers on staggered intervals
-    const intervals = [100, 300, 600, 1000, 1500];
-    const timers = intervals.map((delay) =>
-      setTimeout(() => {
-        if (!isMounted) return;
-        sendListening();
-        triggerPlayAndUnmute();
-      }, delay)
-    );
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener('message', handleMessage);
-      timers.forEach(clearTimeout);
-    };
-  }, [resolvedId, sendListening, sendCommand, triggerPlayAndUnmute]);
-
-  // Construct embed URL with autoplay=1 (unmuted by default without mute=1)
-  const embedUrl = `https://www.youtube.com/embed/${resolvedId}?autoplay=1&playsinline=1&enablejsapi=1&rel=0&modestbranding=1&controls=1`;
+  // On Mobile and Safari, web browsers enforce strict autoplay policies that block unmuted autoplay.
+  // Setting mute=1 allows the video to autoplay instantly without requiring an extra tap!
+  // On desktop Chrome/Firefox, mute=0 allows autoplay with audio.
+  const muteParam = isMobileOrSafari ? '1' : '0';
+  const embedUrl = resolvedId 
+    ? `https://www.youtube.com/embed/${resolvedId}?autoplay=1&mute=${muteParam}&playsinline=1&enablejsapi=1&rel=0&modestbranding=1&controls=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`
+    : '';
 
   return (
     <div className="relative w-full h-full bg-black">
-      <iframe
-        ref={iframeRef}
-        className="w-full h-full absolute inset-0 border-0 block bg-black"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          backgroundColor: '#000000',
-          colorScheme: 'dark',
-          border: 0,
-          display: 'block',
-        }}
-        src={embedUrl}
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowFullScreen
-        loading="eager"
-        referrerPolicy="strict-origin-when-cross-origin"
-        title={title || "Video player"}
-        onLoad={() => {
-          sendListening();
-          triggerPlayAndUnmute();
-        }}
-      />
+      {resolvedId && (
+        <iframe
+          ref={iframeRef}
+          className="w-full h-full absolute inset-0 border-0 block bg-black"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundColor: '#000000',
+            colorScheme: 'dark',
+            border: 0,
+            display: 'block',
+          }}
+          src={embedUrl}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          loading="eager"
+          referrerPolicy="strict-origin-when-cross-origin"
+          title={title || "Video player"}
+        />
+      )}
     </div>
   );
 }

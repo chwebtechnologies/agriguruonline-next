@@ -5,7 +5,7 @@ import type { MarketReportsResponse } from '@/types/marketReports';
 import type { NewsResponse, NewsArticle } from '@/types/news';
 import type { EventsResponse, EventDetail, EventItem } from '@/types/events';
 import type { MarketUpdatesResponse, MarketUpdateItem } from '@/types/marketUpdates';
-import type { VideoGalleryResponse, VideoCategory } from '@/types/videoGallery';
+import type { VideoGalleryResponse, VideoCategory, MediaVideoResponse, MediaVideoItem } from '@/types/videoGallery';
 import type {
   ParticipationCategoriesResponse,
   ParticipationAlbumResponse,
@@ -284,6 +284,47 @@ export const cmsService = {
     const json = await customFetchJSON<EventsResponse>(url);
     return json?.data?.events || [];
   },
+
+  /**
+   * Media Videos (Direct Videos)
+   */
+  getMediaVideos: cache(
+    async (params?: {
+      lang?: string;
+      page?: number;
+      limit?: number;
+    }): Promise<MediaVideoResponse | null> => {
+      const { lang = 'en', page = 1, limit = 12 } = params || {};
+      const cmsApiUrl = getCmsApiUrl();
+      const url = `${cmsApiUrl}/mediavideo/public`;
+      return await customFetchJSON<MediaVideoResponse>(url, {
+        params: {
+          lang_code: lang,
+          source: 'web',
+          page,
+          limit,
+        },
+      });
+    }
+  ),
+
+  /**
+   * Single Media Video Detail
+   */
+  getMediaVideoDetail: cache(async (slug: string): Promise<MediaVideoItem | null> => {
+    const cmsApiUrl = getCmsApiUrl();
+    const url = `${cmsApiUrl}/mediavideo/public/${encodeURIComponent(slug)}`;
+    try {
+      const json = await customFetchJSON<{ success: number; data?: MediaVideoItem }>(url);
+      if (json?.success === 1 && json.data) {
+        return json.data;
+      }
+      return null;
+    } catch (err) {
+      console.error(`[cmsService.getMediaVideoDetail] error for slug '${slug}':`, err);
+      return null;
+    }
+  }),
 
   /**
    * Video Categories

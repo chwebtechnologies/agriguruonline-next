@@ -1,44 +1,35 @@
 import type { Metadata } from 'next'
 import { PageHeader } from '@/components/ui/PageHeader'
-import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { ShareButton } from '@/components/ui/ShareButton'
-import { getAssetsUrl } from '@/lib/api-utils'
+import { getAssetsUrl, withTimeout } from '@/lib/api-utils'
 import { cmsService } from '@/lib/api/cms.service'
-import { cache, Suspense } from 'react'
+import { Suspense } from 'react'
 import { getDictionary } from '../../dictionaries'
+import { getAlternates, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo'
+import YouTubeEmbedPlayer from '@/components/ui/YouTubeEmbedPlayer'
+import VideoGalleryCard from '@/components/video-gallery/VideoGalleryCard'
+import { VideoLightboxClient } from '@/components/video-gallery/VideoLightboxClient'
+import Link from 'next/link'
 
 export const revalidate = 60;
 
-interface VideoItem {
-  id: string
-  title: string
-  url: string
-  video_type: string
-  image: string
-  video_url: string
-  video_thumbnail: string
-  translations: Array<{
-    lang_code: string
-    title: string
-  }>
+function getYoutubeId(url: string): string | null {
+  if (!url) return null;
+  const str = url.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(str)) return str;
+  const match = str.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|vi\/|shorts\/|live\/|watch\?v=|watch\?.+&v=))([\w-]{11})/i);
+  if (match) return match[1];
+  const generalMatch = str.match(/(?:[?&]v=|\/embed\/|\/shorts\/|\/vi\/|\/v\/|youtu\.be\/)([\w-]{11})/i);
+  return generalMatch ? generalMatch[1] : null;
 }
 
-interface CollectionData {
-  category: {
-    id: string
-    category_name: string
-    translations: Array<{
-      lang_code: string
-      category_name: string
-    }>
+function checkIsShort(url: string, videoType?: string): boolean {
+  if (videoType && (videoType.toLowerCase() === 'short' || videoType.toLowerCase() === 'shorts')) {
+    return true;
   }
-  videos: VideoItem[]
-  total: number
+  if (!url) return false;
+  return /\/shorts\//i.test(url) || /[?&]type=shorts/i.test(url);
 }
-
-
-import { getAlternates, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo'
-import { withTimeout } from '@/lib/api-utils'
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string }> }
@@ -47,22 +38,25 @@ export async function generateMetadata(
   const lang = getSafeLanguage(params.lang)
   const slug = params.slug
 
-  const data = await withTimeout(cmsService.getCollectionVideos(slug, lang).catch(() => null), 2500, null)
-  const categoryName = data?.category?.category_name || 'Video Collection'
-
-  const descriptions: Record<string, string> = {
-    en: `Watch expert videos and market analysis from ${categoryName} on AgriGuru Online.`,
-    ar: `شاهد مقاطع الفيديو وتحليلات السوق المتخصصة لـ ${categoryName} على AgriGuru Online.`,
-    zh: `在 AgriGuru Online 观看 ${categoryName} 的精选专家分析视频与深度行情。`,
-    fr: `Regardez les vidéos et analyses d'experts de ${categoryName} sur AgriGuru Online.`,
-  }
-
-  const title = categoryName
-  const fullTitle = `${categoryName} | AgriGuru Online`
-  const description = descriptions[lang] || descriptions.en
+  const video = await withTimeout(cmsService.getMediaVideoDetail(slug).catch(() => null), 2500, null)
+  const title = video?.title || 'Agri Video'
+  const fullTitle = `${title} | AgriGuru Online`
+  const description = video?.description || `Watch expert agricultural video insights and market updates on AgriGuru Online.`
   const alternates = getAlternates(`video-gallery/${slug}`, lang)
   const siteUrl = getSiteUrl()
-  const imageUrl = `${siteUrl}/social-preview/video-gallery.png`
+  const assetsUrl = getAssetsUrl()
+  const defaultBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
+
+  const rawVideoUrl = video?.url || video?.video_url || ''
+  const ytId = getYoutubeId(rawVideoUrl)
+  const rawThumb = video?.video_thumbnail || video?.image || (video as any)?.thumbnail
+
+  let imageUrl = `${siteUrl}/social-preview/video-gallery.png`
+  if (rawThumb) {
+    imageUrl = rawThumb.startsWith('http') ? rawThumb : `${defaultBaseUrl}${rawThumb.replace(/^\/+/, '')}`
+  } else if (ytId) {
+    imageUrl = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`
+  }
 
   return {
     title,
@@ -72,7 +66,14 @@ export async function generateMetadata(
       description,
       url: alternates.canonical,
       siteName: 'AgriGuru Online',
-      images: [{ url: imageUrl, width: 1200, height: 630, alt: categoryName }],
+      images: [
+        {
+          url: imageUrl,
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
       locale: lang,
       type: 'video.other',
     },
@@ -88,92 +89,147 @@ export async function generateMetadata(
   }
 }
 
-import VideoCollection from '@/components/video-gallery/VideoCollection'
-import { Pagination } from '@/components/ui/Pagination'
-
-/* ---------- Skeleton shown during Suspense ---------- */
-function VideoGridSkeleton() {
-  return (
-    <>
-      <PageHeader title="Video Collection" backText="Back" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-4">
-        {[...Array(8)].map((_, i) => (
-          <div key={i} className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs animate-pulse">
-            <div className="w-full aspect-video bg-muted border-b border-border"></div>
-            <div className="p-4 space-y-2">
-              <div className="h-4 bg-muted w-3/4 rounded"></div>
-              <div className="h-4 bg-muted w-1/2 rounded"></div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
-  )
-}
-
-async function VideoGrid({ slug, lang, currentPage }: { slug: string; lang: string; currentPage: number }) {
-  const [data, dict] = await Promise.all([
-    withTimeout(cmsService.getCollectionVideos(slug, lang).catch(() => null), 2500, null),
+async function VideoDetailContent({ slug, lang }: { slug: string; lang: string }) {
+  const [video, moreVideosRes, dict] = await Promise.all([
+    withTimeout(cmsService.getMediaVideoDetail(slug).catch(() => null), 3000, null),
+    withTimeout(cmsService.getMediaVideos({ lang, page: 1, limit: 5 }).catch(() => null), 2500, null),
     getDictionary(lang).catch(() => ({} as any))
   ]);
-  
-  const categoryName = data?.category?.translations?.find((t: any) => t.lang_code === lang)?.category_name 
-    || data?.category?.category_name 
-    || 'Video Collection'
-  
-  if (!data || !data.videos || data.videos.length === 0) {
+
+  const siteUrl = getSiteUrl();
+  const assetsUrl = getAssetsUrl();
+  const defaultBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`;
+
+  if (!video) {
     return (
-      <>
-        <PageHeader title={categoryName} backText={dict.common?.back || "Back"} />
-        <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-border mt-2">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
-            <i className="fa-solid fa-video-slash text-2xl"></i>
-          </div>
-          <h2 className="text-xl font-semibold text-foreground mb-2">No Videos Found</h2>
-          <p className="text-foreground/80 max-w-md mx-auto">
-            We couldn&apos;t find any videos for this collection at the moment.
-          </p>
+      <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-border mt-2">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
+          <i className="fa-solid fa-video-slash text-2xl"></i>
         </div>
-      </>
-    )
+        <h2 className="text-xl font-semibold text-foreground mb-2">Video Not Found</h2>
+        <p className="text-foreground/80 max-w-md mx-auto mb-6">
+          The requested video could not be found or has been removed.
+        </p>
+        <Link
+          href={`/${lang}/video-gallery`}
+          className="inline-flex items-center justify-center px-6 py-2.5 text-sm font-bold rounded-xl bg-primary text-white hover:opacity-90 transition-all shadow-sm"
+        >
+          {dict?.common?.back || "Back to Video Gallery"}
+        </Link>
+      </div>
+    );
   }
 
-  const assetsUrl = getAssetsUrl()
-  const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
-  const siteUrl = getSiteUrl()
+  const rawVideoUrl = video.url || video.video_url || '';
+  const ytId = getYoutubeId(rawVideoUrl);
+  const isYoutube = !!ytId;
+  const isShort = isYoutube && checkIsShort(`${rawVideoUrl} ${video.video_type || ''}`, video.video_type);
+  const shareUrl = `/${lang}/video-gallery/${video.slug}`;
+  const otherVideos = (moreVideosRes?.data?.media_videos || []).filter((v) => v.slug !== slug).slice(0, 4);
 
-  const ITEMS_PER_PAGE = 12;
-  const videosList = data.videos;
-  const totalPages = Math.ceil(videosList.length / ITEMS_PER_PAGE);
-  const validPage = isNaN(currentPage) || currentPage < 1 ? 1 : currentPage > totalPages && totalPages > 0 ? totalPages : currentPage;
-  const startIndex = (validPage - 1) * ITEMS_PER_PAGE;
-  const currentVideos = videosList.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const slides = otherVideos.map((item) => {
+    const rawThumb = item.image || item.video_thumbnail || item.thumbnail;
+    const vUrl = item.url || item.video_url || '';
+    const itemYtId = getYoutubeId(vUrl);
+    const itemImg = rawThumb
+      ? (rawThumb.startsWith('http') ? rawThumb : `${defaultBaseUrl}${rawThumb.replace(/^\/+/, '')}`)
+      : (itemYtId ? `https://img.youtube.com/vi/${itemYtId}/hqdefault.jpg` : '/logo.webp');
 
-  const sanitizedVideos = currentVideos.map((v: any) => ({
-    id: v.id,
-    title: v.title,
-    url: v.url,
-    video_type: v.video_type,
-    image: v.image,
-    video_url: v.video_url,
-    video_thumbnail: v.video_thumbnail,
-    translations: v.translations ? v.translations.map((t: any) => ({
-      lang_code: t.lang_code,
-      title: t.title
-    })) : []
-  }))
+    return {
+      type: 'custom-video',
+      video: item,
+      slug: item.slug,
+      ytId: itemYtId,
+      videoId: itemYtId,
+      videoUrl: vUrl,
+      title: item.title,
+      src: itemImg,
+    };
+  });
+
+  const uploadIso = video.created_at
+    ? (!isNaN(new Date(video.created_at).getTime()) ? new Date(video.created_at).toISOString() : new Date().toISOString())
+    : new Date().toISOString();
+
+  const thumbUrl = video.image
+    ? (video.image.startsWith('http') ? video.image : `${defaultBaseUrl}${video.image.replace(/^\/+/, '')}`)
+    : (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : `${siteUrl}/logo.png`);
 
   return (
     <>
-      <PageHeader title={categoryName} backText={dict.common?.back || "Back"} />
-      <VideoCollection videos={sanitizedVideos as any} imageBaseUrl={imageBaseUrl} dict={dict.common} />
-      {totalPages > 1 && (
-        <Pagination 
-          currentPage={validPage} 
-          totalPages={totalPages} 
-          baseUrl={`/${lang}/video-gallery/${slug}`} 
-        />
-      )}
+      <PageHeader 
+        title={video.title} 
+        backText={dict?.header?.video_gallery || "Video Gallery"} 
+      />
+
+      <div className="mt-4 flex flex-col items-center">
+        {/* Video Player Display */}
+        <div className={`w-full overflow-hidden rounded-2xl bg-black border border-border shadow-lg ${isShort ? 'max-w-sm aspect-[9/16]' : 'max-w-4xl aspect-video'}`}>
+          {isYoutube ? (
+            <YouTubeEmbedPlayer ytId={ytId} title={video.title} isShort={isShort} />
+          ) : (
+            <video
+              className="w-full h-full object-contain"
+              src={rawVideoUrl}
+              controls
+              autoPlay
+              muted
+              playsInline
+            />
+          )}
+        </div>
+
+        {/* Video Details Bar */}
+        <div className="w-full max-w-4xl mt-5 bg-card border border-border rounded-2xl p-4 sm:p-6 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
+              {video.title}
+            </h1>
+            <div className="shrink-0">
+              <ShareButton title={video.title} url={shareUrl} />
+            </div>
+          </div>
+
+          {video.description && (
+            <div className="mt-4 text-sm sm:text-base text-foreground/80 leading-relaxed whitespace-pre-line">
+              {video.description}
+            </div>
+          )}
+        </div>
+
+        {/* More Videos Section */}
+        {otherVideos.length > 0 && (
+          <div className="w-full max-w-7xl mt-10">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg sm:text-xl font-bold text-foreground">
+                {dict?.common?.more_videos || "More Videos"}
+              </h2>
+              <Link
+                href={`/${lang}/video-gallery`}
+                className="text-xs sm:text-sm font-semibold text-primary hover:underline"
+              >
+                {dict?.common?.view_all || "View All"}
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+              {otherVideos.map((item, idx) => (
+                <div key={item.slug || idx} className="h-full flex flex-col">
+                  <VideoGalleryCard 
+                    video={item} 
+                    index={idx} 
+                    lang={lang} 
+                    dict={dict} 
+                  />
+                </div>
+              ))}
+            </div>
+
+            <VideoLightboxClient slides={slides} />
+          </div>
+        )}
+      </div>
+
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -185,76 +241,77 @@ async function VideoGrid({ slug, lang, currentPage }: { slug: string; lang: stri
                 {
                   "@type": "ListItem",
                   "position": 1,
-                  "name": dict.navigation?.home || "Home",
-                  "item": `${siteUrl}/${lang}`
+                  "name": dict?.navigation?.home || "Home",
+                  "item": `${siteUrl}/${lang}`,
                 },
                 {
                   "@type": "ListItem",
                   "position": 2,
-                  "name": dict.header?.video_gallery || "Video Gallery",
-                  "item": `${siteUrl}/${lang}/video-gallery`
+                  "name": dict?.header?.video_gallery || "Video Gallery",
+                  "item": `${siteUrl}/${lang}/video-gallery`,
                 },
                 {
                   "@type": "ListItem",
                   "position": 3,
-                  "name": categoryName,
-                  "item": `${siteUrl}/${lang}/video-gallery/${slug}`
-                }
-              ]
+                  "name": video.title,
+                  "item": `${siteUrl}/${lang}/video-gallery/${slug}`,
+                },
+              ],
             },
             {
               "@context": "https://schema.org",
-              "@type": "ItemList",
-              "itemListElement": data?.videos?.map((video: any, index: number) => {
-                const title = video.translations?.find((t: any) => t.lang_code === lang)?.title || video.title || 'Video'
-                const videoImg = video.image?.startsWith('http') 
-                  ? video.image 
-                  : (video.image ? `${imageBaseUrl}${video.image.replace(/^\/+/, '')}` : `${siteUrl}/logo.png`)
-                const uploadIso = video.created_at 
-                  ? (!isNaN(new Date(video.created_at).getTime()) ? new Date(video.created_at).toISOString() : new Date().toISOString())
-                  : new Date().toISOString()
-
-                return {
-                  "@type": "ListItem",
-                  "position": index + 1,
-                  "item": {
-                    "@type": "VideoObject",
-                    "name": title,
-                    "description": title,
-                    "thumbnailUrl": [videoImg],
-                    "uploadDate": uploadIso,
-                    "contentUrl": video.video_url || `${siteUrl}/${lang}/video-gallery/${slug}`
-                  }
-                }
-              }) || []
-            }
-          ])
+              "@type": "VideoObject",
+              "name": video.title,
+              "description": video.description || video.title,
+              "thumbnailUrl": [thumbUrl],
+              "uploadDate": uploadIso,
+              "contentUrl": rawVideoUrl || `${siteUrl}/${lang}/video-gallery/${slug}`,
+            },
+          ]),
         }}
       />
     </>
-  )
+  );
 }
 
-export default async function VideoCollectionPage(props: { 
+function VideoDetailSkeleton() {
+  return (
+    <div className="w-full animate-pulse">
+      <div className="py-1 sm:py-1.5 flex items-center justify-between w-full mb-1 sm:mb-1.5 border-b border-border/40">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-muted" />
+          <div className="w-48 h-6 bg-muted rounded-md" />
+        </div>
+        <div className="w-20 h-8 bg-muted rounded-full" />
+      </div>
+
+      <div className="flex flex-col items-center mt-4">
+        <div className="w-full max-w-4xl aspect-video bg-muted rounded-2xl" />
+        <div className="w-full max-w-4xl mt-5 bg-card border border-border rounded-2xl p-6 space-y-4">
+          <div className="w-3/4 h-7 bg-muted rounded" />
+          <div className="w-full h-16 bg-muted rounded" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default async function VideoDetailPage(props: {
   params: Promise<{ lang: string; slug: string }>
-  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  const params = await props.params
-  const searchParams = props.searchParams ? await props.searchParams : {}
-  const lang = params.lang || 'en'
-  const slug = params.slug
-  const pageStr = searchParams.page as string | undefined;
-  const currentPage = pageStr ? parseInt(pageStr, 10) : 1;
-  
+  const params = await props.params;
+  const lang = params.lang || 'en';
+  const slug = params.slug;
+
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <Suspense fallback={<VideoGridSkeleton />}>
-            <VideoGrid slug={slug} lang={lang} currentPage={currentPage} />
+          <Suspense fallback={<VideoDetailSkeleton />}>
+            <VideoDetailContent slug={slug} lang={lang} />
           </Suspense>
         </div>
       </div>
     </div>
-  )
+  );
 }

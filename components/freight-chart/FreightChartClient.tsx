@@ -191,15 +191,18 @@ export default function FreightChartClient({
       if (initialFavorites && initialFavorites.length > 0) {
         setAddedFreights(initialFavorites);
         setIsFetchingFavorites(false);
-      } else if (addedFreights.length === 0) {
-        fetchLatestFavorites();
       } else {
         setIsFetchingFavorites(false);
       }
       return;
     }
 
-    fetchLatestFavorites();
+    if (!initialFavorites || initialFavorites.length === 0) {
+      fetchLatestFavorites();
+    } else {
+      setAddedFreights(initialFavorites);
+      setIsFetchingFavorites(false);
+    }
     return () => { isMounted = false; };
   }, [lang, isHomePage, initialFavorites]);
 
@@ -214,7 +217,7 @@ export default function FreightChartClient({
   // Handle pageshow event (e.g. browser back button from /login)
   useEffect(() => {
     const handlePageShow = (e: PageTransitionEvent) => {
-      if (e.persisted || addedFreights.length === 0) {
+      if (e.persisted) {
         if (initialFavorites && initialFavorites.length > 0) {
           setAddedFreights(initialFavorites);
         }
@@ -222,7 +225,7 @@ export default function FreightChartClient({
     };
     window.addEventListener('pageshow', handlePageShow);
     return () => window.removeEventListener('pageshow', handlePageShow);
-  }, [initialFavorites, addedFreights.length]);
+  }, [initialFavorites]);
 
   // Loading states
   const [polLoading, setPolLoading] = useState(false);

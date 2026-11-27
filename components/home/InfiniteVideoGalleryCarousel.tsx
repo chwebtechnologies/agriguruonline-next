@@ -2,26 +2,41 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import VideoGalleryCard from '@/components/video-gallery/VideoGalleryCard';
+import { VideoLightboxClient } from '@/components/video-gallery/VideoLightboxClient';
 import Link from 'next/link';
-import type { VideoCategory } from '@/types/videoGallery';
+import type { MediaVideoItem } from '@/types/videoGallery';
+import { getAssetsUrl } from '@/lib/api-utils';
 
 type AnimationState = 'idle' | 'forward' | 'prep-backward' | 'backward';
 
+function getYoutubeId(url: string): string | null {
+  if (!url) return null;
+  const str = url.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(str)) return str;
+  const match = str.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|vi\/|shorts\/|live\/|watch\?v=|watch\?.+&v=))([\w-]{11})/i);
+  if (match) return match[1];
+  const generalMatch = str.match(/(?:[?&]v=|\/embed\/|\/shorts\/|\/vi\/|\/v\/|youtu\.be\/)([\w-]{11})/i);
+  return generalMatch ? generalMatch[1] : null;
+}
+
 export default function InfiniteVideoGalleryCarousel({ 
+  videos = [],
   videoCategories, 
   lang,
   imageBaseUrl,
   dict = {} 
 }: { 
-  videoCategories: VideoCategory[], 
-  lang: string,
-  imageBaseUrl?: string,
-  dict?: any
+  videos?: MediaVideoItem[];
+  videoCategories?: any[];
+  lang: string;
+  imageBaseUrl?: string;
+  dict?: any;
 }) {
+  const rawList = (videos && videos.length > 0 ? videos : videoCategories) || [];
   const [items, setItems] = useState(() => {
-    return videoCategories.map((cat, i) => ({
-      ...cat,
-      _uniqueId: `${cat.category_id || cat.slug || 'cat'}-${i}`
+    return rawList.map((video: any, i: number) => ({
+      ...video,
+      _uniqueId: `${video.id || video.slug || 'video'}-${i}`
     }));
   });
   const [animState, setAnimState] = useState<AnimationState>('idle');
@@ -156,6 +171,30 @@ export default function InfiniteVideoGalleryCarousel({
     transition = 'transform 500ms cubic-bezier(0.4, 0, 0.2, 1)';
   }
 
+  const assetsUrl = imageBaseUrl || getAssetsUrl();
+  const defaultBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`;
+
+  const slides = rawList.map((video: any) => {
+    const title = video.title || video.category_name || '';
+    const rawThumb = video.image || video.video_thumbnail || video.thumbnail;
+    const rawVideoUrl = video.url || video.video_url || '';
+    const ytId = getYoutubeId(rawVideoUrl);
+    const imageUrl = rawThumb
+      ? (rawThumb.startsWith('http') ? rawThumb : `${defaultBaseUrl}${rawThumb.replace(/^\/+/, '')}`)
+      : (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : '/logo.webp');
+
+    return {
+      type: 'custom-video',
+      video,
+      slug: video.slug,
+      ytId,
+      videoId: ytId,
+      videoUrl: rawVideoUrl,
+      title,
+      src: imageUrl
+    };
+  });
+
   return (
     <div 
       ref={containerRef}
@@ -172,12 +211,19 @@ export default function InfiniteVideoGalleryCarousel({
           className="flex gap-4 sm:gap-5 w-full"
           style={{ transform, transition, willChange: 'transform' }}
         >
-          {items.map((category: any, index: number) => (
+          {items.map((video: any, index: number) => (
             <div 
-              key={category._uniqueId} 
+              key={video._uniqueId} 
               className="shrink-0 w-full sm:w-[calc(50%-10px)] md:w-[calc(50%-10px)] lg:w-[calc(33.333%-13.33px)] xl:w-[calc(25%-15px)] flex flex-col"
             >
-              <VideoGalleryCard category={category} lang={lang} priority={index < 4} imageBaseUrl={imageBaseUrl} dict={dict} />
+              <VideoGalleryCard 
+                video={video} 
+                index={index} 
+                lang={lang} 
+                priority={index < 4} 
+                imageBaseUrl={imageBaseUrl} 
+                dict={dict} 
+              />
             </div>
           ))}
         </div>
@@ -185,7 +231,6 @@ export default function InfiniteVideoGalleryCarousel({
 
       {/* Navigation Controls */}
       <div className="flex items-center justify-between mt-2">
-        {/* SEO friendly View All link formatted as a normal button */}
         <Link 
           href={`/${lang}/video-gallery`} 
           className="inline-flex items-center justify-center px-5 sm:px-6 py-2.5 text-xs sm:text-sm font-bold rounded-xl bg-card border border-border text-foreground hover:bg-primary hover:border-primary hover:text-white transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5"
@@ -197,20 +242,22 @@ export default function InfiniteVideoGalleryCarousel({
         <div className="flex items-center gap-2 sm:gap-3">
           <button 
             onClick={movePrev}
-            aria-label={dict?.home?.previous_video_category || 'Previous Video Category'}
+            aria-label={dict?.home?.previous_video_category || 'Previous Video'}
             className="w-10 h-10 rounded-full bg-card border border-border text-foreground flex items-center justify-center hover:bg-primary hover:border-primary hover:text-white transition-all shadow-sm hover:shadow-md active:scale-95"
           >
             <i className="fa-solid fa-chevron-left text-sm"></i>
           </button>
           <button 
             onClick={moveNext}
-            aria-label={dict?.home?.next_video_category || 'Next Video Category'}
+            aria-label={dict?.home?.next_video_category || 'Next Video'}
             className="w-10 h-10 rounded-full bg-card border border-border text-foreground flex items-center justify-center hover:bg-primary hover:border-primary hover:text-white transition-all shadow-sm hover:shadow-md active:scale-95"
           >
             <i className="fa-solid fa-chevron-right text-sm"></i>
           </button>
         </div>
       </div>
+
+      <VideoLightboxClient slides={slides} />
     </div>
   );
 }

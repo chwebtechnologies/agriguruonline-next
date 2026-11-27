@@ -17,13 +17,19 @@ export default function Error({
     /failed to fetch dynamically imported module/i.test(errorMsg) ||
     /dynamically imported module/i.test(errorMsg)
 
-  const isNavigationOrRedirect =
+  const isRedirect =
     errorMsg.includes('NEXT_REDIRECT') ||
+    error?.digest?.startsWith('NEXT_REDIRECT') ||
+    error?.digest?.includes('NEXT_REDIRECT');
+
+  if (isRedirect) {
+    throw error;
+  }
+
+  const isNavigationAborted =
     errorMsg.includes('NEXT_NOT_FOUND') ||
     errorMsg.includes('aborted') ||
-    errorMsg.includes('canceled') ||
-    error?.digest?.startsWith('NEXT_REDIRECT') ||
-    error?.digest?.includes('NEXT_REDIRECT')
+    errorMsg.includes('canceled');
 
   // Auto-reload immediately and silently if this is a chunk load mismatch (e.g. new build/deployment)
   useEffect(() => {
@@ -34,13 +40,13 @@ export default function Error({
         sessionStorage.setItem(reloadKey, String(Date.now()))
         window.location.reload()
       }
-    } else if (!isNavigationOrRedirect) {
+    } else if (!isNavigationAborted) {
       console.error('Application error:', error)
     }
-  }, [error, isChunkError, isNavigationOrRedirect])
+  }, [error, isChunkError, isNavigationAborted])
 
   // If chunk error or navigation transition, show a seamless silent loading state
-  if (isChunkError || isNavigationOrRedirect) {
+  if (isChunkError || isNavigationAborted) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 py-24 text-center">
         <div className="w-10 h-10 border-3 border-brand-blue border-t-transparent rounded-full animate-spin mb-3" />

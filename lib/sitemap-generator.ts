@@ -92,7 +92,7 @@ export async function fetchSitemapRawData() {
     events,
     products,
     categories,
-    videoCatsRes,
+    videoRes,
     participationCats,
     footerData,
   ] = await Promise.all([
@@ -101,7 +101,7 @@ export async function fetchSitemapRawData() {
     withTimeout(cmsService.getAllEventsStaticParams(500).catch(() => []), 6000, []),
     withTimeout(tradingService.getAllProducts('en').catch(() => []), 6000, []),
     withTimeout(tradingService.getCategories('en', 200).catch(() => []), 6000, []),
-    withTimeout(cmsService.getVideoCategories().catch(() => null), 6000, null),
+    withTimeout(cmsService.getMediaVideos({ page: 1, limit: 100 }).catch(() => null), 6000, null),
     withTimeout(cmsService.getAllParticipationCategoriesStaticParams(200).catch(() => []), 6000, []),
     withTimeout(cmsService.getFooter('en').catch(() => null), 6000, null),
   ])
@@ -112,7 +112,7 @@ export async function fetchSitemapRawData() {
     events: Array.isArray(events) ? events : [],
     products: Array.isArray(products) ? products : [],
     categories: Array.isArray(categories) ? categories : [],
-    videoCategories: Array.isArray(videoCatsRes?.data?.categories) ? videoCatsRes.data.categories : [],
+    mediaVideos: Array.isArray(videoRes?.data?.media_videos) ? videoRes.data.media_videos : [],
     participationCats: Array.isArray(participationCats) ? participationCats : [],
     footerData,
   }
@@ -298,11 +298,11 @@ export async function generateLanguageSitemapXml(targetLang: SupportedLanguage):
     })
   }
 
-  // 8. Video Gallery Collections
-  for (const cat of data.videoCategories) {
-    if (!cat.slug) continue
+  // 8. Video Gallery Videos
+  for (const video of (data.mediaVideos || [])) {
+    if (!video.slug) continue
     entries.push({
-      path: `/video-gallery/${cat.slug}`,
+      path: `/video-gallery/${video.slug}`,
       lastModified: currentDate,
       changeFrequency: 'weekly',
       priority: 0.75,
@@ -377,63 +377,45 @@ export async function generateVideoSitemapXml(): Promise<string> {
         xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">`
 
   try {
-    const videoCatsRes = await withTimeout(cmsService.getVideoCategories().catch(() => null), 4000, null)
-    const videoCategories = videoCatsRes?.data?.categories || []
+    const videoRes = await withTimeout(cmsService.getMediaVideos({ page: 1, limit: 100 }).catch(() => null), 4000, null)
+    const mediaVideos = videoRes?.data?.media_videos || []
 
-    const collectionPromises = videoCategories.map(async (cat: any) => {
-      if (!cat.slug) return null
-      const colData = await withTimeout(cmsService.getCollectionVideos(cat.slug, 'en').catch(() => null), 4000, null)
-      return { cat, videos: colData?.videos || [] }
-    })
+    for (const video of mediaVideos) {
+      if (!video.slug) continue
 
-    const results = await Promise.allSettled(collectionPromises)
+      const rawVideoUrl = video.video_url || video.url || ''
+      const ytId = extractYouTubeId(rawVideoUrl)
+      
+      const playerLoc = ytId 
+        ? `https://www.youtube.com/embed/${ytId}`
+        : (rawVideoUrl.startsWith('http') ? rawVideoUrl : null)
 
-    for (const res of results) {
-      if (res.status !== 'fulfilled' || !res.value) continue
-      const { cat, videos } = res.value
-      if (!Array.isArray(videos) || videos.length === 0) continue
+      if (!playerLoc) continue
 
-      // For each supported language, list the localized collection landing page
+      let thumbUrl = ''
+      const rawThumb = video.video_thumbnail || video.image
+      if (rawThumb) {
+        thumbUrl = rawThumb.startsWith('http') 
+          ? rawThumb 
+          : `${imageBaseUrl}${rawThumb.startsWith('/') ? rawThumb : `/${rawThumb}`}`
+      } else if (ytId) {
+        thumbUrl = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`
+      } else {
+        thumbUrl = `${siteUrl}/logo.png`
+      }
+
       for (const lang of SUPPORTED_LANGUAGES) {
-        const pageLoc = `${siteUrl}/${lang}/video-gallery/${cat.slug}`
-        let videoBlocks = ''
+        const pageLoc = `${siteUrl}/${lang}/video-gallery/${video.slug}`
+        const title = video.translations?.find((t: any) => t.lang_code === lang)?.title 
+          || video.title 
+          || 'AgriGuru Online Video'
 
-        for (const video of videos) {
-          const rawVideoUrl = video.video_url || video.url || ''
-          const ytId = extractYouTubeId(rawVideoUrl)
-          
-          // Determine Player / Content URL
-          const playerLoc = ytId 
-            ? `https://www.youtube.com/embed/${ytId}`
-            : (rawVideoUrl.startsWith('http') ? rawVideoUrl : null)
+        const description = video.description || `Watch expert insights and market analysis: ${title} on AgriGuru Online.`
+        const pubDate = toIsoSafe(video.created_at || currentDate)
 
-          if (!playerLoc) continue
-
-          // Determine Thumbnail URL
-          let thumbUrl = ''
-          const rawThumb = video.video_thumbnail || video.image
-          if (rawThumb) {
-            thumbUrl = rawThumb.startsWith('http') 
-              ? rawThumb 
-              : `${imageBaseUrl}${rawThumb.startsWith('/') ? rawThumb : `/${rawThumb}`}`
-          } else if (ytId) {
-            thumbUrl = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`
-          } else {
-            thumbUrl = `${siteUrl}/logo.png`
-          }
-
-          // Localized Title
-          const title = video.translations?.find((t: any) => t.lang_code === lang)?.title 
-            || video.title 
-            || cat.category_name 
-            || 'AgriGuru Online Video'
-
-          const description = `Watch expert insights and market analysis: ${title} on AgriGuru Online.`
-          const pubDate = toIsoSafe(video.created_at || currentDate)
-
-          // Note: allow_embed attribute was deprecated by Google on August 6, 2022.
-          // <video:player_loc> is used cleanly without attributes per official specs.
-          videoBlocks += `
+        xml += `
+  <url>
+    <loc>${escapeXml(pageLoc)}</loc>
     <video:video>
       <video:thumbnail_loc>${escapeXml(thumbUrl)}</video:thumbnail_loc>
       <video:title><![CDATA[${sanitizeCdata(title)}]]></video:title>
@@ -441,16 +423,8 @@ export async function generateVideoSitemapXml(): Promise<string> {
       <video:player_loc>${escapeXml(playerLoc)}</video:player_loc>
       <video:publication_date>${pubDate}</video:publication_date>
       <video:family_friendly>yes</video:family_friendly>
-    </video:video>`
-        }
-
-        // Only append <url> entry if it has at least one valid <video:video> element
-        if (videoBlocks) {
-          xml += `
-  <url>
-    <loc>${escapeXml(pageLoc)}</loc>${videoBlocks}
+    </video:video>
   </url>`
-        }
       }
     }
   } catch (error) {

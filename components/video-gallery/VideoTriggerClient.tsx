@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React from 'react'
 
-export function VideoTriggerClient({ index }: { index: number }) {
+export function VideoTriggerClient({ index = 0, slug }: { index?: number; slug?: string }) {
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     try {
@@ -12,7 +12,7 @@ export function VideoTriggerClient({ index }: { index: number }) {
         ctx.resume().catch(() => {});
       }
     } catch {}
-    const event = new CustomEvent('open-video-lightbox', { detail: { index } });
+    const event = new CustomEvent('open-video-lightbox', { detail: { index, slug } });
     window.dispatchEvent(event);
   }
 

@@ -8,9 +8,7 @@ process.env.SERWIST_SUPPRESS_TURBOPACK_WARNING = "1";
 const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
-  generateBuildId: async () => {
-    return process.env.BUILD_ID || `build-${Date.now()}`;
-  },
+  ...(process.env.BUILD_ID ? { generateBuildId: async () => process.env.BUILD_ID! } : {}),
   // cacheComponents: true,     // REMOVED: caches RSC payloads in memory but skips CSS chunk re-injection on navigation
   // partialPrefetching: true,  // REMOVED: lazily loads CSS chunks causing FOUC (Flash of Unstyled Content) on first visit
   compiler: {
@@ -134,6 +132,15 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
         source: '/',
         headers: [
           {
@@ -151,7 +158,7 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: '/:lang',
+        source: '/:lang(en|ar|zh|fr)',
         headers: [
           {
             key: 'Cache-Control',
@@ -168,7 +175,7 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: '/:lang/:path*',
+        source: '/:lang(en|ar|zh|fr)/:path*',
         headers: [
           {
             key: 'Cache-Control',

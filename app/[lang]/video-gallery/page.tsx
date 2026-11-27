@@ -1,20 +1,20 @@
 import { PageHeader } from '@/components/ui/PageHeader'
 import VideoGalleryCard from '@/components/video-gallery/VideoGalleryCard'
+import { VideoLightboxClient } from '@/components/video-gallery/VideoLightboxClient'
 import type { Metadata } from 'next'
-import type { VideoGalleryResponse } from '@/types/videoGallery'
-import { cache, Suspense } from 'react'
-import { cmsService } from '@/lib/api/cms.service';
+import { Suspense } from 'react'
+import { cmsService } from '@/lib/api/cms.service'
 import { getDictionary } from '../dictionaries'
 import { Pagination } from '@/components/ui/Pagination'
 import { ServerTimeoutRetry } from '@/components/ui/ServerTimeoutRetry'
+import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo'
+import { withTimeout, getAssetsUrl } from '@/lib/api-utils'
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
 }
 
 export const revalidate = 60;
-
-import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo';
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
@@ -29,11 +29,26 @@ export async function generateMetadata(
   });
 }
 
-import { withTimeout } from '@/lib/api-utils'
+function getYoutubeId(url: string): string | null {
+  if (!url) return null;
+  const str = url.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(str)) return str;
+  const match = str.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|vi\/|shorts\/|live\/|watch\?v=|watch\?.+&v=))([\w-]{11})/i);
+  if (match) return match[1];
+  const generalMatch = str.match(/(?:[?&]v=|\/embed\/|\/shorts\/|\/vi\/|\/v\/|youtu\.be\/)([\w-]{11})/i);
+  return generalMatch ? generalMatch[1] : null;
+}
 
 /* ---------- Async component that fetches and renders video grid ---------- */
-async function VideoGalleryGrid({ lang, currentPage }: { lang: string, currentPage: number }) {
-  const data = await withTimeout(cmsService.getVideoCategories().catch(() => null), 2500, null)
+async function VideoGalleryGrid({ lang, currentPage, dict }: { lang: string; currentPage: number; dict: any }) {
+  const ITEMS_PER_PAGE = 12;
+  const validPage = isNaN(currentPage) || currentPage < 1 ? 1 : currentPage;
+
+  const data = await withTimeout(
+    cmsService.getMediaVideos({ lang, page: validPage, limit: ITEMS_PER_PAGE }).catch(() => null),
+    3500,
+    null
+  );
   
   if (!data) {
     return (
@@ -41,12 +56,14 @@ async function VideoGalleryGrid({ lang, currentPage }: { lang: string, currentPa
         lang={lang}
         className="my-4"
       />
-    )
+    );
   }
 
-  const categories = data?.data?.categories || []
+  const videos = data?.data?.media_videos || [];
+  const total = data?.data?.total || 0;
+  const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
-  if (categories.length === 0) {
+  if (videos.length === 0) {
     return (
       <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-border mt-2">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
@@ -54,24 +71,49 @@ async function VideoGalleryGrid({ lang, currentPage }: { lang: string, currentPa
         </div>
         <h2 className="text-xl font-semibold text-foreground mb-2">No Videos Found</h2>
         <p className="text-foreground/80 max-w-md mx-auto">
-          We couldn&apos;t find any video categories at the moment. Please check back later.
+          We couldn&apos;t find any videos at the moment. Please check back later.
         </p>
       </div>
-    )
+    );
   }
 
-  const ITEMS_PER_PAGE = 12;
-  const totalPages = Math.ceil(categories.length / ITEMS_PER_PAGE);
-  const validPage = isNaN(currentPage) || currentPage < 1 ? 1 : currentPage > totalPages && totalPages > 0 ? totalPages : currentPage;
-  const startIndex = (validPage - 1) * ITEMS_PER_PAGE;
-  const currentCategories = categories.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const assetsUrl = getAssetsUrl();
+  const defaultBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`;
+
+  const slides = videos.map((video) => {
+    const rawThumb = video.image || video.video_thumbnail || video.thumbnail;
+    const rawVideoUrl = video.url || video.video_url || '';
+    const ytId = getYoutubeId(rawVideoUrl);
+    const imageUrl = rawThumb
+      ? (rawThumb.startsWith('http') ? rawThumb : `${defaultBaseUrl}${rawThumb.replace(/^\/+/, '')}`)
+      : (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : '/logo.webp');
+
+    return {
+      type: 'custom-video',
+      video,
+      slug: video.slug,
+      ytId,
+      videoId: ytId,
+      videoUrl: rawVideoUrl,
+      title: video.title,
+      src: imageUrl,
+    };
+  });
+
+  const siteUrl = getSiteUrl();
 
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
-        {currentCategories.map((category, index) => (
-          <div key={category.category_id} className="h-full flex flex-col">
-            <VideoGalleryCard priority={index < 4} category={category} lang={lang} />
+        {videos.map((video, index) => (
+          <div key={video.slug || index} className="h-full flex flex-col">
+            <VideoGalleryCard 
+              video={video} 
+              index={index} 
+              priority={index < 4} 
+              lang={lang} 
+              dict={dict} 
+            />
           </div>
         ))}
       </div>
@@ -83,8 +125,10 @@ async function VideoGalleryGrid({ lang, currentPage }: { lang: string, currentPa
           baseUrl={`/${lang}/video-gallery`} 
         />
       )}
+
+      <VideoLightboxClient slides={slides} />
+
       {(() => {
-        const siteUrl = getSiteUrl();
         const schema = [
           {
             "@context": "https://schema.org",
@@ -93,13 +137,13 @@ async function VideoGalleryGrid({ lang, currentPage }: { lang: string, currentPa
               {
                 "@type": "ListItem",
                 "position": 1,
-                "name": "Home",
+                "name": dict?.navigation?.home || "Home",
                 "item": `${siteUrl}/${lang}`
               },
               {
                 "@type": "ListItem",
                 "position": 2,
-                "name": "Video Gallery",
+                "name": dict?.header?.video_gallery || "Video Gallery",
                 "item": `${siteUrl}/${lang}/video-gallery`
               }
             ]
@@ -107,17 +151,28 @@ async function VideoGalleryGrid({ lang, currentPage }: { lang: string, currentPa
           {
             "@context": "https://schema.org",
             "@type": "ItemList",
-            "itemListElement": categories.map((category, index) => {
-              const title = (category as any).translations?.find((t: any) => t.lang_code === lang)?.category_name || category.category_name
+            "itemListElement": videos.map((video, index) => {
+              const ytId = getYoutubeId(video.url || video.video_url || '');
+              const rawThumb = video.image || video.video_thumbnail;
+              const videoImg = rawThumb 
+                ? (rawThumb.startsWith('http') ? rawThumb : `${defaultBaseUrl}${rawThumb.replace(/^\/+/, '')}`)
+                : (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : `${siteUrl}/logo.png`);
+              const uploadIso = video.created_at 
+                ? (!isNaN(new Date(video.created_at).getTime()) ? new Date(video.created_at).toISOString() : new Date().toISOString())
+                : new Date().toISOString();
+
               return {
                 "@type": "ListItem",
-                "position": index + 1,
+                "position": (validPage - 1) * ITEMS_PER_PAGE + index + 1,
                 "item": {
-                  "@type": "CollectionPage",
-                  "name": title,
-                  "url": `${siteUrl}/${lang}/video-gallery/${category.slug}`
+                  "@type": "VideoObject",
+                  "name": video.title,
+                  "description": video.description || video.title,
+                  "thumbnailUrl": [videoImg],
+                  "uploadDate": uploadIso,
+                  "contentUrl": video.url || `${siteUrl}/${lang}/video-gallery`
                 }
-              }
+              };
             })
           }
         ];
@@ -130,7 +185,7 @@ async function VideoGalleryGrid({ lang, currentPage }: { lang: string, currentPa
         );
       })()}
     </>
-  )
+  );
 }
 
 /* ---------- Main page component ---------- */
@@ -152,7 +207,7 @@ export default async function VideoGalleryPage(props: {
           <PageHeader title={dict.header?.video_gallery || "Video Gallery"} backText={dict.common?.back || "Back"} />
                     
           <Suspense key={`${lang}-${currentPage}`} fallback={<VideoGalleryGridSkeleton />}>
-            <VideoGalleryGrid lang={lang} currentPage={currentPage} />
+            <VideoGalleryGrid lang={lang} currentPage={currentPage} dict={dict} />
           </Suspense>
         </div>
       </div>
@@ -164,21 +219,21 @@ export default async function VideoGalleryPage(props: {
 function VideoGalleryGridSkeleton() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
-      {[...Array(8)].map((_, i) => (
+      {[...Array(12)].map((_, i) => (
         <div 
           key={i} 
           className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs animate-pulse"
         >
           <div className="w-full aspect-video bg-muted border-b border-border"></div>
-                <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col">
-                  <div className="w-3/4 h-4 sm:h-5 rounded bg-muted mb-1"></div>
-                  <div className="flex items-center justify-between mt-1">
-                    <div className="w-20 h-3 sm:h-4 rounded bg-muted"></div>
-                    <div className="w-6 h-6 rounded-full bg-muted"></div>
-                  </div>
-                </div>
+          <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col justify-between flex-1">
+            <div className="w-3/4 h-5 rounded bg-muted mb-2"></div>
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
+              <div className="w-20 h-4 rounded bg-muted"></div>
+              <div className="w-6 h-6 rounded-full bg-muted"></div>
+            </div>
+          </div>
         </div>
       ))}
     </div>
-  )
+  );
 }

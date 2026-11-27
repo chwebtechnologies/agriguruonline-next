@@ -14,15 +14,18 @@ export default function VideoGalleryLoading() {
             <div className="w-20 h-8 bg-muted rounded-full animate-pulse" />
           </div>
 
-          {/* Videos Grid Skeleton */}
+          {/* Videos Grid Skeleton (12 items) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="flex flex-col rounded-2xl border border-border p-3.5 animate-pulse bg-card shadow-xs">
-                <div className="w-full aspect-[16/9] bg-muted rounded-xl mb-3 flex items-center justify-center">
-                  <div className="w-10 h-10 rounded-full bg-muted-foreground/20" />
+            {[...Array(12)].map((_, i) => (
+              <div key={i} className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs animate-pulse">
+                <div className="w-full aspect-video bg-muted border-b border-border" />
+                <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col justify-between flex-1">
+                  <div className="w-3/4 h-5 rounded bg-muted mb-2" />
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
+                    <div className="w-20 h-4 rounded bg-muted" />
+                    <div className="w-6 h-6 rounded-full bg-muted" />
+                  </div>
                 </div>
-                <div className="h-4 bg-muted w-3/4 rounded" />
-                <div className="h-3 bg-muted/70 w-1/3 mt-2 rounded" />
               </div>
             ))}
           </div>
