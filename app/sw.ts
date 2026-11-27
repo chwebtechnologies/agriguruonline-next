@@ -1,32 +1,12 @@
 /// <reference lib="webworker" />
-import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
 import {
   Serwist,
-  StaleWhileRevalidate,
   CacheFirst,
-  NetworkFirst,
   NetworkOnly,
   ExpirationPlugin,
   CacheableResponsePlugin,
 } from "serwist";
-
-const PRIVATE_DYNAMIC_PATH_PREFIXES = [
-  "/smart-docs",
-  "/profile",
-  "/dashboard",
-  "/my-inquiries",
-  "/my-offers",
-  "/my-settings",
-  "/alerts-setups",
-  "/become-member",
-  "/login",
-  "/register",
-];
-
-function isPrivateDynamicPath(pathname: string): boolean {
-  return PRIVATE_DYNAMIC_PATH_PREFIXES.some((prefix) => pathname.includes(prefix));
-}
 
 // This allows TypeScript to recognize the injected manifest variable
 declare global {
@@ -37,7 +17,7 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
-// Import Firebase Messaging into the main worker for full background push coverage in production
+// Import Firebase Messaging into the main worker for background push coverage
 try {
   self.importScripts('/firebase-messaging-sw.js');
 } catch (e) {
@@ -47,7 +27,7 @@ try {
 const serwist = new Serwist({
   precacheEntries: [
     ...(self.__SW_MANIFEST || []),
-    { url: "/~offline", revision: "offline-fallback-v1" }
+    { url: "/~offline", revision: "offline-fallback-v3" }
   ],
   skipWaiting: true,
   clientsClaim: true,
@@ -63,127 +43,106 @@ const serwist = new Serwist({
     ],
   },
   runtimeCaching: [
-    // 0. Private / dynamic authenticated workspaces (Smart Docs, Profile, Dashboard, etc.)
-    // MUST explicitly use NetworkOnly BEFORE defaultCache so they NEVER fall through to defaultCache's
-    // "others" or "pages-rsc" caches (which caused stale HTML referencing old CSS hashes on normal refresh).
+    // 1. Next.js RSC requests (header RSC: 1, Next-Router-Prefetch: 1, ?_rsc=...) MUST ALWAYS be NetworkOnly!
+    // Next.js App Router relies on chunked streaming flight payloads.
+    // Caching RSC in ServiceWorker breaks streaming, causes skeletons to freeze indefinitely,
+    // and produces 404 chunk mismatches across deployments.
     {
-      matcher: ({ url, sameOrigin }) => sameOrigin && isPrivateDynamicPath(url.pathname),
+      matcher: ({ request, url }) => {
+        return (
+          request.headers.get("RSC") === "1" ||
+          request.headers.get("Next-Router-Prefetch") === "1" ||
+          request.headers.get("Next-Router-State-Tree") !== null ||
+          url.searchParams.has("_rsc")
+        );
+      },
       handler: new NetworkOnly(),
     },
-    // 0b. Next.js static CSS & JS assets and local stylesheets: ONLY cache 200 OK responses so a 404/500 never poisons styles.
+    // 2. All Page Navigations (request.mode === 'navigate') MUST be NetworkOnly!
+    // Live pages must always stream fresh HTML from the server.
+    // If the network is offline or fails, Serwist's `fallbacks` automatically serves /~offline.
+    {
+      matcher: ({ request }) => request.mode === "navigate",
+      handler: new NetworkOnly(),
+    },
+    // 3. All API routes and dynamic backend microservices MUST be NetworkOnly!
+    {
+      matcher: ({ url }) => {
+        return (
+          url.pathname.startsWith("/api/") ||
+          url.hostname.includes("agriguruonline.cloud") ||
+          url.hostname.includes("api")
+        );
+      },
+      handler: new NetworkOnly(),
+    },
+    // 4. Cross-origin requests (CDNs, YouTube, external images, third parties) MUST be NetworkOnly!
+    // Never intercept cross-origin CDN images (assets.agriguruonline.com, images.unsplash.com, etc.).
+    // The browser's native HTTP cache handles cross-origin images far more reliably without ERR_FAILED or opaque aborts.
+    {
+      matcher: ({ sameOrigin }) => !sameOrigin,
+      handler: new NetworkOnly(),
+    },
+    // 5. Next.js static content-hashed CSS and JS bundles, and static webfonts:
+    // Safe to cache with CacheFirst because they have immutable content hashes.
+    // Only cache status 200 OK responses.
     {
       matcher: ({ url, sameOrigin }) =>
         sameOrigin &&
         (
           (url.pathname.startsWith("/_next/static/") && /\.(?:css|js)$/i.test(url.pathname)) ||
-          url.pathname === "/fa-all.min.css"
+          url.pathname === "/fa-all.min.css" ||
+          url.pathname.startsWith("/webfonts/")
         ),
       handler: new CacheFirst({
-        cacheName: "next-static-assets-v2",
+        cacheName: "agriguru-static-assets-v4",
         plugins: [
           new CacheableResponsePlugin({
             statuses: [200],
           }),
           new ExpirationPlugin({
-            maxEntries: 120,
+            maxEntries: 150,
             maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
             purgeOnQuotaError: true,
           }),
         ],
       }),
     },
-    // 1. Smoothly cache all images (Next.js image proxy, CDN assets, local icons/images)
-    // StaleWhileRevalidate serves cached images instantly while safely revalidating in background.
-    // Crucially: ONLY status 200 is cached (status 0 opaque/aborted requests during fast scrolling are never poisoned into cache)
+    // 6. Local same-origin static icons/images (/logo.png, /favicon.ico, /manifest.json)
     {
-      matcher: ({ request, url }) => {
-        return (
-          request.destination === "image" ||
-          url.pathname.startsWith("/_next/image") ||
-          url.hostname === "assets.agriguruonline.com" ||
-          url.hostname === "assets.agriguruonline.cloud" ||
-          /\.(?:png|jpg|jpeg|svg|webp|gif|avif|ico)$/i.test(url.pathname)
-        );
-      },
-      handler: new StaleWhileRevalidate({
-        cacheName: "agriguru-images-v3",
+      matcher: ({ url, sameOrigin }) =>
+        sameOrigin &&
+        /\.(?:png|jpg|jpeg|svg|webp|gif|avif|ico)$/i.test(url.pathname),
+      handler: new CacheFirst({
+        cacheName: "agriguru-local-icons-v4",
         plugins: [
+          new CacheableResponsePlugin({
+            statuses: [200],
+          }),
           new ExpirationPlugin({
-            maxEntries: 1000,
-            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+            maxEntries: 60,
+            maxAgeSeconds: 14 * 24 * 60 * 60, // 14 days
             purgeOnQuotaError: true,
           }),
-          new CacheableResponsePlugin({
-            statuses: [200],
-          }),
         ],
       }),
     },
-    // 2. Next.js RSC payloads (public pages only)
-    // NetworkFirst guarantees fresh chunk hashes from server when online, falling back to cache if offline
+    // 7. Everything else: fallback to NetworkOnly (safe, no poisoned caches)
     {
-      matcher: ({ url }) => {
-        if (!url.searchParams.has('_rsc')) return false;
-        if (isPrivateDynamicPath(url.pathname)) return false;
-        return true;
-      },
-      handler: new NetworkFirst({
-        cacheName: 'rsc-payloads-v2',
-        networkTimeoutSeconds: 3,
-        plugins: [
-          new CacheableResponsePlugin({
-            statuses: [200],
-          }),
-          new ExpirationPlugin({
-            maxEntries: 100,
-            maxAgeSeconds: 24 * 60 * 60, // 1 day
-          }),
-        ],
-      }),
+      matcher: /.*/i,
+      handler: new NetworkOnly(),
     },
-    // 3. Page navigations (public pages only)
-    // NetworkFirst guarantees the latest HTML referencing valid chunks is fetched online, avoiding 404 chunk errors
-    {
-      matcher: ({ request, url }) => {
-        if (request.mode !== 'navigate') return false;
-        if (isPrivateDynamicPath(url.pathname)) return false;
-        return true;
-      },
-      handler: new NetworkFirst({
-        cacheName: 'pages-v2',
-        networkTimeoutSeconds: 3,
-        plugins: [
-          new CacheableResponsePlugin({
-            statuses: [200],
-          }),
-          new ExpirationPlugin({
-            maxEntries: 50,
-            maxAgeSeconds: 24 * 60 * 60,
-          }),
-        ],
-      }),
-    },
-    ...defaultCache,
   ],
 });
 
-// Purge stale legacy caches on SW activation so previously cached smart-docs HTML or old CSS chunks are wiped automatically
+// Purge ALL stale legacy caches on SW activation so corrupted RSC, old pages, and failed image caches are immediately wiped
 self.addEventListener("activate", (event) => {
-  const legacyCachesToDelete = [
-    "others",
-    "pages",
-    "pages-rsc",
-    "pages-rsc-prefetch",
-    "rsc-payloads",
-    "static-style-assets",
-    "agriguru-images-v1",
-    "agriguru-images-v2",
-  ];
+  const currentCaches = ["agriguru-static-assets-v4", "agriguru-local-icons-v4", "serwist-precache-v2"];
   event.waitUntil(
     caches.keys().then((cacheNames) =>
       Promise.all(
         cacheNames
-          .filter((name) => legacyCachesToDelete.includes(name))
+          .filter((name) => !currentCaches.includes(name) || name.includes("v1") || name.includes("v2") || name.includes("v3"))
           .map((name) => caches.delete(name))
       )
     )

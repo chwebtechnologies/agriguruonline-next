@@ -124,12 +124,6 @@ export default function NavigationProgress() {
           return
         }
 
-        // Prevent rage clicking the exact same pending link while waiting for high latency response
-        if (pendingUrlRef.current === targetUrl.href) {
-          e.preventDefault()
-          return
-        }
-
         startProgress(targetUrl.href)
       } catch {
         // invalid URL, ignore

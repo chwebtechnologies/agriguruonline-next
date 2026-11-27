@@ -64,33 +64,47 @@ const getFirebaseSWRegistration = async (): Promise<ServiceWorkerRegistration | 
   if (!('serviceWorker' in navigator)) return undefined;
   try {
     const registrations = await navigator.serviceWorker.getRegistrations();
+    // 1. Unregister any standalone firebase-messaging-sw registered at root '/'
+    // to prevent it from evicting /sw.js or causing controller thrashing across hard refreshes.
     for (const r of registrations) {
-      if (r.scope.includes('firebase-cloud-messaging-push-scope')) {
+      const swUrl = r.active?.scriptURL || r.installing?.scriptURL || r.waiting?.scriptURL || '';
+      if (swUrl.includes('firebase-messaging-sw') && r.scope === window.location.origin + '/') {
         await r.unregister();
       }
     }
+
+    // 2. In production, /sw.js is the primary service worker that already imports /firebase-messaging-sw.js.
+    // Use navigator.serviceWorker.ready so FCM uses the single unified service worker.
+    if (process.env.NODE_ENV === 'production' || navigator.serviceWorker.controller) {
+      try {
+        const readyReg = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), 3000)),
+        ]);
+        if (readyReg) return readyReg;
+      } catch (e) {}
+    }
+
+    // 3. In development (where /sw.js is disabled) or fallback:
+    // Check if an existing registration with push scope exists
     const updatedRegs = await navigator.serviceWorker.getRegistrations();
     const existing = updatedRegs.find(r =>
-      (r.active?.scriptURL || r.installing?.scriptURL || r.waiting?.scriptURL || '').includes('firebase-messaging-sw') &&
-      !r.scope.includes('firebase-cloud-messaging-push-scope')
+      (r.active?.scriptURL || r.installing?.scriptURL || r.waiting?.scriptURL || '').includes('firebase-messaging-sw')
     );
     if (existing) {
       await waitForSWActive(existing);
       return existing;
     }
-    // If an active production SW (like /sw.js) is already ready, use it
-    if (navigator.serviceWorker.controller) {
-      const readyReg = await navigator.serviceWorker.ready;
-      if (readyReg) return readyReg;
-    }
+
+    // Register with isolated push scope so it NEVER intercepts or conflicts with main site '/'
     const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-      scope: '/',
+      scope: '/firebase-cloud-messaging-push-scope',
       updateViaCache: 'none',
     });
     await waitForSWActive(reg);
     return reg;
   } catch (err) {
-    console.error('[FCM] Failed to register firebase-messaging-sw.js:', err);
+    console.error('[FCM] Failed to get service worker registration:', err);
     try {
       return await navigator.serviceWorker.ready;
     } catch {

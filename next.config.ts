@@ -8,6 +8,9 @@ process.env.SERWIST_SUPPRESS_TURBOPACK_WARNING = "1";
 const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
+  generateBuildId: async () => {
+    return process.env.BUILD_ID || `build-${Date.now()}`;
+  },
   // cacheComponents: true,     // REMOVED: caches RSC payloads in memory but skips CSS chunk re-injection on navigation
   // partialPrefetching: true,  // REMOVED: lazily loads CSS chunks causing FOUC (Flash of Unstyled Content) on first visit
   compiler: {
@@ -36,8 +39,8 @@ const nextConfig: NextConfig = {
     },
     // optimizeCss: true,  // DISABLED: critters defers page-unique CSS (IPhoneFrame, gradients) — never re-injected on client-nav
     staleTimes: {
-      dynamic: 300,  // 5 minutes for dynamic pages (prevents RSC refetch on GPRS)
-      static: 3600,  // 1 hour for fully static routes
+      dynamic: 30,   // 30 seconds: enables instant prefetch-to-click transition while avoiding stale builds
+      static: 300,   // 5 minutes for static routes
     },
     optimizePackageImports: [
       '@fortawesome/fontawesome-free',
@@ -127,6 +130,57 @@ const nextConfig: NextConfig = {
           {
             key: 'X-Robots-Tag',
             value: 'noindex, nofollow, noarchive, nosnippet',
+          },
+        ],
+      },
+      {
+        source: '/',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, no-cache, no-store, max-age=0, must-revalidate',
+          },
+          {
+            key: 'Pragma',
+            value: 'no-cache',
+          },
+          {
+            key: 'Expires',
+            value: '0',
+          },
+        ],
+      },
+      {
+        source: '/:lang',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, no-cache, no-store, max-age=0, must-revalidate',
+          },
+          {
+            key: 'Pragma',
+            value: 'no-cache',
+          },
+          {
+            key: 'Expires',
+            value: '0',
+          },
+        ],
+      },
+      {
+        source: '/:lang/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, no-cache, no-store, max-age=0, must-revalidate',
+          },
+          {
+            key: 'Pragma',
+            value: 'no-cache',
+          },
+          {
+            key: 'Expires',
+            value: '0',
           },
         ],
       },

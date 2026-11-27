@@ -4,6 +4,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import { resolveImageUrl, FALLBACK_IMAGE } from '@/lib/image-utils'
 
+// Module-level in-memory cache of successfully loaded image URLs
+// Allows any previously loaded image in the session to render with isLoaded=true at 0ms (no skeleton, no opacity delay)
+const loadedImagesCache = new Set<string>();
+
 interface ImageWithSkeletonProps {
   src: unknown
   alt?: string
@@ -35,43 +39,35 @@ export default function ImageWithSkeleton({
 }: ImageWithSkeletonProps) {
   const resolvedSrc = resolveImageUrl(src)
   const [prevSrc, setPrevSrc] = useState<string>(resolvedSrc)
-  const [isLoaded, setIsLoaded] = useState<boolean>(false)
+  const [isLoaded, setIsLoaded] = useState<boolean>(() => loadedImagesCache.has(resolvedSrc))
   const [hasError, setHasError] = useState<boolean>(false)
   const imgRef = useRef<HTMLImageElement | null>(null)
 
   // Adjust state during render when prop changes (React recommended pattern)
-  // Ensures state is never reset by an effect on mount, which previously caused
-  // race conditions where cached images fired onLoad before the effect reset isLoaded to false.
   if (resolvedSrc !== prevSrc) {
     setPrevSrc(resolvedSrc)
-    setIsLoaded(false)
+    setIsLoaded(loadedImagesCache.has(resolvedSrc))
     setHasError(false)
   }
 
   const checkComplete = useCallback((img: HTMLImageElement | null) => {
     if (!img) return
-    if (img.complete) {
-      if (img.naturalWidth > 0) {
-        setIsLoaded(true)
-      } else if (img.naturalWidth === 0 && img.src && !img.src.endsWith('/')) {
-        setHasError(true)
-        setIsLoaded(true)
-      }
+    // Only mark loaded if image actually has positive natural dimensions
+    if (img.complete && img.naturalWidth > 0) {
+      if (img.src) loadedImagesCache.add(img.src)
+      setIsLoaded(true)
     }
   }, [])
 
   // Callback ref: As soon as the DOM element is attached, check if it's already complete
-  // (e.g. from browser memory cache, HTTP cache, or Service Worker cache during SPA navigation)
+  // (e.g. from browser memory cache or HTTP disk cache)
   const setRef = useCallback((node: HTMLImageElement | null) => {
     imgRef.current = node
-    if (node && node.complete) {
-      queueMicrotask(() => {
-        if (imgRef.current === node) {
-          checkComplete(node)
-        }
-      })
+    if (node && node.complete && node.naturalWidth > 0) {
+      if (node.src) loadedImagesCache.add(node.src)
+      setIsLoaded(true)
     }
-  }, [checkComplete])
+  }, [])
 
   useEffect(() => {
     const img = imgRef.current
@@ -86,22 +82,20 @@ export default function ImageWithSkeleton({
       }
     }
 
-    // Safety fallback: Ensure images are NEVER permanently stuck invisible
-    // (e.g. due to dropped events, mobile viewport observer delays, or slow networks)
+    // Safety fallback: Ensure images are NEVER permanently stuck with opacity-0
+    // if an onLoad event was missed during hydration or bfcache restore.
+    // NOTE: Does NOT set hasError — only un-hides the image cleanly!
     const timer = setTimeout(() => {
-      const currentImg = imgRef.current
-      if (currentImg && currentImg.complete && currentImg.naturalWidth === 0) {
-        setHasError(true)
-      }
       setIsLoaded(true)
-    }, 1200)
+    }, 3500)
 
     return () => clearTimeout(timer)
   }, [resolvedSrc, checkComplete])
 
   const handleLoad = useCallback(() => {
+    if (resolvedSrc) loadedImagesCache.add(resolvedSrc)
     setIsLoaded(true)
-  }, [])
+  }, [resolvedSrc])
 
   const handleError = useCallback(() => {
     if (!hasError) {

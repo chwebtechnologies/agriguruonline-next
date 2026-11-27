@@ -197,6 +197,14 @@ export async function proxy(request: NextRequest) {
   // Helper to apply new cookies to any NextResponse
   const applyNewCookies = (res: NextResponse) => {
     res.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+
+    // For HTML navigation requests, strictly enforce no-cache so browsers never heuristically cache stale HTML across builds
+    if (!pathname.startsWith('/_next') && !pathname.includes('.')) {
+      res.headers.set('Cache-Control', 'private, no-cache, no-store, max-age=0, must-revalidate');
+      res.headers.set('Pragma', 'no-cache');
+      res.headers.set('Expires', '0');
+    }
+
     const isSecure = isSecureRequest(request);
     const newAuthToken = request.headers.get('x-new-auth-token') || request.headers.get('x-auth-token');
     if (newAuthToken) {
