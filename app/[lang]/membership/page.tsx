@@ -116,20 +116,31 @@ async function MembershipContent({
   dict: any;
 }) {
   const [plans, profileRes] = await Promise.all([
-    withTimeout(userService.getMembershipPlans(lang), 3000, []),
+    withTimeout(userService.getMembershipPlans(lang), 4000, []),
     token
-      ? withTimeout(userService.getUserProfile(token, lang, true), 2000, {
+      ? withTimeout(userService.getUserProfile(token, lang, true), 6000, {
           userProfile: null,
           shouldLogout: false,
         })
       : Promise.resolve({ userProfile: null, shouldLogout: false }),
   ]);
 
+  let profileData = profileRes?.userProfile;
+  if (!profileData && token) {
+    try {
+      const cookieStore = await cookies();
+      const userInfoStr = cookieStore.get('user_info')?.value;
+      if (userInfoStr) {
+        profileData = JSON.parse(userInfoStr);
+      }
+    } catch {}
+  }
+
   return (
     <MembershipPlansClient
       plans={plans}
       lang={lang}
-      userProfile={profileRes?.userProfile}
+      userProfile={profileData}
       dict={dict}
     />
   );

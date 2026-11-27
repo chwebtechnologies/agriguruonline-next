@@ -4,7 +4,7 @@ import React, { useState, useRef, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import type { MembershipPlan, InitiateUpgradeResponse } from '@/lib/api/user.service';
-import { isRegularAccount, isMembershipExpired, isUserMember, getActiveMembershipPlanName } from '@/lib/membership-status';
+import { isRegularAccount, isMembershipExpired, isUserMember, getActiveMembershipPlanName, getUserFromClientCookie } from '@/lib/membership-status';
 import { saveStoredPlanSelection } from '@/lib/membership-storage';
 import { initiateUpgradeAction } from '@/app/actions/membership';
 import PlanCard from './PlanCard';
@@ -29,9 +29,29 @@ export default function MembershipPlansClient({
   const notice = searchParams?.get('notice');
   const [isPending, startTransition] = useTransition();
 
-  const isMember = isUserMember(userProfile);
-  const isRegular = isRegularAccount(userProfile);
-  const isExpired = isMembershipExpired(userProfile);
+  // Client-side fallback to user_info cookie if userProfile prop is missing/stale
+  const [profile, setProfile] = useState<any>(() => {
+    if (userProfile) return userProfile;
+    if (typeof window !== 'undefined') {
+      return getUserFromClientCookie();
+    }
+    return null;
+  });
+
+  React.useEffect(() => {
+    if (userProfile) {
+      setProfile(userProfile);
+    } else {
+      const clientUser = getUserFromClientCookie();
+      if (clientUser) {
+        setProfile(clientUser);
+      }
+    }
+  }, [userProfile]);
+
+  const isMember = isUserMember(profile);
+  const isRegular = isRegularAccount(profile);
+  const isExpired = isMembershipExpired(profile);
   const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null);
 
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('yearly');
@@ -93,11 +113,18 @@ export default function MembershipPlansClient({
     silverPlan?.yearly_trial_days || silverPlan?.monthly_trial_days || 90;
 
   // Determine current active plan name of the logged in user
-  const userCurrentPlanName = getActiveMembershipPlanName(userProfile).toLowerCase();
+  const userCurrentPlanName = getActiveMembershipPlanName(profile).toLowerCase();
 
-  // Free trial eligibility: Guests OR registered non-members (who have not purchased any plan)
+  // If user already holds Silver, Gold, Platinum, or is a member, they are NOT trial eligible
+  const isHoldingSilverOrPaid =
+    isMember ||
+    userCurrentPlanName.includes('silver') ||
+    userCurrentPlanName.includes('gold') ||
+    userCurrentPlanName.includes('platinum');
+
+  // Free trial eligibility: Guests OR registered non-members (who have not taken any membership plan)
   const isUserTrialEligible =
-    !isMember && (!userProfile || Boolean(userProfile?.is_free_trial_applicable !== false));
+    !isHoldingSilverOrPaid && (!profile || Boolean(profile?.is_free_trial_applicable !== false));
   const showTrialBanner = isUserTrialEligible && silverTrialDays > 0;
 
   const handleSelectPlan = (plan: MembershipPlan) => {
@@ -105,7 +132,7 @@ export default function MembershipPlansClient({
     const duration = billingInterval.toUpperCase() as 'MONTHLY' | 'YEARLY';
 
     // Case 1: Guest User (not logged in) -> Persist and redirect to login
-    if (!userProfile) {
+    if (!profile) {
       saveStoredPlanSelection({
         planId: plan.id,
         planName: plan.plan_name,
@@ -233,14 +260,20 @@ export default function MembershipPlansClient({
           className="grid w-[82vw] max-w-[325px] mx-auto min-h-[660px]"
         >
           {sortedPlans.map((plan, index) => {
+            const pName = (plan.plan_name || '').toLowerCase();
             const isCurrentPlan =
               !isExpired &&
               !!userCurrentPlanName &&
-              !!plan.plan_name &&
-              userCurrentPlanName.includes(plan.plan_name.toLowerCase());
+              !!pName &&
+              (userCurrentPlanName === pName ||
+                userCurrentPlanName.includes(pName) ||
+                pName.includes(userCurrentPlanName) ||
+                (userCurrentPlanName.includes('silver') && pName.includes('silver')) ||
+                (userCurrentPlanName.includes('gold') && pName.includes('gold')) ||
+                (userCurrentPlanName.includes('platinum') && pName.includes('platinum')));
 
             const userHasOtherMembership =
-              Boolean(userProfile && isMember && !isCurrentPlan);
+              Boolean(profile && isMember && !isCurrentPlan);
 
             const planTrialDays =
               billingInterval === 'yearly' ? plan.yearly_trial_days : plan.monthly_trial_days;
@@ -294,14 +327,20 @@ export default function MembershipPlansClient({
       {/* DESKTOP GRID (Clean 3-column layout) */}
       <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6 items-stretch max-w-6xl mx-auto">
         {sortedPlans.map((plan) => {
+          const pName = (plan.plan_name || '').toLowerCase();
           const isCurrentPlan =
             !isExpired &&
             !!userCurrentPlanName &&
-            !!plan.plan_name &&
-            userCurrentPlanName.includes(plan.plan_name.toLowerCase());
+            !!pName &&
+            (userCurrentPlanName === pName ||
+              userCurrentPlanName.includes(pName) ||
+              pName.includes(userCurrentPlanName) ||
+              (userCurrentPlanName.includes('silver') && pName.includes('silver')) ||
+              (userCurrentPlanName.includes('gold') && pName.includes('gold')) ||
+              (userCurrentPlanName.includes('platinum') && pName.includes('platinum')));
 
           const userHasOtherMembership =
-            Boolean(userProfile && isMember && !isCurrentPlan);
+            Boolean(profile && isMember && !isCurrentPlan);
 
           const planTrialDays =
             billingInterval === 'yearly' ? plan.yearly_trial_days : plan.monthly_trial_days;

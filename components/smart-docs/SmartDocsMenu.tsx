@@ -8,7 +8,7 @@ import { logoutUser } from '@/app/actions/auth';
 import { useScrollLock } from '@/lib/scroll-lock';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import BecomeMemberModal from '@/components/membership/BecomeMemberModal';
-import { isRegularAccount, isUserMember } from '@/lib/membership-status';
+import { isRegularAccount, isUserMember, getUserFromClientCookie } from '@/lib/membership-status';
 
 interface MenuItem {
   label: string;
@@ -140,8 +140,9 @@ export function SmartDocsMenu({
     return String(typeData).toLowerCase();
   };
 
-  const isMember = isUserMember(profile);
-  const isRegular = isRegularAccount(profile);
+  const effectiveProfile = profile || (typeof window !== 'undefined' ? getUserFromClientCookie() : null);
+  const isMember = isUserMember(effectiveProfile);
+  const isRegular = isRegularAccount(effectiveProfile);
 
   // Smart Docs Dedicated Menu Structure
   // Group 1: Core Navigation (My Docs, Dashboard, Marketplace)

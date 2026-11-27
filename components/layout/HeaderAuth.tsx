@@ -91,7 +91,13 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   const currentPath = usePathname()
   const isGuestPage = currentPath ? (currentPath.includes('/login') || currentPath.includes('/register')) : false
 
-  const [profile, setProfile] = useState<any>(initialProfile || null)
+  const [profile, setProfile] = useState<any>(() => {
+    if (initialProfile) return initialProfile;
+    if (typeof window !== 'undefined') {
+      return getUserFromClientCookie();
+    }
+    return null;
+  })
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isBecomeMemberOpen, setIsBecomeMemberOpen] = useState(false)

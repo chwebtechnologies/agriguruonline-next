@@ -9,6 +9,7 @@ import { customFetch } from '@/lib/api/fetcher';
 import type { InitiateUpgradeResponse } from '@/lib/api/user.service';
 import { getIsSecureCookie } from '@/lib/auth-cookie';
 import { getValidAuthToken } from '@/lib/auth-token';
+import { getActiveMembershipPlanName } from '@/lib/membership-status';
 
 export interface ActionResult<T = any> {
   success: boolean;
@@ -115,6 +116,63 @@ export async function startTrialAction(
 
     // Invalidate auth cache so the new membership plan is reflected immediately
     invalidateUserAuthCache(token);
+
+    // Sync user_info cookie with refreshed profile
+    try {
+      const profileRes = await userService.getUserProfile(token, lang, true);
+      const u = profileRes?.userProfile;
+      if (u) {
+        const rawUserType =
+          typeof u.user_type === 'object' && u.user_type !== null
+            ? (u.user_type.name || u.user_type.title || '')
+            : (u.user_type || '');
+        const rawRole =
+          typeof u.role === 'object' && u.role !== null
+            ? (u.role.name || u.role.title || '')
+            : (u.role || '');
+        let effectiveType = '';
+        const norm = String(rawUserType).toLowerCase();
+        if (norm.includes('buyer')) effectiveType = 'buyer';
+        else if (norm.includes('seller')) effectiveType = 'seller';
+        else effectiveType = norm || String(rawRole).toLowerCase() || 'business user';
+
+        const planName = getActiveMembershipPlanName(u) || 'Silver';
+        const rawMembership = u.membership || u.membership_plan || {
+          plan_name: planName,
+          plan_type: u.plan_type || 'YEARLY',
+          status: u.membership_status || u.status || 'ACTIVE',
+          membership_expiry_date: u.membership_expiry_date || u.expiry_date,
+        };
+
+        const safeUser = {
+          id: u.id || '',
+          customer_id: u.customer_id || u.id || '',
+          first_name: u.first_name || '',
+          last_name: u.last_name || '',
+          email: u.email || '',
+          mobile_no: u.mobile_no || u.phone || '',
+          phone: u.phone || u.mobile_no || '',
+          country_code: u.country_code || '',
+          role: rawRole || 'Business User',
+          user_type: effectiveType,
+          is_kyc_verified: u.is_kyc_verified ?? false,
+          plan_name: planName,
+          plan_type: u.plan_type || rawMembership?.plan_type || 'YEARLY',
+          membership_expiry_date: u.membership_expiry_date || rawMembership?.membership_expiry_date || '',
+          membership: rawMembership,
+        };
+
+        cookieStore.set('user_info', JSON.stringify(safeUser), {
+          httpOnly: false,
+          secure: await getIsSecureCookie(),
+          sameSite: 'lax',
+          path: '/',
+          maxAge: 7 * 24 * 60 * 60,
+        });
+      }
+    } catch (e) {
+      console.warn('[startTrialAction] Failed to sync user_info cookie:', e);
+    }
 
     // Clear plan selection cookies on server
     try {
@@ -464,6 +522,7 @@ export async function captureSubscriptionAction(
  */
 export async function refreshUserProfileAction(lang: string = 'en'): Promise<ActionResult<any>> {
   const token = await getValidAuthToken();
+  const cookieStore = await cookies();
 
   if (!token) {
     return {
@@ -474,7 +533,59 @@ export async function refreshUserProfileAction(lang: string = 'en'): Promise<Act
 
   try {
     invalidateUserAuthCache(token);
-    const profileRes = await userService.getUserProfile(token, lang);
+    const profileRes = await userService.getUserProfile(token, lang, true);
+    const u = profileRes?.userProfile;
+    if (u) {
+      try {
+        const rawUserType =
+          typeof u.user_type === 'object' && u.user_type !== null
+            ? (u.user_type.name || u.user_type.title || '')
+            : (u.user_type || '');
+        const rawRole =
+          typeof u.role === 'object' && u.role !== null
+            ? (u.role.name || u.role.title || '')
+            : (u.role || '');
+        let effectiveType = '';
+        const norm = String(rawUserType).toLowerCase();
+        if (norm.includes('buyer')) effectiveType = 'buyer';
+        else if (norm.includes('seller')) effectiveType = 'seller';
+        else effectiveType = norm || String(rawRole).toLowerCase() || 'business user';
+
+        const planName = getActiveMembershipPlanName(u) || u.plan_name || '';
+        const rawMembership = u.membership || u.membership_plan || (planName ? {
+          plan_name: planName,
+          plan_type: u.plan_type,
+          status: u.membership_status || u.status || 'ACTIVE',
+          membership_expiry_date: u.membership_expiry_date || u.expiry_date,
+        } : null);
+
+        const safeUser = {
+          id: u.id || '',
+          customer_id: u.customer_id || u.id || '',
+          first_name: u.first_name || '',
+          last_name: u.last_name || '',
+          email: u.email || '',
+          mobile_no: u.mobile_no || u.phone || '',
+          phone: u.phone || u.mobile_no || '',
+          country_code: u.country_code || '',
+          role: rawRole || 'Business User',
+          user_type: effectiveType,
+          is_kyc_verified: u.is_kyc_verified ?? false,
+          plan_name: planName,
+          plan_type: u.plan_type || rawMembership?.plan_type || '',
+          membership_expiry_date: u.membership_expiry_date || rawMembership?.membership_expiry_date || '',
+          membership: rawMembership || null,
+        };
+
+        cookieStore.set('user_info', JSON.stringify(safeUser), {
+          httpOnly: false,
+          secure: await getIsSecureCookie(),
+          sameSite: 'lax',
+          path: '/',
+          maxAge: 7 * 24 * 60 * 60,
+        });
+      } catch {}
+    }
     return {
       success: Boolean(profileRes.userProfile),
       data: profileRes.userProfile,

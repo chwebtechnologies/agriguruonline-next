@@ -30,21 +30,43 @@ export function getUserFromClientCookie(): any | null {
  */
 export function getActiveMembershipPlanName(profile?: any): string {
   if (!profile) return '';
+
+  const p = profile?.userProfile || profile?.user || profile?.profile || profile?.data || profile;
+
+  // 1. Direct string plan on root
+  if (typeof p?.plan === 'string' && p.plan.trim()) return p.plan.trim();
+  if (typeof p?.membership === 'string' && p.membership.trim()) return p.membership.trim();
+  if (typeof p?.membership_plan === 'string' && p.membership_plan.trim()) return p.membership_plan.trim();
+
+  // 2. Resolve membership object
   const membership =
-    profile.membership ||
-    profile.membership_plan ||
-    profile.user_membership_history?.membership;
+    p?.membership ||
+    p?.membership_plan ||
+    p?.user_membership ||
+    p?.active_membership ||
+    p?.current_membership ||
+    (Array.isArray(p?.user_membership_history)
+      ? p.user_membership_history[0]?.membership || p.user_membership_history[0]
+      : p?.user_membership_history?.membership) ||
+    (Array.isArray(p?.memberships) ? p.memberships[0] : undefined);
 
   const rawName =
     membership?.plan_name ||
     membership?.name ||
     membership?.title ||
-    profile.plan_name ||
-    profile.membership_plan_name ||
-    profile.membership_name ||
-    profile.subscription?.plan_name ||
-    profile.plan?.name ||
-    profile.plan?.plan_name ||
+    membership?.plan?.plan_name ||
+    membership?.plan?.name ||
+    p?.plan_name ||
+    p?.membership_plan_name ||
+    p?.membership_name ||
+    p?.subscription?.plan_name ||
+    p?.subscription?.name ||
+    p?.current_plan?.plan_name ||
+    p?.current_plan?.name ||
+    p?.package_name ||
+    p?.subscription_name ||
+    p?.plan?.name ||
+    p?.plan?.plan_name ||
     '';
 
   return String(rawName).trim();
@@ -56,40 +78,67 @@ export function getActiveMembershipPlanName(profile?: any): string {
  */
 export function isMembershipExpired(profile?: any): boolean {
   if (!profile) return false;
+
+  const p = profile?.userProfile || profile?.user || profile?.profile || profile?.data || profile;
   const membership =
-    profile?.membership ||
-    profile?.membership_plan ||
-    profile?.user_membership_history?.membership;
+    p?.membership ||
+    p?.membership_plan ||
+    p?.user_membership ||
+    p?.active_membership ||
+    (Array.isArray(p?.user_membership_history)
+      ? p.user_membership_history[0]?.membership || p.user_membership_history[0]
+      : p?.user_membership_history?.membership);
 
   const status = String(
     membership?.status ||
-    profile?.membership_status ||
-    profile?.subscription_status ||
+    p?.membership_status ||
+    p?.subscription_status ||
+    p?.status ||
     ''
   ).trim().toUpperCase();
 
+  // Explicit expired / cancelled / inactive status
   if (status === 'EXPIRED' || status === 'CANCELLED' || status === 'INACTIVE') {
     return true;
   }
 
   const expiryRaw =
     membership?.membership_expiry_date ||
-    profile?.membership_expiry_date ||
+    p?.membership_expiry_date ||
     membership?.expiry_date ||
-    profile?.expiry_date ||
+    p?.expiry_date ||
     membership?.expires_at ||
-    profile?.expires_at;
+    p?.expires_at ||
+    membership?.valid_till ||
+    p?.valid_till;
 
   if (expiryRaw) {
-    let expiryDate = new Date(expiryRaw);
-    if (isNaN(expiryDate.getTime()) && typeof expiryRaw === 'string') {
-      const parts = expiryRaw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-      if (parts) {
-        expiryDate = new Date(`${parts[3]}-${parts[2].padStart(2, '0')}-${parts[1].padStart(2, '0')}`);
+    let expiryDate: Date | null = null;
+
+    if (typeof expiryRaw === 'number') {
+      // If 10-digit Unix timestamp (seconds), convert to milliseconds
+      expiryDate = new Date(expiryRaw < 10000000000 ? expiryRaw * 1000 : expiryRaw);
+    } else if (typeof expiryRaw === 'string') {
+      const trimmed = expiryRaw.trim();
+      if (/^\d{10}$/.test(trimmed)) {
+        expiryDate = new Date(Number(trimmed) * 1000);
+      } else {
+        expiryDate = new Date(trimmed);
+        if (isNaN(expiryDate.getTime())) {
+          const parts = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+          if (parts) {
+            expiryDate = new Date(`${parts[3]}-${parts[2].padStart(2, '0')}-${parts[1].padStart(2, '0')}`);
+          }
+        }
       }
     }
-    if (!isNaN(expiryDate.getTime()) && expiryDate.getTime() < Date.now()) {
-      return true;
+
+    if (expiryDate && !isNaN(expiryDate.getTime())) {
+      // Set to end of the expiry day (23:59:59.999) to prevent false expiry on the same calendar day
+      expiryDate.setHours(23, 59, 59, 999);
+      if (expiryDate.getTime() < Date.now()) {
+        return true;
+      }
     }
   }
 
@@ -99,49 +148,68 @@ export function isMembershipExpired(profile?: any): boolean {
 /**
  * Returns true if the user is an active Member.
  * An active member is a user who has a paid/assigned membership plan
- * (e.g. Silver, Gold, Platinum) that is NOT expired and status is active.
- *
- * Registered users without a paid plan (or whose plan is guest/regular/null/expired)
- * are Non-Members and this will return false.
+ * (e.g. Silver, Gold, Platinum) or active trial that is NOT expired.
  */
 export function isUserMember(profile?: any): boolean {
   if (!profile) return false;
 
-  const planName = getActiveMembershipPlanName(profile).toLowerCase();
+  const p = profile?.userProfile || profile?.user || profile?.profile || profile?.data || profile;
+  const planName = getActiveMembershipPlanName(p).toLowerCase();
 
-  // If no plan, or plan is explicitly guest/regular/free/null/none
+  // Recognized paid/trial membership tiers
+  const isPaidOrTrialTier =
+    planName.includes('silver') ||
+    planName.includes('gold') ||
+    planName.includes('platinum') ||
+    planName.includes('trial') ||
+    planName === 'member' ||
+    planName.includes('membership');
+
+  // If plan is recognized tier, user is a member (unless expired)
+  if (isPaidOrTrialTier) {
+    if (isMembershipExpired(p)) {
+      return false;
+    }
+    return true;
+  }
+
+  // Non-member names: empty, guest, regular, free (without tier/trial), null, undefined, none
   if (
     !planName ||
     planName === 'guest' ||
     planName === 'regular' ||
     planName === 'free' ||
-    planName === 'free trial' ||
     planName === 'null' ||
     planName === 'undefined' ||
     planName === 'none'
   ) {
+    // Check if user is an onboarded Buyer or Seller with an active membership object
+    const userTypeNorm = getNormalizedUserType(p?.user_type);
+    const roleName = String(p?.role?.name || p?.role || '').toLowerCase();
+    const isTrader =
+      userTypeNorm.includes('buyer') ||
+      userTypeNorm.includes('seller') ||
+      roleName.includes('buyer') ||
+      roleName.includes('seller');
+
+    const membership =
+      p?.membership ||
+      p?.membership_plan ||
+      p?.user_membership ||
+      p?.active_membership;
+
+    if (isTrader && membership && !isMembershipExpired(p)) {
+      const status = String(membership?.status || p?.membership_status || '').trim().toUpperCase();
+      if (status === 'ACTIVE' || status === 'TRIAL' || status === '') {
+        return true;
+      }
+    }
+
     return false;
   }
 
-  // If membership has expired, user is not an active member
-  if (isMembershipExpired(profile)) {
-    return false;
-  }
-
-  // Check explicit status
-  const membership =
-    profile.membership ||
-    profile.membership_plan ||
-    profile.user_membership_history?.membership;
-
-  const status = String(
-    membership?.status ||
-    profile.membership_status ||
-    profile.subscription_status ||
-    ''
-  ).trim().toUpperCase();
-
-  if (status === 'EXPIRED' || status === 'CANCELLED' || status === 'INACTIVE') {
+  // Any other named plan that is not expired
+  if (isMembershipExpired(p)) {
     return false;
   }
 

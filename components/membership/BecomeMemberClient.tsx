@@ -10,7 +10,7 @@ import type { MembershipPlan, StoredPlanSelection, InitiateUpgradeResponse } fro
 import ConfirmationModal from './ConfirmationModal';
 import ModalErrorBoundary from '@/components/ui/ModalErrorBoundary';
 import SearchableCountrySelect from '@/components/ui/SearchableCountrySelect';
-import { isUserMember } from '@/lib/membership-status';
+import { isUserMember, getActiveMembershipPlanName, getUserFromClientCookie } from '@/lib/membership-status';
 
 interface DropdownItem {
   id: string;
@@ -169,9 +169,17 @@ export default function BecomeMemberClient({
     storedPlan?.duration === 'YEARLY'
       ? activePlanDetails?.yearly_trial_days
       : activePlanDetails?.monthly_trial_days;
-  const isMember = isUserMember(userProfile);
+  const effectiveProfile = userProfile || (typeof window !== 'undefined' ? getUserFromClientCookie() : null);
+  const isMember = isUserMember(effectiveProfile);
+  const userCurrentPlanName = getActiveMembershipPlanName(effectiveProfile).toLowerCase();
+  const isHoldingSilverOrPaid =
+    isMember ||
+    userCurrentPlanName.includes('silver') ||
+    userCurrentPlanName.includes('gold') ||
+    userCurrentPlanName.includes('platinum');
+
   const isFreeTrial = Boolean(
-    !isMember && (!userProfile || userProfile.is_free_trial_applicable !== false) && trialDays && trialDays > 0
+    !isHoldingSilverOrPaid && (!effectiveProfile || effectiveProfile.is_free_trial_applicable !== false) && trialDays && trialDays > 0
   );
 
   // Category search filter
