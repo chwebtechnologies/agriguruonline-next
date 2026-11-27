@@ -55,7 +55,7 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
     <div className="bg-background text-foreground transition-theme">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <Suspense fallback={<ProfilePageSkeleton />}>
+          <Suspense fallback={<ProfilePageSkeleton lang={lang} />}>
             <ProfilePageContent lang={lang} token={token} />
           </Suspense>
         </div>
@@ -64,10 +64,10 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
   );
 }
 
-function ProfilePageSkeleton() {
+function ProfilePageSkeleton({ lang = 'en' }: { lang?: string }) {
   return (
     <>
-      <PageHeader title="My Profile" backText="Back" />
+      <PageHeader title="My Profile" backText="Back" backHref={`/${lang}`} />
       <div className="mt-1 sm:mt-1.5">
         {/* Banner Skeleton */}
         <div className="w-full h-12 bg-muted rounded-xl animate-pulse mb-4"></div>
@@ -247,7 +247,7 @@ async function ProfilePageContent({ lang, token }: { lang: string; token: string
 
   return (
     <>
-      <PageHeader title={(common as any).profile || 'My Profile'} backText={common.back || 'Back'} />
+      <PageHeader title={(common as any).profile || 'My Profile'} backText={common.back || 'Back'} backHref={`/${lang}`} />
 
       <div className="mt-1 sm:mt-1.5">
         

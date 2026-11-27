@@ -249,10 +249,10 @@ function formatEditorialContent(htmlContent: string, dict?: any): string {
 }
 
 /* ---------- Skeleton Component ---------- */
-function NewsDetailSkeleton() {
+function NewsDetailSkeleton({ lang = 'en' }: { lang?: string }) {
   return (
     <>
-      <PageHeader title="Latest News" backText="Back" headingTag="div" />
+      <PageHeader title="Latest News" backText="Back" backHref={`/${lang}/news`} headingTag="div" />
       <div className="mt-1 sm:mt-1.5 w-full max-w-full overflow-hidden">
         <div className="responsive-layout-grid gap-y-0 md:gap-y-6 md:gap-x-6 lg:gap-x-8 items-start w-full max-w-full">
           <div className="grid-area-image w-full max-w-full min-w-0">
@@ -920,7 +920,7 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
               color: var(--foreground);
             }
           `}} />
-          <Suspense fallback={<NewsDetailSkeleton />}>
+          <Suspense fallback={<NewsDetailSkeleton lang={lang} />}>
             <NewsDetailContent lang={lang} slug={slug} />
           </Suspense>
         </div>

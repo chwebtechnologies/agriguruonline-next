@@ -199,7 +199,7 @@ export default async function ProductDetailPage(props: { params: Promise<{ lang:
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <Suspense fallback={<ProductDetailSkeleton slug={slug} />}>
+          <Suspense fallback={<ProductDetailSkeleton slug={slug} lang={lang} />}>
             <ProductDetailContent lang={lang} slug={slug} />
           </Suspense>
         </div>
@@ -208,12 +208,12 @@ export default async function ProductDetailPage(props: { params: Promise<{ lang:
   )
 }
 
-function ProductDetailSkeleton({ slug }: { slug: string }) {
+function ProductDetailSkeleton({ slug, lang = 'en' }: { slug: string, lang?: string }) {
   const productName = slug ? slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'Loading...';
   
   return (
     <>
-      <PageHeader title={productName} backText="Back" headingTag="div" />
+      <PageHeader title={productName} backText="Back" backHref={`/${lang}/marketed-products`} headingTag="div" />
       <div className="mt-1 sm:mt-1.5 bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-6 p-4 sm:p-5 md:p-6">
           <div className="flex flex-row md:flex-col gap-4 md:gap-0 md:space-y-4 md:col-span-5 lg:col-span-4">

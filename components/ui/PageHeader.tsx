@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import { setLastHomeSection } from '@/lib/watchlist-utils'
 
 export function PageHeader({ 
   title, 
@@ -56,13 +57,34 @@ export function PageHeader({
     }
   }, [])
 
+  useEffect(() => {
+    if (backHref) {
+      try {
+        router.prefetch(backHref.split('#')[0])
+      } catch {}
+    }
+  }, [backHref, router])
+
   const handleBackClick = () => {
     if (onBackClick) {
       onBackClick()
-    } else if (backHref) {
+      return
+    }
+
+    if (backHref) {
+      if (backHref.includes('#')) {
+        const hash = backHref.split('#')[1]
+        if (hash) {
+          setLastHomeSection(hash)
+        }
+      }
       router.push(backHref)
     } else {
-      router.back()
+      if (typeof window !== 'undefined' && window.history.length > 1) {
+        router.back()
+      } else {
+        router.push('/')
+      }
     }
   }
 

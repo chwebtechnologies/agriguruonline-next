@@ -204,7 +204,7 @@ export default async function VideoGalleryPage(props: {
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title={dict.header?.video_gallery || "Video Gallery"} backText={dict.common?.back || "Back"} />
+          <PageHeader title={dict.header?.video_gallery || "Video Gallery"} backText={dict.common?.back || "Back"} backHref={`/${lang}#video-gallery-section`} />
                     
           <Suspense key={`${lang}-${currentPage}`} fallback={<VideoGalleryGridSkeleton />}>
             <VideoGalleryGrid lang={lang} currentPage={currentPage} dict={dict} />

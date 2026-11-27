@@ -78,7 +78,7 @@ export default async function MarketedProductsPage(
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <Suspense key={page} fallback={<MarketedProductsSkeleton />}>
+          <Suspense key={page} fallback={<MarketedProductsSkeleton lang={lang} />}>
             <MarketedProductsContent lang={lang} page={page} />
           </Suspense>
         </div>
@@ -87,10 +87,10 @@ export default async function MarketedProductsPage(
   )
 }
 
-function MarketedProductsSkeleton() {
+function MarketedProductsSkeleton({ lang = 'en' }: { lang?: string }) {
   return (
     <>
-      <PageHeader title="Marketed Products" backText="Back" />
+      <PageHeader title="Marketed Products" backText="Back" backHref={`/${lang}#marketed-products-section`} />
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-1 sm:mt-1.5">
         {[...Array(10)].map((_, i) => (
           <div key={i} className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden shadow-xs">
@@ -153,7 +153,7 @@ async function MarketedProductsContent({ lang, page }: { lang: string; page: num
 
   return (
     <>
-      <PageHeader title={common.marketedProducts} backText={common.back} />
+      <PageHeader title={common.marketedProducts} backText={common.back} backHref={`/${lang}#marketed-products-section`} />
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-1 sm:mt-1.5">
         {data.products.map((product, index) => {

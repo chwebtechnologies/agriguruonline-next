@@ -160,6 +160,7 @@ async function VideoDetailContent({ slug, lang }: { slug: string; lang: string }
       <PageHeader 
         title={video.title} 
         backText={dict?.header?.video_gallery || "Video Gallery"} 
+        backHref={`/${lang}/video-gallery`}
       />
 
       <div className="mt-4 flex flex-col items-center">

@@ -2175,6 +2175,7 @@ export default function MobileCommodityChart({
           {isFullScreen && !onClose && (
             <Link
               href={isFreight ? `/${lang || 'en'}/freight-charts` : `/${lang || 'en'}/product-charts`}
+              prefetch={true}
               onClick={(e) => {
                 e.preventDefault();
                 const targetHref = isFreight ? `/${lang || 'en'}/freight-charts` : `/${lang || 'en'}/product-charts`;
@@ -2183,7 +2184,7 @@ export default function MobileCommodityChart({
                 }
                 router.push(targetHref);
               }}
-              className="lg:hidden group flex items-center justify-center w-7 h-7 min-[390px]:w-8 min-[390px]:h-8 rounded-full bg-card border border-border shadow-xs text-foreground hover:text-brand-blue hover:border-brand-blue  active:scale-95 shrink-0 cursor-pointer"
+              className="group flex items-center justify-center w-7 h-7 min-[390px]:w-8 min-[390px]:h-8 rounded-full bg-card border border-border shadow-xs text-foreground hover:text-brand-blue hover:border-brand-blue active:scale-95 shrink-0 cursor-pointer"
               aria-label="Go Back"
             >
               <i className="fa-solid fa-arrow-left text-[12px] min-[390px]:text-[13px] text-foreground group-hover:text-brand-blue group-hover:-translate-x-0.5 transition-transform"></i>

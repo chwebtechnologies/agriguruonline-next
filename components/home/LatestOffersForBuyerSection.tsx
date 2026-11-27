@@ -1,6 +1,6 @@
-import Link from 'next/link';
 import { OfferCard } from '@/components/shared/OfferCard';
 import YouTubeFacade from '@/components/ui/YouTubeFacade';
+import { HomeSectionViewAllButton } from '@/components/home/HomeSectionViewAllButton';
 
 interface LatestOffersForBuyerSectionProps {
   offers: any[];
@@ -17,7 +17,7 @@ export default function LatestOffersForBuyerSection({
   if (!offers || offers.length === 0) return null;
 
   return (
-    <section className="w-full pt-6 pb-8">
+    <section id="buyer-offers-section" className="w-full pt-6 pb-8 scroll-mt-14 md:scroll-mt-24">
       <div className="w-full bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
         <div className="flex flex-col lg:flex-row w-full">
           {/* Left Column: Title, Description, Button, Video */}
@@ -34,12 +34,12 @@ export default function LatestOffersForBuyerSection({
             </p>
             
             <div>
-              <Link 
+              <HomeSectionViewAllButton
                 href={`/${lang}/latest-offers-for-buyers`}
-                className="inline-flex items-center justify-center px-4 py-2 sm:px-5 sm:py-2.5 md:px-6 md:py-3 text-sm md:text-base rounded-xl bg-primary text-white font-bold hover:bg-primary-hover transition-colors shadow-sm hover:shadow-md hover:-translate-y-0.5"
-              >
-                {dict?.common?.view_all_offers || 'View All Offers'} <i className="fa-solid fa-arrow-right ml-2"></i>
-              </Link>
+                sectionId="buyer-offers-section"
+                label={dict?.common?.view_all_offers || 'View All Offers'}
+                iconClassName="fa-solid fa-arrow-right ml-2"
+              />
             </div>
             
             {/* YouTube Video Tutorial */}

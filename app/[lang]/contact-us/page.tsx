@@ -113,7 +113,7 @@ async function ContactUsContent({ lang }: { lang: string }) {
   return (
     <>
       <ContactUsSchema lang={lang} title={contactDict.title || "Contact Us"} />
-      <PageHeader title={contactDict.title || "Contact Us"} backText={backText} />
+      <PageHeader title={contactDict.title || "Contact Us"} backText={backText} backHref={`/${lang}`} />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4">
         

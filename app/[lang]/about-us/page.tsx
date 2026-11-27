@@ -97,7 +97,7 @@ async function AboutPageContent({ lang }: { lang: string }) {
   return (
     <>
       <AboutUsSchema lang={lang} title={pageTitle} description={pageDesc} />
-      <PageHeader title={pageTitle} backText={backText} />
+      <PageHeader title={pageTitle} backText={backText} backHref={`/${lang}`} />
 
       {/* First Section: Hero / Introduction */}
       <section className="mt-2 sm:mt-3">

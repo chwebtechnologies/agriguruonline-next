@@ -188,7 +188,7 @@ export default async function ChartsPage(props: { params: Promise<{ lang: string
       {/* Main Content */}
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title="Product Charts" backText="Back" />
+          <PageHeader title="Product Charts" backText="Back" backHref={`/${lang}#market-watchlist`} />
 
           <div className="mt-1 sm:mt-1.5">
             <Suspense fallback={<ProductChartsGridSkeleton />}>

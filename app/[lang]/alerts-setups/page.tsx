@@ -45,7 +45,7 @@ export default async function AlertsSetupsPage(props: { params: Promise<{ lang: 
     <div className="bg-background text-foreground transition-theme pb-5">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title={dict.common?.alerts_setups || "Alerts Setups"} backText={dict.common?.back || "Back"} />
+          <PageHeader title={dict.common?.alerts_setups || "Alerts Setups"} backText={dict.common?.back || "Back"} backHref={`/${lang}`} />
 
           <AlertsClient 
             dict={dict.common}

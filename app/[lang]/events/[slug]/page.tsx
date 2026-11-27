@@ -191,10 +191,10 @@ function formatEditorialContent(htmlContent: string, dict?: any): string {
 }
 
 /* ---------- Skeleton Component ---------- */
-function EventDetailSkeleton() {
+function EventDetailSkeleton({ lang = 'en' }: { lang?: string }) {
   return (
     <>
-      <PageHeader title="Events" backText="Back" headingTag="div" />
+      <PageHeader title="Events" backText="Back" backHref={`/${lang}/events`} headingTag="div" />
       <div className="mt-1 sm:mt-1.5 w-full max-w-full overflow-hidden">
         <div className="responsive-layout-grid gap-y-0 md:gap-y-6 md:gap-x-6 lg:gap-x-8 items-start w-full max-w-full">
           <div className="grid-area-image w-full max-w-full min-w-0 space-y-4">
@@ -814,7 +814,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
               color: #f59e0b;
             }
           `}} />
-          <Suspense fallback={<EventDetailSkeleton />}>
+          <Suspense fallback={<EventDetailSkeleton lang={lang} />}>
             <EventDetailContent lang={lang} slug={slug} />
           </Suspense>
         </div>

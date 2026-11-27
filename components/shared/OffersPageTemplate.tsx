@@ -226,13 +226,14 @@ export async function OffersPageTemplate({ lang, searchParams, offerType, pageTi
 
   const matchedCategory = categoryStr ? apiCategories.find(cat => cat.slug === categoryStr) : undefined
   const categoryId = matchedCategory?.id
+  const backHref = offerType === 'BUYER' ? `/${lang}#buyer-offers-section` : `/${lang}#seller-inquiries-section`
 
   return (
     <div className="bg-background text-foreground">
       {/* Main Content */}
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title={pageTitle} backText={common.back} />
+          <PageHeader title={pageTitle} backText={common.back} backHref={backHref} />
           <div className="mt-0.5 mb-1.5 sm:mb-2">
             <ListingFilters categories={categoryOptions} />
           </div>

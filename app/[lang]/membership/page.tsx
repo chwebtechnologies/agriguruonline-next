@@ -96,6 +96,7 @@ export default async function MembershipPage(props: { params: Promise<{ lang: st
           <PageHeader
             title={pageTitle}
             backText={common.back || 'Back'}
+            backHref={`/${lang}`}
           />
           <Suspense fallback={<MembershipInnerSkeleton />}>
             <MembershipContent lang={lang} token={token || undefined} dict={dict} />

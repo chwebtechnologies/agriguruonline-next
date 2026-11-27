@@ -40,7 +40,7 @@ export default async function PaymentHistoryPage(props: { params: Promise<{ lang
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5 px-3 sm:px-0">
-          <PageHeader title="Payment History" backText="Back" />
+          <PageHeader title="Payment History" backText="Back" backHref={`/${lang}/profile`} />
           <div className="mt-1 sm:mt-1.5">
             <PaymentHistoryClient transactions={transactions} lang={lang} />
           </div>

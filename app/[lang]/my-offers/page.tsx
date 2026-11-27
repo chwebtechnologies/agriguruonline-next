@@ -48,7 +48,7 @@ export default async function MyOffersPage(props: {
     <div className="bg-background text-foreground transition-theme">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <Suspense fallback={<MyOffersSkeleton />}>
+          <Suspense fallback={<MyOffersSkeleton lang={lang} />}>
             <MyOffersContent lang={lang} token={token} searchParams={props.searchParams} />
           </Suspense>
         </div>
@@ -57,10 +57,10 @@ export default async function MyOffersPage(props: {
   );
 }
 
-function MyOffersSkeleton() {
+function MyOffersSkeleton({ lang = 'en' }: { lang?: string }) {
   return (
     <>
-      <PageHeader title="My Offers" backText="Back" />
+      <PageHeader title="My Offers" backText="Back" backHref={`/${lang}/dashboard`} />
       <div className="w-full mt-1 sm:mt-1.5 bg-card border border-border rounded-2xl h-[600px] animate-pulse"></div>
     </>
   )
@@ -211,7 +211,7 @@ async function MyOffersContent({
 
   return (
     <>
-      <PageHeader title={pageTitle} backText={common.back} />
+      <PageHeader title={pageTitle} backText={common.back} backHref={`/${lang}/dashboard`} />
       <div>
         <MyInquiriesClient 
           lang={lang} 

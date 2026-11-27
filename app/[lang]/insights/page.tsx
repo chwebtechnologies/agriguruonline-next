@@ -227,7 +227,7 @@ export default async function InsightsPage(props: {
       {/* Main Content adhering strictly to layout standards */}
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title={pageTitle} backText={common.back || 'Back'} />
+          <PageHeader title={pageTitle} backText={common.back || 'Back'} backHref={`/${activeLang}`} />
 
           <Suspense fallback={
             <div className="w-full space-y-12 animate-pulse pt-4 pb-8">

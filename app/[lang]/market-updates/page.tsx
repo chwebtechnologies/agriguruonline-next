@@ -63,7 +63,7 @@ export default async function MarketUpdatesPage(props: {
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title={dict.header?.market_updates || "Market Updates"} backText={dict.common?.back || "Back"} />
+          <PageHeader title={dict.header?.market_updates || "Market Updates"} backText={dict.common?.back || "Back"} backHref={`/${lang}#market-updates-section`} />
           <ListingFilters categories={[]} />
 
           {!updatesData ? (

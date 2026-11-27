@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { MarketedProductCard } from '@/components/marketed-products/MarketedProductCard';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { setLastHomeSection } from '@/lib/watchlist-utils';
 
 type AnimationState = 'idle' | 'forward' | 'prep-backward' | 'backward';
 
@@ -154,17 +156,22 @@ export default function InfiniteMarketedProductsCarousel({ products, lang, commo
     transition = 'transform 500ms cubic-bezier(0.4, 0, 0.2, 1)';
   }
 
+  const router = useRouter();
+  const targetHref = `/${lang}/marketed-products`;
+
   return (
     <div 
       ref={containerRef}
       className="mt-5 relative w-full group touch-pan-y"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
     >
-      <div className="overflow-hidden pb-1">
+      <div 
+        className="overflow-hidden pb-1"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         <div 
           ref={trackRef}
           className="flex gap-4 sm:gap-5 w-full"
@@ -193,8 +200,14 @@ export default function InfiniteMarketedProductsCarousel({ products, lang, commo
       <div className="flex items-center justify-between mt-2">
         {/* SEO friendly View All link formatted as a normal button */}
         <Link 
-          href={`/${lang}/marketed-products`} 
-          className="inline-flex items-center justify-center px-5 sm:px-6 py-2.5 text-xs sm:text-sm font-bold rounded-xl bg-card border border-border text-foreground hover:bg-primary hover:border-primary hover:text-white transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5"
+          href={targetHref}
+          prefetch={true}
+          onPointerEnter={() => { try { router.prefetch(targetHref); } catch {} }}
+          onTouchStart={() => { try { router.prefetch(targetHref); } catch {} }}
+          onClick={() => {
+            setLastHomeSection('marketed-products-section');
+          }}
+          className="inline-flex items-center justify-center px-5 sm:px-6 py-2.5 text-xs sm:text-sm font-bold rounded-xl bg-card border border-border text-foreground hover:bg-primary hover:border-primary hover:text-white transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 cursor-pointer active:scale-95"
         >
           {dict?.common?.view_all_products || 'View All Products'} <i className="fa-solid fa-arrow-right ml-2 text-[10px] sm:text-xs"></i>
         </Link>

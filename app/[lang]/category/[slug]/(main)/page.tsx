@@ -160,7 +160,7 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
       {/* Main Content */}
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <Suspense fallback={<CategorySkeleton slug={slug} dict={common} />}>
+          <Suspense fallback={<CategorySkeleton slug={slug} dict={common} lang={lang} />}>
             <CategoryContent lang={lang} slug={slug} />
           </Suspense>
         </div>
@@ -169,13 +169,13 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
   )
 }
 
-function CategorySkeleton({ slug, dict }: { slug: string, dict?: any }) {
+function CategorySkeleton({ slug, dict, lang = 'en' }: { slug: string, dict?: any, lang?: string }) {
   // Format slug for a temporary title before data loads
   const categoryName = slug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   const title = `${categoryName} (${dict?.all_country_origins || 'All Country Origins'})`;
   return (
     <>
-      <PageHeader title={title} backText={dict?.back || "Back"} />
+      <PageHeader title={title} backText={dict?.back || "Back"} backHref={`/${lang}`} />
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
         {[...Array(8)].map((_, i) => (
           <div key={i} className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden shadow-xs">
@@ -228,7 +228,7 @@ async function CategoryContent({ lang, slug }: { lang: string; slug: string }) {
 
   return (
     <>
-      <PageHeader title={`${categoryName} (${common.all_country_origins})`} backText={common.back} />
+      <PageHeader title={`${categoryName} (${common.all_country_origins})`} backText={common.back} backHref={`/${lang}`} />
 
       {data.sub_categories && data.sub_categories.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">

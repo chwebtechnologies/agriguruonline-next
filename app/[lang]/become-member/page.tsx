@@ -58,6 +58,7 @@ export default async function BecomeMemberPage(props: {
           <PageHeader
             title="Free Trial"
             backText={common.back || 'Back'}
+            backHref={`/${lang}`}
           />
           <Suspense fallback={<BecomeMemberInnerSkeleton />}>
             <BecomeMemberContent lang={lang} token={token} />

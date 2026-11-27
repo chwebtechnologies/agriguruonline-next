@@ -1,6 +1,6 @@
-import Link from 'next/link';
 import { OfferCard } from '@/components/shared/OfferCard';
 import YouTubeFacade from '@/components/ui/YouTubeFacade';
+import { HomeSectionViewAllButton } from '@/components/home/HomeSectionViewAllButton';
 
 interface LatestInquiriesForSellerSectionProps {
   inquiries: any[];
@@ -17,7 +17,7 @@ export default function LatestInquiriesForSellerSection({
   if (!inquiries || inquiries.length === 0) return null;
 
   return (
-    <section className="w-full pt-6 pb-8">
+    <section id="seller-inquiries-section" className="w-full pt-6 pb-8 scroll-mt-14 md:scroll-mt-24">
       <div className="w-full bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
         <div className="flex flex-col lg:flex-row-reverse w-full">
           
@@ -35,12 +35,12 @@ export default function LatestInquiriesForSellerSection({
             </p>
             
             <div className="flex justify-end">
-              <Link 
+              <HomeSectionViewAllButton
                 href={`/${lang}/latest-inquiries-for-sellers`}
-                className="inline-flex items-center justify-center px-4 py-2 sm:px-5 sm:py-2.5 md:px-6 md:py-3 text-sm md:text-base rounded-xl bg-primary text-white font-bold hover:bg-primary-hover transition-colors shadow-sm hover:shadow-md hover:-translate-y-0.5"
-              >
-                {dict?.common?.view_all_inquiries || 'View All Inquiries'} <i className="fa-solid fa-arrow-right ml-2"></i>
-              </Link>
+                sectionId="seller-inquiries-section"
+                label={dict?.common?.view_all_inquiries || 'View All Inquiries'}
+                iconClassName="fa-solid fa-arrow-right ml-2"
+              />
             </div>
             
             {/* YouTube Video Tutorial */}

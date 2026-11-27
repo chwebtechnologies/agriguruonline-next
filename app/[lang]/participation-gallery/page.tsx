@@ -147,7 +147,7 @@ export default async function ParticipationGalleryPage(props: {
 
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title="Participation Gallery" backText="Back" />
+          <PageHeader title="Participation Gallery" backText="Back" backHref={`/${lang}#participation-gallery-section`} />
 
           <Suspense key={`${lang}-${page}`} fallback={<div className="h-64 flex items-center justify-center"><div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin"></div></div>}>
             <ParticipationGalleryGrid lang={lang} page={page} />

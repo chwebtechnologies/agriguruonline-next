@@ -95,7 +95,7 @@ export default async function ProductsPage(props: { params: Promise<{ lang: stri
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <Suspense fallback={<ProductsSkeleton dict={common} navigationDict={navigation} />}>
+          <Suspense fallback={<ProductsSkeleton dict={common} navigationDict={navigation} lang={lang} />}>
             <ProductsContent lang={lang} />
           </Suspense>
         </div>
@@ -104,11 +104,11 @@ export default async function ProductsPage(props: { params: Promise<{ lang: stri
   )
 }
 
-function ProductsSkeleton({ dict, navigationDict }: { dict?: any, navigationDict?: any }) {
+function ProductsSkeleton({ dict, navigationDict, lang = 'en' }: { dict?: any, navigationDict?: any, lang?: string }) {
   const title = navigationDict?.products || 'Products';
   return (
     <>
-      <PageHeader title={title} backText={dict?.back || "Back"} />
+      <PageHeader title={title} backText={dict?.back || "Back"} backHref={`/${lang}`} />
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
         {[...Array(8)].map((_, i) => (
           <div key={i} className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden shadow-xs">
@@ -158,7 +158,7 @@ async function ProductsContent({ lang }: { lang: string }) {
 
   return (
     <>
-      <PageHeader title={title} backText={common.back} />
+      <PageHeader title={title} backText={common.back} backHref={`/${lang}`} />
 
       {activeCategories.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">

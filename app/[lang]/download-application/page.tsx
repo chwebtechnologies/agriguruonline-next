@@ -104,7 +104,7 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           
           {/* Header */}
-          <PageHeader title={pageTitle} backText={backText} headingTag="div" />
+          <PageHeader title={pageTitle} backText={backText} backHref={`/${lang}`} headingTag="div" />
 
           {/* SECTION 1: HERO - 2 Column Layout */}
           <section className="relative pt-1 sm:pt-2 pb-8 lg:pb-12">

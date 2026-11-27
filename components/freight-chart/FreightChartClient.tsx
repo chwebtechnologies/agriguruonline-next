@@ -28,6 +28,7 @@ import { useScrollLock } from '@/lib/scroll-lock';
 import { FreightInquiryModal } from '@/components/freight-chart/FreightInquiryModal';
 import { prefetchPriceHistory } from '@/components/product-charts/MobileCommodityChart';
 import { getMembershipStatus } from '@/lib/membership-status';
+import { setLastHomeSection } from '@/lib/watchlist-utils';
 
 // --- Shared Interfaces ---
 export interface ShippingContainer {
@@ -1231,8 +1232,14 @@ export default function FreightChartClient({
             {/* View All Button - Desktop Only */}
             {isHomePage && addedFreights.length > 4 && (
               <button 
-                onClick={() => router.push(`/${lang}/freight-charts`)}
-                className="hidden lg:inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap"
+                type="button"
+                onPointerEnter={() => { try { router.prefetch(`/${lang}/freight-charts`); } catch {} }}
+                onTouchStart={() => { try { router.prefetch(`/${lang}/freight-charts`); } catch {} }}
+                onClick={() => {
+                  setLastHomeSection('market-watchlist');
+                  router.push(`/${lang}/freight-charts`);
+                }}
+                className="hidden lg:inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap cursor-pointer active:scale-95"
               >
                 View All
               </button>

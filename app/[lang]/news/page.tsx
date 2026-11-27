@@ -215,7 +215,7 @@ export default async function LatestNewsPage(props: {
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title={pageTitle} backText={dict.common?.back || "Back"} />
+          <PageHeader title={pageTitle} backText={dict.common?.back || "Back"} backHref={`/${lang}#news-section`} />
           <ListingFilters categories={categoryOptions} />
           <Suspense 
             key={`${lang}-${currentPage}-${categorySlug || ''}-${searchQuery || ''}`} 

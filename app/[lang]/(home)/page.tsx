@@ -18,6 +18,7 @@ import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } fro
 import WatchlistSection from '@/components/home/WatchlistSection'
 import WatchlistSectionSkeleton from '@/components/home/WatchlistSectionSkeleton'
 import WatchlistScrollHandler from '@/components/home/WatchlistScrollHandler'
+import HomeSectionScrollHandler from '@/components/home/HomeSectionScrollHandler'
 import { cookies } from 'next/headers'
 import { getUserProfile } from '@/lib/user-data'
 import { getValidAuthToken } from '@/lib/auth-token'
@@ -241,7 +242,7 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
   return (
     <>
       {articles.length > 0 && (
-        <section className="w-full pt-8 pb-2">
+        <section id="news-section" className="w-full pt-8 pb-2 scroll-mt-14 md:scroll-mt-24">
           <div className="max-w-3xl mx-auto text-center px-4">
             <div className="inline-block mb-4">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
@@ -258,7 +259,7 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
       )}
 
       {events.length > 0 && (
-        <section className="w-full pt-6 pb-2">
+        <section id="events-section" className="w-full pt-6 pb-2 scroll-mt-14 md:scroll-mt-24">
           <div className="max-w-3xl mx-auto text-center px-4">
             <div className="inline-block mb-4">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
@@ -275,7 +276,7 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
       )}
 
       {products.length > 0 && (
-        <section className="w-full pt-6 pb-8">
+        <section id="marketed-products-section" className="w-full pt-6 pb-8 scroll-mt-14 md:scroll-mt-24">
           <div className="max-w-3xl mx-auto text-center px-4">
             <div className="inline-block mb-4">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
@@ -329,7 +330,7 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
       )}
 
       {mediaVideos.length > 0 && (
-        <section className="w-full pt-6 pb-8">
+        <section id="video-gallery-section" className="w-full pt-6 pb-8 scroll-mt-14 md:scroll-mt-24">
           <div className="max-w-3xl mx-auto text-center px-4">
             <div className="inline-block mb-4">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
@@ -346,7 +347,7 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
       )}
 
       {marketUpdates.length > 0 && (
-        <section className="w-full pt-6 pb-8">
+        <section id="market-updates-section" className="w-full pt-6 pb-8 scroll-mt-14 md:scroll-mt-24">
           <div className="max-w-3xl mx-auto text-center px-4">
             <div className="inline-block mb-4">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
@@ -363,7 +364,7 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
       )}
 
       {participationCategories.length > 0 && (
-        <section className="w-full pt-6 pb-8">
+        <section id="participation-gallery-section" className="w-full pt-6 pb-8 scroll-mt-14 md:scroll-mt-24">
           <div className="max-w-3xl mx-auto text-center px-4">
             <div className="inline-block mb-4">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
@@ -380,7 +381,7 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
       )}
 
       {associatePartners.length > 0 && (
-        <section className="w-full pt-6 pb-8 border-t border-border/40">
+        <section id="associate-partners-section" className="w-full pt-6 pb-8 border-t border-border/40 scroll-mt-14 md:scroll-mt-24">
           <div className="max-w-3xl mx-auto text-center px-4 mb-4">
             <div className="inline-block">
               <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground relative pb-3">
@@ -415,6 +416,7 @@ export default async function LocalizedHomePage() {
       <div className="bg-background text-foreground transition-theme" dir={dir}>
         <div className="w-full pad-for-badges">
           <div className="max-w-7xl mx-auto pt-3 pb-5">
+            <HomeSectionScrollHandler />
             <h1 className="sr-only">AgriGuru Online - {dict?.home?.hero_title || 'Global B2B Agricultural Trade Platform'}</h1>
             <div className="hidden md:block">
               <HeroCarousel lang={activeLang} dict={dict} />

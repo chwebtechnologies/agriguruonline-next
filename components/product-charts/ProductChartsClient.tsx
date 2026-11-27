@@ -18,7 +18,7 @@ import { ProductInquiryModal } from '@/components/marketed-products/ProductInqui
 import { ChartProductInquiryModal } from '@/components/marketed-products/ChartProductInquiryModal';
 import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus, fetchFavoriteProductDetails, checkFavoriteProductLimit } from '@/app/actions/product';
 import { checkPriceAlertLimitAction, checkPriceAnalysisLimitAction } from '@/app/actions/charts';
-import { WATCHLIST_REFRESH_EVENT, WATCHLIST_SCROLL_KEY, scrollToMarketWatchlist, openHeaderSearch } from '@/lib/watchlist-utils';
+import { WATCHLIST_REFRESH_EVENT, WATCHLIST_SCROLL_KEY, scrollToMarketWatchlist, openHeaderSearch, setLastHomeSection } from '@/lib/watchlist-utils';
 import { useScrollLock } from '@/lib/scroll-lock';
 import { prefetchPriceHistory } from '@/components/product-charts/MobileCommodityChart';
 
@@ -1828,8 +1828,14 @@ export default function ProductChartsClient({
             {/* View All Button - Desktop Only */}
             {isHomePage && addedProducts.length > 4 && (
               <button 
-                onClick={() => router.push(`/${lang}/product-charts`)}
-                className="hidden lg:inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap"
+                type="button"
+                onPointerEnter={() => { try { router.prefetch(`/${lang}/product-charts`); } catch {} }}
+                onTouchStart={() => { try { router.prefetch(`/${lang}/product-charts`); } catch {} }}
+                onClick={() => {
+                  setLastHomeSection('market-watchlist');
+                  router.push(`/${lang}/product-charts`);
+                }}
+                className="hidden lg:inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap cursor-pointer active:scale-95"
               >
                 View All
               </button>
