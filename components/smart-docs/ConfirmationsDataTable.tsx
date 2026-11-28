@@ -545,6 +545,25 @@ export function ConfirmationsDataTable({
   const [isColumnFilterOpen, setIsColumnFilterOpen] = useState(false);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
   const columnDropdownRef = useRef<HTMLDivElement>(null);
+  const tableViewportRef = useRef<HTMLDivElement>(null);
+  const [viewportWidth, setViewportWidth] = useState<number | null>(null);
+
+  // Keep track of scroll container clientWidth so empty/upgrade states stay sticky inside visible window
+  useEffect(() => {
+    const el = tableViewportRef.current;
+    if (!el) return;
+    const updateWidth = () => {
+      setViewportWidth(el.clientWidth);
+    };
+    updateWidth();
+    const ro = new ResizeObserver(updateWidth);
+    ro.observe(el);
+    window.addEventListener('resize', updateWidth);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', updateWidth);
+    };
+  }, []);
 
   const isSelectedActionContract = selectedAction.toLowerCase() === 'contract';
   const isSelectedActionDocument = selectedAction.toLowerCase() === 'document';
@@ -2294,7 +2313,10 @@ export function ConfirmationsDataTable({
         </div>
 
         {/* Table Viewport */}
-        <div className="w-full overflow-x-auto overflow-y-auto flex-1 min-h-0 relative z-10 overscroll-contain">
+        <div
+          ref={tableViewportRef}
+          className="w-full overflow-x-auto overflow-y-auto flex-1 min-h-0 relative z-10 overscroll-contain"
+        >
           <table className="w-max min-w-full text-left rtl:text-right border-separate border-spacing-0 bg-card">
             <thead>
               <tr className="bg-muted text-foreground text-[13px] sm:text-[14px] font-bold uppercase tracking-wider select-none">
@@ -2447,45 +2469,90 @@ export function ConfirmationsDataTable({
                     </tr>
                   );
                 })
-              ) : (
-                // Empty State Row
+              ) : !hasSmartDocsAccess ? (
+                // Upgrade Required State (Clean, matching table design, sticky in visible viewport)
                 <tr>
-                  <td colSpan={activeColumns.length} className="px-4 py-16 text-center">
-                    <div className="flex flex-col items-center justify-center max-w-sm mx-auto text-center gap-3">
-                      <div className="w-14 h-14 rounded-xl bg-muted/50 border border-border flex items-center justify-center text-muted-foreground text-2xl shadow-2xs">
-                        <i className="fa-solid fa-file-contract"></i>
-                      </div>
+                  <td colSpan={activeColumns.length} className="p-0 border-b border-border bg-card">
+                    <div
+                      className="sticky left-0 rtl:left-auto rtl:right-0 py-16 px-4 flex flex-col items-center justify-center text-center select-none"
+                      style={{
+                        width: viewportWidth ? `${viewportWidth}px` : '100%',
+                        maxWidth: '100%',
+                      }}
+                    >
+                      <div className="flex flex-col items-center justify-center max-w-sm mx-auto text-center gap-3">
+                        <div className="w-14 h-14 rounded-xl bg-muted/50 border border-border flex items-center justify-center text-brand-blue text-2xl shadow-2xs">
+                          <i className="fa-solid fa-lock"></i>
+                        </div>
 
-                      <div className="flex flex-col gap-1">
-                        <h2 className="text-sm font-bold text-foreground">
-                          {searchQuery ? (dict?.smart_docs?.no_matching_confirmations || 'No matching confirmations') : effectiveEmptyTitle}
-                        </h2>
-                        <p className="text-xs text-muted-foreground">
-                          {searchQuery
-                            ? (dict?.smart_docs?.no_matching_desc || `No confirmations match your search term "${searchQuery}". Try searching for something else or clear the filter.`)
-                            : effectiveEmptyDescription}
-                        </p>
-                      </div>
+                        <div className="flex flex-col gap-1">
+                          <h2 className="text-sm font-bold text-foreground">
+                            {dict?.smart_docs?.membership_required_title || 'Upgrade Plan to Access Smart Docs'}
+                          </h2>
+                          <p className="text-xs text-muted-foreground">
+                            {dict?.smart_docs?.membership_required_desc ||
+                              'Smart Docs is not included in your current plan. Upgrade your membership plan to create and manage professional trade confirmations.'}
+                          </p>
+                        </div>
 
-                      {searchQuery ? (
-                        <button
-                          type="button"
-                          onClick={handleSearchClear}
-                          className="mt-1 px-3.5 py-1.5 rounded-md border border-border bg-background hover:bg-muted text-foreground font-semibold text-xs transition-colors inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                        <Link
+                          href={`/${lang}/membership`}
+                          className="mt-1 px-4 py-2 rounded-md bg-gradient-to-r from-brand-blue to-brand-green hover:opacity-90 text-white font-semibold text-xs transition-all inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
                         >
-                          <i className="fa-solid fa-xmark text-xs"></i>
-                          <span>{dict?.smart_docs?.clear_search || 'Clear Search'}</span>
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={handleAddClick}
-                          className="mt-1 px-4 py-2 rounded-md bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold text-xs transition-all inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
-                        >
-                          <i className="fa-solid fa-plus text-xs"></i>
-                          <span>{effectiveAddButtonLabel}</span>
-                        </button>
-                      )}
+                          <i className="fa-solid fa-crown text-xs"></i>
+                          <span>{dict?.header?.upgrade_plan || dict?.smart_docs?.upgrade_membership_plan || 'Upgrade Membership Plan'}</span>
+                        </Link>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                // Normal Empty State Row (Sticky in visible viewport regardless of horizontal scroll)
+                <tr>
+                  <td colSpan={activeColumns.length} className="p-0 border-b border-border bg-card">
+                    <div
+                      className="sticky left-0 rtl:left-auto rtl:right-0 py-16 px-4 flex flex-col items-center justify-center text-center select-none"
+                      style={{
+                        width: viewportWidth ? `${viewportWidth}px` : '100%',
+                        maxWidth: '100%',
+                      }}
+                    >
+                      <div className="flex flex-col items-center justify-center max-w-sm mx-auto text-center gap-3">
+                        <div className="w-14 h-14 rounded-xl bg-muted/50 border border-border flex items-center justify-center text-muted-foreground text-2xl shadow-2xs">
+                          <i className="fa-solid fa-file-contract"></i>
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <h2 className="text-sm font-bold text-foreground">
+                            {searchQuery ? (dict?.smart_docs?.no_matching_confirmations || 'No matching confirmations') : effectiveEmptyTitle}
+                          </h2>
+                          <p className="text-xs text-muted-foreground">
+                            {searchQuery
+                              ? (dict?.smart_docs?.no_matching_desc || `No confirmations match your search term "${searchQuery}". Try searching for something else or clear the filter.`)
+                              : effectiveEmptyDescription}
+                          </p>
+                        </div>
+
+                        {searchQuery ? (
+                          <button
+                            type="button"
+                            onClick={handleSearchClear}
+                            className="mt-1 px-3.5 py-1.5 rounded-md border border-border bg-background hover:bg-muted text-foreground font-semibold text-xs transition-colors inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                          >
+                            <i className="fa-solid fa-xmark text-xs"></i>
+                            <span>{dict?.smart_docs?.clear_search || 'Clear Search'}</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleAddClick}
+                            className="mt-1 px-4 py-2 rounded-md bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold text-xs transition-all inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
+                          >
+                            <i className="fa-solid fa-plus text-xs"></i>
+                            <span>{effectiveAddButtonLabel}</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -2645,13 +2712,17 @@ export function ConfirmationsDataTable({
           setIsUpgradeModalOpen(false);
           router.push(`/${lang}/membership`);
         }}
-        title="Upgrade Required"
-        description="Smart Docs is not included in your Current plan. Please Upgrade your plan to access this feature."
-        indicationText="Upgrade Now"
-        secondaryActionText="Cancel"
+        title={dict?.smart_docs?.plan_restricted_title || dict?.smart_docs?.membership_required_title || 'Membership Upgrade Required'}
+        description={
+          dict?.smart_docs?.upgrade_modal_desc ||
+          dict?.smart_docs?.membership_required_desc ||
+          'Smart Docs is not included in your current plan. Please upgrade your membership plan to access trade confirmations and export documentation features.'
+        }
+        indicationText={dict?.header?.upgrade_plan || dict?.smart_docs?.upgrade_membership_plan || 'Upgrade Now'}
+        secondaryActionText={dict?.smart_docs?.cancel || dict?.common?.cancel || 'Cancel'}
         onSecondaryAction={() => setIsUpgradeModalOpen(false)}
-        type="warning"
-        icon="fa-solid fa-lock"
+        type="info"
+        icon="fa-solid fa-crown"
       />
     </div>
   );

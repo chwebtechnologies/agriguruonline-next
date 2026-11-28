@@ -13,6 +13,8 @@ import {
 } from '@/lib/api/smart-docs.service';
 import { getDictionary } from '@/app/[lang]/dictionaries';
 import { getValidAuthToken } from '@/lib/auth-token';
+import { userService } from '@/lib/api/user.service';
+import { isUserMember } from '@/lib/membership-status';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,8 +38,22 @@ export default async function SmartDocsPage(props: {
   const search = (searchParams?.search as string) || '';
   const searchLabel = (searchParams?.search_label as string) || '';
 
-  // Fetch Smart Docs list & dictionary in parallel:
-  const [smartDocsRes, rawDict] = await Promise.all([
+  // Retrieve user session/profile from cookies:
+  const cookieStore = await cookies();
+  let userProfile: any = null;
+  const userInfoStr = cookieStore.get('user_info')?.value;
+  if (userInfoStr) {
+    try {
+      userProfile = JSON.parse(decodeURIComponent(userInfoStr));
+    } catch {
+      try {
+        userProfile = JSON.parse(userInfoStr);
+      } catch {}
+    }
+  }
+
+  // Fetch Smart Docs list & dictionary in parallel (with profile fallback if cookie missing):
+  const [smartDocsRes, rawDict, fetchedProfileRes] = await Promise.all([
     smartDocsService.getSmartDocsList(
       {
         page,
@@ -51,7 +67,14 @@ export default async function SmartDocsPage(props: {
       token
     ),
     getDictionary(lang).catch(() => ({})),
+    !userProfile
+      ? userService.getUserProfile(token, lang).catch(() => null)
+      : Promise.resolve(null),
   ]);
+
+  if (!userProfile && fetchedProfileRes?.userProfile) {
+    userProfile = fetchedProfileRes.userProfile;
+  }
 
   const dict = rawDict as any;
   const pageTitle = dict?.smart_docs?.page_title || 'Confirmations/Quotations';
@@ -61,7 +84,22 @@ export default async function SmartDocsPage(props: {
 
   const confirmationsData = extractSmartDocsArray(smartDocsRes);
   const totalRecords = extractSmartDocsTotal(smartDocsRes, confirmationsData.length);
-  const isSmartDocsEnabled = extractIsSmartDocsEnabled(smartDocsRes);
+
+  // Evaluate feature enablement:
+  // 1. Direct API flag from backend
+  // 2. Fallback to membership plan status from user profile
+  let isSmartDocsEnabled = extractIsSmartDocsEnabled(smartDocsRes);
+  if (userProfile) {
+    const isMember = isUserMember(userProfile);
+    if (!isMember) {
+      // Free / Regular account without an active member plan
+      isSmartDocsEnabled = false;
+    } else if (smartDocsRes && smartDocsRes?.unauthorized !== true) {
+      if (smartDocsRes?.is_smart_docs_enabled !== false && (smartDocsRes as any)?.data?.is_smart_docs_enabled !== false) {
+        isSmartDocsEnabled = true;
+      }
+    }
+  }
 
   return (
     <div className="bg-background text-foreground transition-theme flex-1 flex flex-col min-h-0 lg:h-full overflow-y-auto lg:overflow-hidden">

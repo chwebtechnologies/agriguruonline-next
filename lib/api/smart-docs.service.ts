@@ -601,6 +601,7 @@ export function extractSmartDocsTotal(data: any, fallbackLength: number = 0): nu
  */
 export function extractIsSmartDocsEnabled(data: any): boolean {
   if (!data) return false;
+  if (data?.unauthorized === true) return false;
   const d = data.data ?? data;
 
   const candidateValues = [
@@ -622,6 +623,17 @@ export function extractIsSmartDocsEnabled(data: any): boolean {
     if (val === true || val === 1 || val === 'true' || val === '1') {
       return true;
     }
+    if (val === false || val === 0 || val === 'false' || val === '0') {
+      return false;
+    }
+  }
+
+  // Explicit message indicating restriction or permission failure
+  if (
+    typeof data?.message === 'string' &&
+    /membership|upgrade|plan|restricted|not permitted|unauthorized|forbidden|not allowed/i.test(data.message)
+  ) {
+    return false;
   }
 
   return false;
@@ -1086,6 +1098,7 @@ export const smartDocsService = {
             data: [],
             total: 0,
             unauthorized: true,
+            is_smart_docs_enabled: false,
           };
         }
 
