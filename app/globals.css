@@ -830,6 +830,22 @@ html:has(.yarl__portal_open) {
   zoom: 1 !important;
 }
 
+/* ==========================================================================
+   Universal Modal / Dialog Centering Normalizer for Zoomed & 4K Displays
+   Prevents modal overlay backdrops from expanding beyond the CSS viewport
+   and guarantees modals remain 100% perfectly centered on 4K, 2K, Ultrawide
+   and accessibility-zoomed screens.
+   ========================================================================== */
+div[role="dialog"][class*="fixed"],
+div[aria-modal="true"][class*="fixed"] {
+  width: 100% !important;
+  height: 100% !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+}
+
 .video-lightbox-portal.yarl__portal,
 .video-lightbox-portal .yarl__container {
   background-color: rgba(0, 0, 0, 0.95) !important;

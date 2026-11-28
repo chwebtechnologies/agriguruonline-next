@@ -306,7 +306,7 @@ export function CountrySelectField({
   const inputValue = isTyping ? query : (displayCountryText || '');
 
   return (
-    <div className="flex flex-col gap-1.5 relative" ref={containerRef}>
+    <div className="flex flex-col gap-1.5 relative min-w-0 w-full" ref={containerRef}>
       {label && (
         <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
           <span className="flex items-center gap-1">
@@ -323,7 +323,7 @@ export function CountrySelectField({
 
       {/* Combobox Input Container - Direct typing, zero double borders */}
       <div
-        className={`w-full h-10 bg-background border rounded-lg flex items-center transition-colors relative cursor-text data-no-focus-outline ${
+        className={`w-full h-10 bg-background border rounded-lg flex items-center transition-colors relative cursor-text data-no-focus-outline overflow-hidden min-w-0 ${
           error
             ? 'border-destructive ring-1 ring-destructive'
             : isOpen
@@ -350,11 +350,11 @@ export function CountrySelectField({
           onKeyDown={handleKeyDown}
           placeholder={displayCountryText || placeholder}
           style={{ outline: 'none', boxShadow: 'none' }}
-          className="flex-1 h-full px-1 text-xs sm:text-sm bg-transparent text-foreground placeholder:text-muted-foreground outline-none border-none font-medium data-no-focus-outline focus:outline-none focus:ring-0"
+          className="flex-1 min-w-0 h-full px-1 text-xs sm:text-sm bg-transparent text-foreground placeholder:text-muted-foreground outline-none border-none font-medium data-no-focus-outline focus:outline-none focus:ring-0"
         />
 
         {/* Clear or Chevron Toggle Button */}
-        <div className="flex items-center pr-2.5 shrink-0 gap-1">
+        <div className="flex items-center pr-2 shrink-0 gap-0.5">
           {isTyping && query && (
             <button
               type="button"
@@ -365,7 +365,7 @@ export function CountrySelectField({
                 setIsTyping(false);
                 inputRef.current?.focus();
               }}
-              className="w-5 h-5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center text-xs transition-colors cursor-pointer"
+              className="w-5 h-5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center text-xs transition-colors cursor-pointer shrink-0"
               title="Clear search"
             >
               <i className="fa-solid fa-xmark text-[11px]" />
@@ -382,11 +382,11 @@ export function CountrySelectField({
                 inputRef.current?.focus();
               }
             }}
-            className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
             title="Toggle Country List"
           >
             <i
-              className={`fa-solid fa-chevron-down text-[10px] transition-transform ${
+              className={`fa-solid fa-chevron-down text-[10px] transition-transform duration-150 ${
                 isOpen ? 'rotate-180 text-primary' : ''
               }`}
             />
@@ -411,10 +411,9 @@ export function CountrySelectField({
             top: openUpwards ? undefined : 'calc(100% + 6px)',
             bottom: openUpwards ? 'calc(100% + 6px)' : undefined,
             left: 0,
-            right: 0,
             zIndex: 9999,
           }}
-          className="bg-card border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-64 h-64 animate-in fade-in-50 zoom-in-95 duration-150"
+          className="bg-card border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-64 h-64 animate-in fade-in-50 zoom-in-95 duration-150 min-w-full w-[260px] sm:w-[280px] max-w-[calc(100vw-2rem)]"
         >
           <div className="overflow-y-auto custom-scrollbar flex-1 p-1">
             {visibleItems.length === 0 ? (

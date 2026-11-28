@@ -158,7 +158,7 @@ export function InstructionManageModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="instruction-manage-title"
-      className="fixed inset-0 w-screen h-screen z-9999 flex items-center justify-center p-3 sm:p-4 bg-background/80 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 w-full h-full z-9999 flex items-center justify-center p-3 sm:p-4 bg-background/80 backdrop-blur-xs animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div

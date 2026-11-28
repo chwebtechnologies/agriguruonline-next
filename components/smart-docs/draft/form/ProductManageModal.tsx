@@ -869,12 +869,12 @@ export function ProductManageModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="product-manage-title"
-      className="fixed inset-0 w-screen h-screen z-9999 flex items-center justify-center p-4 sm:p-6 md:p-8 bg-black/60 dark:bg-black/75 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 w-full h-full z-9999 flex items-center justify-center p-4 sm:p-6 md:p-8 bg-black/60 dark:bg-black/75 backdrop-blur-xs animate-in fade-in duration-200"
       onMouseDown={handleBackdropMouseDown}
       onClick={handleBackdropClick}
     >
       <div
-        className="w-full max-w-2xl max-h-[85vh] bg-card border border-border text-foreground rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+        className="w-full max-w-2xl max-h-[85%] sm:max-h-[85vh] bg-card border border-border text-foreground rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -1030,19 +1030,21 @@ export function ProductManageModal({
             {/* Country, HSN CODE, and Category in 1 Row (3 Columns) */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-3.5">
               {/* 1. Country* (Searchable Dropdown) */}
-              <CountrySelectField
-                label={dict?.smart_docs?.confirmation_form?.country || 'Country'}
-                required={true}
-                selectedCountryName={selectedCountryName}
-                selectedCountryCode={selectedCountryCode}
-                selectedCountryId={selectedCountryId}
-                allCountries={allCountries}
-                onSelect={(country) => handleSelectCountry(country)}
-                error={errors.country}
-              />
+              <div className="min-w-0">
+                <CountrySelectField
+                  label={dict?.smart_docs?.confirmation_form?.country || 'Country'}
+                  required={true}
+                  selectedCountryName={selectedCountryName}
+                  selectedCountryCode={selectedCountryCode}
+                  selectedCountryId={selectedCountryId}
+                  allCountries={allCountries}
+                  onSelect={(country) => handleSelectCountry(country)}
+                  error={errors.country}
+                />
+              </div>
 
               {/* 2. HSN CODE (Number Input) */}
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5 min-w-0">
                 <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                   <span>{dict?.smart_docs?.confirmation_form?.hsn_code || 'HSN CODE'}</span>
                   <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
@@ -1081,7 +1083,7 @@ export function ProductManageModal({
               </div>
 
               {/* 3. Category (Text Input) */}
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5 min-w-0">
                 <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                   <span>Category</span>
                   <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">

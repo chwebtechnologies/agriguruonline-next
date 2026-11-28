@@ -183,7 +183,7 @@ export function PaymentTermFormModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="payment-term-form-title"
-      className="fixed inset-0 w-screen h-screen z-9999 flex items-center justify-center p-4 sm:p-6 md:p-8 bg-black/60 dark:bg-black/75 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 w-full h-full z-9999 flex items-center justify-center p-4 sm:p-6 md:p-8 bg-black/60 dark:bg-black/75 backdrop-blur-xs animate-in fade-in duration-200"
       onMouseDown={handleBackdropMouseDown}
       onClick={handleBackdropClick}
     >

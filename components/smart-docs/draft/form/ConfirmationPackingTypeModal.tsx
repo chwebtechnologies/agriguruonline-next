@@ -226,13 +226,13 @@ export default function ConfirmationPackingTypeModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="packing-modal-title"
-      className="fixed inset-0 w-screen h-screen z-9999 flex items-center justify-center p-3 sm:p-4 bg-background/80 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 w-full h-full z-9999 flex items-center justify-center p-3 sm:p-4 bg-background/80 backdrop-blur-xs animate-in fade-in duration-200"
       onClick={() => {
         if (!isSaving) onClose();
       }}
     >
       <div
-        className="w-full max-w-[620px] bg-card text-card-foreground border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[92vh] animate-in zoom-in-95 duration-200"
+        className="w-full max-w-[620px] bg-card text-card-foreground border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[85%] sm:max-h-[92vh] animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}

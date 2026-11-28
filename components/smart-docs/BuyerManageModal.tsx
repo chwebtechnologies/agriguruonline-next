@@ -1818,13 +1818,13 @@ export default function BuyerManageModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="buyer-manage-title"
-      className="fixed inset-0 w-screen h-screen z-9999 flex items-center justify-center p-4 sm:p-6 md:p-8 bg-black/60 dark:bg-black/75 animate-in fade-in duration-200"
+      className="fixed inset-0 w-full h-full z-9999 flex items-center justify-center p-4 sm:p-6 md:p-8 bg-black/60 dark:bg-black/75 animate-in fade-in duration-200"
       onMouseDown={handleBackdropMouseDown}
       onClick={handleBackdropClick}
     >
       <div
         style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
-        className="w-full max-w-2xl max-h-[85vh] bg-card border border-border text-foreground rounded-2xl shadow-2xl overflow-hidden flex flex-col transform-gpu animate-in zoom-in-95 duration-200"
+        className="w-full max-w-2xl max-h-[85%] sm:max-h-[85vh] bg-card border border-border text-foreground rounded-2xl shadow-2xl overflow-hidden flex flex-col transform-gpu animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header (Exact same as Seller) */}

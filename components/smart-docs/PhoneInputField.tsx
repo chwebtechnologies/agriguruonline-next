@@ -499,7 +499,7 @@ export function PhoneInputField({
           onChange={(e) => handleNumberChange(e.target.value)}
           placeholder={placeholder}
           style={{ outline: 'none', boxShadow: 'none' }}
-          className="flex-1 h-full px-3 text-xs sm:text-sm bg-transparent text-foreground outline-none border-none placeholder:text-muted-foreground/60 font-medium focus:outline-none focus:ring-0"
+          className="flex-1 min-w-0 h-full px-3 text-xs sm:text-sm bg-transparent text-foreground outline-none border-none placeholder:text-muted-foreground/60 font-medium focus:outline-none focus:ring-0"
         />
       </div>
 
