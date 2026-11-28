@@ -43,7 +43,7 @@ const FAQS: FaqItem[] = [
     tag: 'Multi-Seat Logins',
     question: 'Can my team access the platform from multiple devices?',
     answer:
-      'Yes. The Silver and Gold plans include 2 concurrent authenticated device logins. The Platinum plan includes 4 simultaneous device logins, allowing your trading desk to monitor market intelligence across mobile and desktop simultaneously.',
+      'Device access depends on your plan: Silver allows 1 device login, Gold allows 2 simultaneous device logins, and Platinum allows 4 simultaneous device logins.',
   },
 ];
 

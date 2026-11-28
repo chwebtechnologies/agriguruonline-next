@@ -48,6 +48,7 @@ interface HeaderAuthProps {
       insights?: string
       news?: string
       events?: string
+      market_reports?: string
       market_updates?: string
       video_gallery?: string
       participation_gallery?: string
@@ -509,12 +510,13 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   const isDashboardActive = pathname === `/${activeLang}/dashboard` || pathname === `/dashboard`
   
   const [hideInsights, setHideInsights] = useState(false)
-  const isNewsActive = pathname === `/${activeLang}/news` || pathname === `/news`
-  const isEventsActive = pathname === `/${activeLang}/events` || pathname === `/events`
   const isMarketUpdatesActive = pathname === `/${activeLang}/market-updates` || pathname === `/market-updates`
+  const isNewsActive = pathname === `/${activeLang}/news` || pathname === `/news`
+  const isMarketReportsActive = pathname === `/${activeLang}/market-reports` || pathname === `/market-reports` || pathname?.startsWith(`/${activeLang}/market-reports/`) || pathname?.startsWith('/market-reports/')
+  const isEventsActive = pathname === `/${activeLang}/events` || pathname === `/events`
   const isVideoGalleryActive = pathname === `/${activeLang}/video-gallery` || pathname === `/video-gallery`
   const isParticipationGalleryActive = pathname === `/${activeLang}/participation-gallery` || pathname === `/participation-gallery` || pathname?.startsWith(`/${activeLang}/participation-gallery/`) || pathname?.startsWith('/participation-gallery/') || pathname === `/${activeLang}/photo-gallery` || pathname === `/photo-gallery`
-  const isInsightsActive = isNewsActive || isEventsActive || isMarketUpdatesActive || isVideoGalleryActive || isParticipationGalleryActive
+  const isInsightsActive = isMarketUpdatesActive || isNewsActive || isMarketReportsActive || isEventsActive || isVideoGalleryActive || isParticipationGalleryActive
   
   const dir = activeLang === 'ar' ? 'rtl' : 'ltr'
 
@@ -724,12 +726,13 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                   <span>{dict.header.insights || 'Insights'}</span>
                   <i className={`fa-solid fa-chevron-down text-[11px] ml-0.5 ${isInsightsActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}></i>
                 </button>
-                <div className={`absolute ${activeLang === 'ar' ? 'right-0' : 'left-0'} mt-5 w-48 rounded-md bg-card border border-border p-1.5 shadow-xl transition-all duration-150 z-50 ${hideInsights ? 'hidden' : 'invisible opacity-0 group-hover:visible group-hover:opacity-100'}`}>
-                  <Link href={`/${activeLang}/news`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isNewsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.news || 'News'}</Link>
-                  <Link href={`/${activeLang}/events`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isEventsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.events || 'Events'}</Link>
-                  <Link href={`/${activeLang}/market-updates`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isMarketUpdatesActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.market_updates || 'Market Updates'}</Link>
-                  <Link href={`/${activeLang}/video-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isVideoGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.video_gallery || 'Video Gallery'}</Link>
-                  <Link href={`/${activeLang}/participation-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isParticipationGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.participation_gallery || 'Participation Gallery'}</Link>
+                <div className={`absolute ${activeLang === 'ar' ? 'right-0' : 'left-0'} mt-5 w-52 rounded-md bg-card border border-border p-1.5 shadow-xl transition-all duration-150 z-50 ${hideInsights ? 'hidden' : 'invisible opacity-0 group-hover:visible group-hover:opacity-100'}`}>
+                  <Link href={`/${activeLang}/market-updates`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors whitespace-nowrap ${isMarketUpdatesActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.market_updates || 'Latest Updates'}</Link>
+                  <Link href={`/${activeLang}/news`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors whitespace-nowrap ${isNewsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.news || 'Global Agri News'}</Link>
+                  <Link href={`/${activeLang}/market-reports`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors whitespace-nowrap ${isMarketReportsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.market_reports || 'Market Reports'}</Link>
+                  <Link href={`/${activeLang}/events`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors whitespace-nowrap ${isEventsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.events || 'Global Agri Events'}</Link>
+                  <Link href={`/${activeLang}/video-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors whitespace-nowrap ${isVideoGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.video_gallery || 'Video Gallery'}</Link>
+                  <Link href={`/${activeLang}/participation-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors whitespace-nowrap ${isParticipationGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.participation_gallery || 'Our Participation'}</Link>
                 </div>
               </div>
             </nav>
