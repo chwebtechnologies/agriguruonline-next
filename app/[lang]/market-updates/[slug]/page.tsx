@@ -10,6 +10,7 @@ import Image from 'next/image'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { cache } from 'react'
 import { MarketUpdateItem, MarketUpdatesResponse } from '@/types/marketUpdates'
+import ArticleAudioPlayer from '@/components/news/ArticleAudioPlayer'
 
 import { cmsService } from '@/lib/api/cms.service'
 
@@ -379,11 +380,21 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
               {/* ARTICLE CONTENT */}
               <div className="grid-area-content w-full max-w-full min-w-0 bg-card rounded-b-2xl rounded-t-none md:rounded-2xl border border-border p-4 sm:p-7 md:p-8 shadow-xs flex flex-col overflow-hidden self-start md:h-auto">
                 
+                {/* Title with minimal bottom margin for flush player placement */}
                 <h1 
-                  className="article-title text-xl sm:text-2xl md:text-[25px] font-bold text-foreground mb-3.5 pb-2.5 border-b border-border leading-[1.3] tracking-tight"
+                  className="article-title text-xl sm:text-2xl md:text-[25px] font-bold text-foreground mb-1.5 pb-2 border-b border-border leading-[1.3] tracking-tight"
                 >
                   {title}
                 </h1>
+
+                {/* AUDIO PLAYER (Text to Speech with voice, scrub bar, 10s forward/backward & speed controls) */}
+                <ArticleAudioPlayer
+                  title={title}
+                  content={rawContent}
+                  lang={lang}
+                  contentType="market-update"
+                  label={dict.common?.listen_market_update || "Listen to this market update now"}
+                />
 
                 <div 
                   className="editorial-body text-justify text-foreground flex-1 w-full max-w-full overflow-hidden"

@@ -30,7 +30,8 @@ export default function MarketUpdateDetailLoading() {
               {/* Content Skeleton */}
               <div className="w-full max-w-full min-w-0 mt-6 md:mt-0 bg-card rounded-b-2xl rounded-t-none md:rounded-2xl border border-border p-4 sm:p-7 md:p-8 space-y-4">
                 <div className="w-3/4 h-8 bg-muted animate-pulse rounded mb-2" />
-                <div className="w-full h-12 bg-muted/60 animate-pulse rounded-xl" />
+                {/* Audio Player Skeleton */}
+                <div className="w-full h-16 bg-muted/60 animate-pulse rounded-xl border border-border/60 mb-4" />
                 <div className="space-y-3 pt-2">
                   <div className="w-full h-4 bg-muted animate-pulse rounded" />
                   <div className="w-full h-4 bg-muted animate-pulse rounded" />

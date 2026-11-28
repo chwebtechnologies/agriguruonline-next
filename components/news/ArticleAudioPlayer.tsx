@@ -7,7 +7,7 @@ interface ArticleAudioPlayerProps {
   content: string
   lang: string
   label?: string
-  contentType?: 'news' | 'event' | 'article'
+  contentType?: 'news' | 'event' | 'article' | 'market-update'
 }
 
 // BCP-47 Language mapping for all 4 supported languages
@@ -85,6 +85,12 @@ const DEFAULT_LABELS_BY_TYPE: Record<string, Record<string, string>> = {
     ar: 'استمع إلى هذا المقال الآن',
     zh: '立即收听本文',
     fr: 'Écoutez cet article maintenant',
+  },
+  'market-update': {
+    en: 'Listen to this market update now',
+    ar: 'استمع إلى تحديث السوق هذا الآن',
+    zh: '立即收听本条市场动态',
+    fr: 'Écoutez cette mise à jour du marché maintenant',
   },
 }
 
@@ -265,6 +271,9 @@ export default function ArticleAudioPlayer({
       }
       if (contentType === 'event' && label === 'Listen to this article now') {
         return DEFAULT_LABELS_BY_TYPE.event[langKey] || DEFAULT_LABELS_BY_TYPE.event.en
+      }
+      if (contentType === 'market-update' && label === 'Listen to this article now') {
+        return DEFAULT_LABELS_BY_TYPE['market-update'][langKey] || DEFAULT_LABELS_BY_TYPE['market-update'].en
       }
       return label
     }
