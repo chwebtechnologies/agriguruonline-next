@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, useTransition, useId } from 'react'
 import { createPortal } from 'react-dom'
 import { useScrollLock } from '@/lib/scroll-lock'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { SearchProduct, SearchApiResponse } from '@/types/search'
 import { getAssetsUrl } from '@/lib/api-utils'
@@ -30,6 +30,7 @@ export function HeaderSearch({
   userType,
 }: HeaderSearchProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const searchId = useId()
   const [, startTransition] = useTransition()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -57,7 +58,13 @@ export function HeaderSearch({
 
   useScrollLock(isMobileSearchOpen || Boolean(selectedSpecsProduct))
 
-  // Reset query and close views on page navigation
+  // Reset query and close views on page navigation or route change
+  useEffect(() => {
+    setIsOpen(false)
+    setIsMobileSearchOpen(false)
+    setQuery('')
+  }, [pathname])
+
   useEffect(() => {
     const handleNav = () => {
       setIsOpen(false)
@@ -276,12 +283,35 @@ export function HeaderSearch({
     return () => clearTimeout(timeoutId)
   }, [query, lang])
 
+  // Navigate to product page reliably across all browsers (including Safari)
+  const handleProductNavigate = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    // If opening in new tab via modifier key or middle click, allow native browser navigation
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) {
+      setIsOpen(false)
+      setIsMobileSearchOpen(false)
+      setQuery('')
+      return
+    }
+
+    e.preventDefault()
+    setIsOpen(false)
+    setIsMobileSearchOpen(false)
+    setQuery('')
+    desktopInputRef.current?.blur()
+    mobileInputRef.current?.blur()
+
+    startTransition(() => {
+      router.push(href)
+    })
+  }
+
   // Select a product
   const handleProductSelect = (product: SearchProduct) => {
     setIsOpen(false)
     setIsMobileSearchOpen(false)
     setQuery('')
     desktopInputRef.current?.blur()
+    mobileInputRef.current?.blur()
     const productSlug = product.slug || product.id
     startTransition(() => {
       router.push(`/${lang}/product/${encodeURIComponent(productSlug)}`)
@@ -413,9 +443,29 @@ export function HeaderSearch({
           onFocus={handleDesktopFocus}
           onClick={handleDesktopFocus}
           onBlur={(e) => {
-            if (!containerRef.current?.contains(e.relatedTarget as Node)) {
+            // In Safari and WebKit, clicking inside the dropdown or clicking non-focusable elements
+            // yields e.relatedTarget === null. Never close on blur when relatedTarget is null;
+            // outside clicks/touches are already handled reliably by handleOutsideInteraction.
+            // Tab-key navigation away from the input has a non-null relatedTarget outside containerRef.
+            if (e.relatedTarget && !containerRef.current?.contains(e.relatedTarget as Node)) {
               setIsOpen(false)
               setQuery('')
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              if (searchResults.length > 0) {
+                const first = searchResults[0]
+                const productSlug = first.slug || first.id
+                const productUrl = `/${lang}/product/${encodeURIComponent(productSlug)}`
+                setIsOpen(false)
+                setQuery('')
+                desktopInputRef.current?.blur()
+                startTransition(() => {
+                  router.push(productUrl)
+                })
+              }
             }
           }}
           onChange={(e) => {
@@ -466,7 +516,16 @@ export function HeaderSearch({
       {/* 3. DESKTOP DROPDOWN WINDOW (Anchored under search bar on lg+)              */}
       {/* ========================================================================= */}
       {isOpen && (
-        <div className="hidden lg:block absolute top-full left-0 rtl:left-auto rtl:right-0 mt-1.5 z-50 w-full lg:w-[420px] xl:w-full bg-card border border-border rounded-2xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 transition-theme">
+        <div 
+          onMouseDown={(e) => {
+            // Prevent input blur when clicking anywhere inside dropdown in Safari & Chrome
+            const target = e.target as HTMLElement
+            if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+              e.preventDefault()
+            }
+          }}
+          className="hidden lg:block absolute top-full left-0 rtl:left-auto rtl:right-0 mt-1.5 z-50 w-full lg:w-[420px] xl:w-full bg-card border border-border rounded-2xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 transition-theme"
+        >
           <div className="relative">
             {/* Scrollable Container with Native Scrollbar Hidden and Custom DOM Scrollbar */}
             <div
@@ -504,11 +563,7 @@ export function HeaderSearch({
                             key={product.id}
                             href={productUrl}
                             title={product.name}
-                            onClick={() => {
-                              setIsOpen(false)
-                              setQuery('')
-                              desktopInputRef.current?.blur()
-                            }}
+                            onClick={(e) => handleProductNavigate(e, productUrl)}
                             className="group flex flex-col items-center cursor-pointer"
                           >
                             <div className="relative w-full aspect-square rounded-xl border border-border/80 overflow-hidden bg-muted/40 shadow-xs group-hover:border-primary/50 group-hover:shadow-sm transition-all">
@@ -556,11 +611,7 @@ export function HeaderSearch({
                             <Link
                               key={product.id}
                               href={productUrl}
-                              onClick={() => {
-                                setIsOpen(false)
-                                setQuery('')
-                                desktopInputRef.current?.blur()
-                              }}
+                              onClick={(e) => handleProductNavigate(e, productUrl)}
                               className="px-3 py-1 rounded-xl bg-muted/80 hover:bg-muted hover:text-primary border border-border/60 text-foreground text-[11.5px] sm:text-[12px] font-medium transition-colors text-left cursor-pointer"
                             >
                               {product.name}
@@ -590,11 +641,7 @@ export function HeaderSearch({
                               key={product.id}
                               href={productUrl}
                               title={product.name}
-                              onClick={() => {
-                                setIsOpen(false)
-                                setQuery('')
-                                desktopInputRef.current?.blur()
-                              }}
+                              onClick={(e) => handleProductNavigate(e, productUrl)}
                               className="group flex flex-col items-center cursor-pointer"
                             >
                               <div className="relative w-full aspect-square rounded-xl border border-border/80 overflow-hidden bg-muted/40 shadow-xs group-hover:border-primary/50 group-hover:shadow-sm transition-all">
@@ -637,11 +684,7 @@ export function HeaderSearch({
                               key={product.id}
                               href={productUrl}
                               title={product.name}
-                              onClick={() => {
-                                setIsOpen(false)
-                                setQuery('')
-                                desktopInputRef.current?.blur()
-                              }}
+                              onClick={(e) => handleProductNavigate(e, productUrl)}
                               className="group flex flex-col items-center cursor-pointer"
                             >
                               <div className="relative w-full aspect-square rounded-xl border border-border/80 overflow-hidden bg-muted/40 shadow-xs group-hover:border-primary/50 group-hover:shadow-sm transition-all">
@@ -739,6 +782,22 @@ export function HeaderSearch({
                 name="mobile_q"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    if (mobileDisplayProducts.length > 0) {
+                      const first = mobileDisplayProducts[0]
+                      const productSlug = first.slug || first.id
+                      const productUrl = `/${lang}/product/${encodeURIComponent(productSlug)}`
+                      setIsMobileSearchOpen(false)
+                      setQuery('')
+                      mobileInputRef.current?.blur()
+                      startTransition(() => {
+                        router.push(productUrl)
+                      })
+                    }
+                  }
+                }}
                 placeholder={placeholder}
                 autoComplete="off"
                 autoFocus
@@ -762,7 +821,27 @@ export function HeaderSearch({
           </header>
 
           {/* Mobile Results Body: 2-Column Product Cards reusing MarketedProductCard */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-4 overscroll-contain bg-background">
+          <div 
+            className="flex-1 overflow-y-auto p-3 sm:p-4 overscroll-contain bg-background"
+            onTouchStart={() => {
+              // Dismiss mobile virtual keyboard on scroll/touch in results
+              if (document.activeElement === mobileInputRef.current) {
+                mobileInputRef.current?.blur()
+              }
+            }}
+            onClick={(e) => {
+              const target = e.target as HTMLElement
+              const anchor = target.closest('a')
+              if (anchor) {
+                const href = anchor.getAttribute('href')
+                if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+                  setIsMobileSearchOpen(false)
+                  setQuery('')
+                  mobileInputRef.current?.blur()
+                }
+              }
+            }}
+          >
             <div className="max-w-7xl mx-auto">
               {isSearching && query.trim().length >= 2 ? (
                 /* Loading Skeletons for 2-column cards */
