@@ -137,6 +137,88 @@ function resolveWeightString(...candidates: any[]): string {
   return '';
 }
 
+/**
+ * Safely formats any date value strictly into YYYY-MM-DD format (no time component).
+ * Accurately extracts year, month, and day directly to prevent timezone offset shifts.
+ */
+export function formatDateToYMD(val: any): string {
+  if (val === undefined || val === null) return '';
+
+  if (val instanceof Date) {
+    if (!isNaN(val.getTime())) {
+      const year = val.getFullYear();
+      const month = String(val.getMonth() + 1).padStart(2, '0');
+      const day = String(val.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    return '';
+  }
+
+  if (typeof val === 'object') {
+    const extracted =
+      val.contract_date ||
+      val.contractDate ||
+      val.date ||
+      val.value ||
+      val.name;
+    if (extracted && extracted !== val) {
+      return formatDateToYMD(extracted);
+    }
+  }
+
+  const str = safeString(val, '').trim();
+  if (
+    !str ||
+    str === '-' ||
+    str.toLowerCase() === 'invalid date' ||
+    str.toLowerCase() === 'null' ||
+    str.toLowerCase() === 'undefined'
+  ) {
+    return '';
+  }
+
+  // 1. Direct match for YYYY-MM-DD or YYYY/MM/DD (e.g. "2026-11-28", "2026-11-28T14:51:10.000Z", "2026-11-28 14:51:10")
+  const ymdMatch = str.match(/^(\d{4})[-/. ](\d{1,2})[-/. ](\d{1,2})/);
+  if (ymdMatch) {
+    const [, y, m, d] = ymdMatch;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+
+  // 2. Match for DD-MM-YYYY or MM-DD-YYYY (e.g. "28/11/2026", "28-11-2026")
+  const dmyMatch = str.match(/^(\d{1,2})[-/. ](\d{1,2})[-/. ](\d{4})/);
+  if (dmyMatch) {
+    const p1 = parseInt(dmyMatch[1], 10);
+    const p2 = parseInt(dmyMatch[2], 10);
+    const y = dmyMatch[3];
+    if (p1 > 12 && p2 <= 12) {
+      // p1 is day, p2 is month
+      return `${y}-${String(p2).padStart(2, '0')}-${String(p1).padStart(2, '0')}`;
+    } else if (p2 > 12 && p1 <= 12) {
+      // p1 is month, p2 is day
+      return `${y}-${String(p1).padStart(2, '0')}-${String(p2).padStart(2, '0')}`;
+    } else {
+      // Default to DD-MM-YYYY
+      return `${y}-${String(p2).padStart(2, '0')}-${String(p1).padStart(2, '0')}`;
+    }
+  }
+
+  // 3. Fallback to Date object parsing for string formats or timestamps
+  try {
+    const num = Number(str);
+    const d = !isNaN(num) && isFinite(num) && str.length >= 10 ? new Date(num) : new Date(str);
+    if (!isNaN(d.getTime())) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+  } catch {
+    // ignore parsing failure
+  }
+
+  return '';
+}
+
 const sellerBankAccountsCache = new Map<string, any[]>();
 
 export function detectCustomInvoiceFieldInSentence(text: string): { key: string; rawField: string } | null {
@@ -1026,16 +1108,7 @@ export function CustomInvoiceDocumentForm({
       initialData?.custom_invoice?.invoice_date ||
       (isInitialDataRealCustom ? initialData?.invoice_date || initialData?.date : '') ||
       '';
-    if (!raw) return '';
-    try {
-      const d = new Date(raw);
-      if (!isNaN(d.getTime())) {
-        return d.toISOString().split('T')[0];
-      }
-    } catch {
-      // keep raw
-    }
-    return String(raw).split('T')[0];
+    return formatDateToYMD(raw);
   });
 
   // 3. Gross Weight (key: gross_weight; placeholder "0.000" shown when empty)
@@ -1262,20 +1335,7 @@ export function CustomInvoiceDocumentForm({
         initialData.invoice_date ||
         initialData.date;
       if (rawDate !== undefined) {
-        if (!rawDate) {
-          setInvoiceDate('');
-        } else {
-          try {
-            const d = new Date(rawDate);
-            if (!isNaN(d.getTime())) {
-              setInvoiceDate(d.toISOString().split('T')[0]);
-            } else {
-              setInvoiceDate(String(rawDate).split('T')[0]);
-            }
-          } catch {
-            setInvoiceDate(String(rawDate).split('T')[0]);
-          }
-        }
+        setInvoiceDate(formatDateToYMD(rawDate));
       }
     } else if (hasDocIdChanged || isDataVersionTriggered) {
       if (hasDocIdChanged) {
@@ -1660,12 +1720,12 @@ export function CustomInvoiceDocumentForm({
     (initialData?.buyer_order_no || initialData?.buyer_order_number
       ? `${initialData.buyer_order_no || initialData.buyer_order_number}${
           initialData.order_date || initialData.buyer_order_date
-            ? ` && ${initialData.order_date || initialData.buyer_order_date}`
+            ? ` && ${formatDateToYMD(initialData.order_date || initialData.buyer_order_date) || initialData.order_date || initialData.buyer_order_date}`
             : ''
         }`
       : initialData?.order_no || initialData?.order_number
       ? `${initialData.order_no || initialData.order_number}${
-          initialData.order_date ? ` && ${initialData.order_date}` : ''
+          initialData.order_date ? ` && ${formatDateToYMD(initialData.order_date) || initialData.order_date}` : ''
         }`
       : ''),
     ''
@@ -1690,14 +1750,29 @@ export function CustomInvoiceDocumentForm({
     ''
   );
 
-  const contractDate = safeString(
+  // Contract Date: Strictly displayed in YYYY-MM-DD format (no time formats, proper fixed date)
+  const contractDate = formatDateToYMD(
     initialData?.contract_date ||
     initialData?.contractDate ||
+    initialData?.contract?.contract_date ||
+    initialData?.contract?.contractDate ||
+    initialData?.contract?.date ||
     initialData?.confirmation_date ||
     initialData?.confirmationDate ||
-    initialData?.contract?.contract_date ||
-    initialData?.confirmation?.confirmation_date,
-    ''
+    initialData?.confirmation?.confirmation_date ||
+    initialData?.confirmation?.confirmationDate ||
+    initialData?.confirmation?.date ||
+    initialData?.custom_invoice?.contract_date ||
+    initialData?.custom_invoice?.contractDate ||
+    initialData?.custom_invoice?.contract?.contract_date ||
+    initialData?.custom_invoice?.confirmation_date ||
+    initialData?.custom_invoice?.confirmationDate ||
+    initialData?.shipment_instruction?.contract_date ||
+    initialData?.shipment_instruction?.contract?.contract_date ||
+    initialData?.shipment_instruction?.confirmation_date ||
+    initialData?.proforma?.contract_date ||
+    initialData?.proforma?.contract?.contract_date ||
+    initialData?.proforma?.confirmation_date
   );
 
   const otherReferences = safeString(
@@ -2578,6 +2653,10 @@ export function CustomInvoiceDocumentForm({
     if (invoiceDate) {
       formData.append('invoice_date', invoiceDate);
     }
+    if (contractDate) {
+      formData.append('contract_date', contractDate);
+      formData.append('contractDate', contractDate);
+    }
     if (registrationNumber) {
       formData.append('registration_number', registrationNumber);
     }
@@ -2729,6 +2808,8 @@ export function CustomInvoiceDocumentForm({
       invoice_number: invoiceNumber,
       invoice_no: invoiceNumber,
       invoice_date: invoiceDate,
+      contract_date: contractDate || undefined,
+      contractDate: contractDate || undefined,
       registration_number: registrationNumber || undefined,
       gross_weight: trimmedGrossWeight || undefined,
       net_weight: directNetWeightForPayload || undefined,
@@ -3439,11 +3520,15 @@ export function CustomInvoiceDocumentForm({
             </div>
 
             {/* Sub-row 5: CONTRACT DATE (DISPLAY ONLY) */}
-            <div className="p-2 sm:p-2.5 flex items-center gap-2 min-h-[40px]">
+            <div
+              className="p-2 sm:p-2.5 flex items-center gap-2 min-h-[40px]"
+              id="field-contractDate"
+              data-field="contractDate"
+            >
               <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5">
                 CONTRACT DATE:
               </span>
-              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide px-0.5">
+              <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide px-0.5 select-all">
                 {contractDate}
               </span>
             </div>
