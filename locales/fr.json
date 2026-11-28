@@ -598,6 +598,11 @@
   },
   "actions": {},
   "smart_docs": {
+    "modules": "Modules",
+    "seller_exporter_module": "Module Vendeur (Exportateur)",
+    "buyer_importer_module": "Module Acheteur (Importateur)",
+    "product_module": "Module Produits",
+    "payment_term_module": "Module Conditions de Paiement",
     "my_docs": "Mes documents",
     "management": "Gestion",
     "sellers": "Vendeurs",

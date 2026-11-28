@@ -609,6 +609,11 @@
   },
   "actions": {},
   "smart_docs": {
+    "modules": "Select Module",
+    "seller_exporter_module": "Seller (Exporter) Module",
+    "buyer_importer_module": "Buyer (Importer) Module",
+    "product_module": "Product Module",
+    "payment_term_module": "Payment Term Module",
     "my_docs": "My Docs",
     "management": "Management",
     "sellers": "Sellers",

@@ -598,6 +598,11 @@
   },
   "actions": {},
   "smart_docs": {
+    "modules": "模块",
+    "seller_exporter_module": "卖家（出口商）模块",
+    "buyer_importer_module": "买家（进口商）模块",
+    "product_module": "产品模块",
+    "payment_term_module": "付款条款模块",
     "my_docs": "我的文档",
     "management": "管理",
     "sellers": "卖家",

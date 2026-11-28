@@ -17,6 +17,7 @@ import {
 } from '@/lib/api/smart-docs.service';
 import { DeleteConfirmModal } from '@/components/ui/charts/DeleteConfirmModal';
 import { ActionIndicationModal } from '@/components/ui/charts/ActionIndicationModal';
+import { SmartDocsModulesDropdown } from './SmartDocsModulesDropdown';
 
 export { sanitizeDocId, extractAllSmartDocIds, extractContractDocId };
 
@@ -2034,6 +2035,7 @@ export function ConfirmationsDataTable({
 
           {/* Action Button: Add Confirmation */}
           <div className="flex items-center gap-2 shrink-0">
+            <SmartDocsModulesDropdown lang={lang} dict={dict} />
             <button
               type="button"
               onClick={handleAddClick}
@@ -2299,6 +2301,9 @@ export function ConfirmationsDataTable({
                 )}
               </span>
             )}
+
+            {/* Modules Dropdown */}
+            <SmartDocsModulesDropdown lang={lang} dict={dict} />
 
             {/* Add Confirmation Button in Table Toolbar */}
             <button

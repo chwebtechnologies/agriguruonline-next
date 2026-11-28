@@ -599,6 +599,11 @@
   },
   "actions": {},
   "smart_docs": {
+    "modules": "الوحدات",
+    "seller_exporter_module": "وحدة البائع (المصدّر)",
+    "buyer_importer_module": "وحدة المشتري (المستورد)",
+    "product_module": "وحدة المنتجات",
+    "payment_term_module": "وحدة شروط الدفع",
     "my_docs": "مستنداتي",
     "management": "الإدارة",
     "sellers": "البائعون",
